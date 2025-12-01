@@ -9,6 +9,7 @@ OMG Store integrates with Shopify's Storefront API to provide a complete e-comme
 ### 🔧 **Core Integration Layer**
 
 The Shopify integration is implemented in `/lib/shopify/` directory with the following structure:
+jdk
 
 ```
 lib/shopify/
