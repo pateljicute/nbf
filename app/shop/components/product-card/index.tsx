@@ -1,9 +1,10 @@
 import React from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { Product } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Heart } from 'lucide-react';
+
+
 
 export const ProductCard = ({ product, className }: { product: Product; className?: string }) => {
   return (
@@ -11,12 +12,10 @@ export const ProductCard = ({ product, className }: { product: Product; classNam
       {/* Image Section */}
       <div className="relative aspect-[4/3] overflow-hidden bg-neutral-100">
         <Link href={`/product/${product.handle}`} className="block size-full" prefetch>
-          <Image
+          <img
             src={product.featuredImage?.url || '/placeholder.svg'}
             alt={product.featuredImage?.altText || product.title}
-            fill
-            className="object-cover transition-transform duration-500 group-hover:scale-105"
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
           />
         </Link>
         {/* Tag */}

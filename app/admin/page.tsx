@@ -332,7 +332,7 @@ export default function AdminPage() {
                                                         <td className="px-6 py-4 whitespace-nowrap">
                                                             <div className="flex items-center">
                                                                 <div className="h-10 w-10 flex-shrink-0">
-                                                                    {property.featuredImage ? (
+                                                                    {property.featuredImage && property.featuredImage.url ? (
                                                                         <img className="h-10 w-10 rounded object-cover" src={property.featuredImage.url} alt="" />
                                                                     ) : (
                                                                         <div className="h-10 w-10 rounded bg-neutral-200" />
@@ -479,8 +479,8 @@ export default function AdminPage() {
                                             onClick={() => handlePageChange(currentPage - 1)}
                                             disabled={currentPage === 1}
                                             className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${currentPage === 1
-                                                    ? 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
-                                                    : 'text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50'
+                                                ? 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
+                                                : 'text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50'
                                                 }`}
                                         >
                                             <ChevronLeft className="w-4 h-4 mr-2" />
@@ -495,8 +495,8 @@ export default function AdminPage() {
                                             onClick={() => handlePageChange(currentPage + 1)}
                                             disabled={currentPage === totalPages}
                                             className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${currentPage === totalPages
-                                                    ? 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
-                                                    : 'text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50'
+                                                ? 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
+                                                : 'text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50'
                                                 }`}
                                         >
                                             Next

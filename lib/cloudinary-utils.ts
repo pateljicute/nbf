@@ -1,9 +1,9 @@
 // Cloudinary configuration for property images
 export const CLOUDINARY_CONFIG = {
-  cloudName: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'demo', // Replace with your cloud name
-  apiKey: process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY || 'demo',      // Public API key
-  apiSecret: process.env.CLOUDINARY_API_SECRET || 'demo',            // Keep this on server-side only
-  uploadPreset: process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || 'nbfhomes_demo', // Replace with your preset
+  cloudName: process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'demo',
+  uploadPreset: process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || 'nbfhomes_demo',
+  // Note: API secret should NEVER be in frontend code
+  // Use unsigned upload presets instead
 };
 
 // File upload utility functions

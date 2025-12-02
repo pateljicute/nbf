@@ -78,8 +78,9 @@ export function AddToCartButton({
 
         if (resolvedVariant) {
           // Open WhatsApp with pre-filled message
+          const phoneNumber = product.contactNumber || '919876543210';
           const message = `Hi, I am interested in ${product.title}. Is it available?`;
-          window.open(`https://wa.me/919876543210?text=${encodeURIComponent(message)}`, '_blank');
+          window.open(`https://wa.me/${phoneNumber.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`, '_blank');
         }
       }}
       className={className}

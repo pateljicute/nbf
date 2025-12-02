@@ -9,7 +9,8 @@ let csrfTokenExpiry: number | null = null;
 const getCSRFToken = async (token?: string): Promise<string> => {
   // If we have a valid token, return it
   if (csrfToken && csrfTokenExpiry && Date.now() < csrfTokenExpiry) {
-    return csrfToken;
+    // We've already checked that csrfToken exists, so we can safely assert it's a string
+    return csrfToken as string;
   }
 
   // Otherwise fetch a new one from the backend
@@ -34,11 +35,16 @@ const getCSRFToken = async (token?: string): Promise<string> => {
   }
 
   const data = await response.json();
+  if (!data.csrfToken || typeof data.csrfToken !== 'string') {
+    throw new Error('Invalid CSRF token received from server');
+  }
+  
   csrfToken = data.csrfToken;
   // Set expiry to 23 hours (1 hour before the 24-hour server-side expiry)
   csrfTokenExpiry = Date.now() + (23 * 60 * 60 * 1000);
 
-  return csrfToken;
+  // We've already validated that data.csrfToken is a string
+  return data.csrfToken;
 };
 
 // Security utilities
@@ -233,11 +239,25 @@ export async function getUserProducts(userId: string): Promise<Product[]> {
 export async function getCollections(): Promise<Collection[]> {
   try {
     const response = await fetch(`${API_URL}/collections`, {
-      next: { revalidate: 3600 } // Cache for 1 hour
+      next: { revalidate: 3600 }, // Cache for 1 hour
+      headers: {
+        'Content-Type': 'application/json',
+      },
     });
-    if (!response.ok) return mockCollections;
-    return await response.json();
-  } catch {
+    
+    if (!response.ok) {
+      console.error('Failed to fetch collections:', {
+        status: response.status,
+        statusText: response.statusText,
+        url: response.url
+      });
+      return mockCollections;
+    }
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error fetching collections:', error);
     return mockCollections;
   }
 }

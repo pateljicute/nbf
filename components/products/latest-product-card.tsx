@@ -1,6 +1,5 @@
 import { cn } from '@/lib/utils';
 import { getOptimizedImageUrl } from '@/lib/cloudinary-utils';
-import Image from 'next/image';
 import { ProductImage } from '@/components/ui/product-image';
 import { FeaturedProductLabel } from './featured-product-label';
 import { Product } from '@/lib/types';
@@ -25,13 +24,10 @@ export function LatestProductCard({
     return (
       <div className={cn('relative h-screen w-full overflow-hidden group', className)}>
         <Link href={`/product/${product.handle}`} className="size-full block" prefetch>
-          <Image
-            priority
-            src="/hero-background.jpg"
+          <img
+            src="https://res.cloudinary.com/dla8a0y7n/image/upload/v1764658021/hero-background_jdgiur.jpg"
             alt="Hero Background"
-            fill
-            className="object-cover transition-transform duration-700 group-hover:scale-105"
-            sizes="100vw"
+            className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
           />
           {/* Darker overlay for better text contrast matching the reference */}
           <div className="absolute inset-0 bg-black/40" />

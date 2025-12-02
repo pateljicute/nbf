@@ -3,7 +3,6 @@
 import { CartItem } from '@/lib/types';
 import { DEFAULT_OPTION } from '@/lib/constants';
 import { createUrl, getColorHex } from '@/lib/utils';
-import Image from 'next/image';
 import Link from 'next/link';
 import { DeleteItemButton } from './delete-item-button';
 import { EditItemQuantityButton } from './edit-item-quantity-button';
@@ -45,11 +44,10 @@ export function CartItemCard({ item, onCloseCart }: CartItemProps) {
     <div className="bg-popover rounded-lg p-2">
       <div className="flex flex-row gap-6">
         <div className="relative size-[120px] overflow-hidden rounded-sm shrink-0">
-          <Image
+          <img
             className="size-full object-cover"
             width={240}
             height={240}
-            blurDataURL={renderImage.url}
             alt={renderImage.altText || item.merchandise.product.title}
             src={renderImage.url}
           />

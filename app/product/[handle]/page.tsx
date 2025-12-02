@@ -107,7 +107,7 @@ export default async function ProductPage(props: { params: Promise<{ handle: str
   const hasEvenOptions = product.options.length % 2 === 0;
 
   return (
-    <PageLayout className="bg-muted">
+    <PageLayout className="bg-white">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -115,113 +115,136 @@ export default async function ProductPage(props: { params: Promise<{ handle: str
         }}
       />
 
-      <div className="flex flex-col md:grid md:grid-cols-12 md:gap-sides min-h-max">
-        {/* Mobile Gallery Slider */}
-        <div className="md:hidden col-span-full h-[60vh] min-h-[400px]">
-          <Suspense fallback={null}>
-            <MobileGallerySlider product={product} />
-          </Suspense>
-        </div>
-
-        <div className="flex sticky top-0 flex-col col-span-5 2xl:col-span-4 max-md:col-span-full md:h-screen min-h-max max-md:p-sides md:pl-sides md:pt-top-spacing max-md:static">
-          <div className="col-span-full">
-            <Breadcrumb className="col-span-full mb-4 md:mb-8">
-              <BreadcrumbList>
+      <div className="container mx-auto px-4 py-6">
+        {/* Breadcrumbs - Top Full Width */}
+        <Breadcrumb className="mb-6">
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <Link href="/shop" className="text-xs font-medium uppercase tracking-wider text-neutral-500 hover:text-blue-600 transition-colors">
+                  Home
+                </Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <Link href="/shop" className="text-xs font-medium uppercase tracking-wider text-neutral-500 hover:text-blue-600 transition-colors">
+                  Properties
+                </Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            {rootParentCategory && (
+              <>
+                <BreadcrumbSeparator />
                 <BreadcrumbItem>
                   <BreadcrumbLink asChild>
-                    <Link href="/shop" prefetch>
-                      Shop
+                    <Link href={`/shop/${rootParentCategory.id}`} className="text-xs font-medium uppercase tracking-wider text-neutral-500 hover:text-blue-600 transition-colors">
+                      {rootParentCategory.name}
                     </Link>
                   </BreadcrumbLink>
                 </BreadcrumbItem>
-                {rootParentCategory && (
-                  <>
-                    <BreadcrumbSeparator />
-                    <BreadcrumbItem>
-                      <BreadcrumbLink asChild>
-                        <Link href={`/shop/${rootParentCategory.id}`} prefetch>
-                          {rootParentCategory.name}
-                        </Link>
-                      </BreadcrumbLink>
-                    </BreadcrumbItem>
-                  </>
-                )}
-                <BreadcrumbSeparator />
-                <BreadcrumbItem>
-                  <BreadcrumbPage>{product.title}</BreadcrumbPage>
-                </BreadcrumbItem>
-              </BreadcrumbList>
-            </Breadcrumb>
+              </>
+            )}
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage className="text-xs font-medium uppercase tracking-wider text-neutral-900 truncate max-w-[200px]">
+                {product.title}
+              </BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
 
-            <div className="flex flex-col col-span-full gap-4 md:mb-10 max-md:order-2">
-              <div className="flex flex-col grid-cols-2 px-3 py-2 rounded-md bg-popover md:grid md:gap-x-4 md:gap-y-10 place-items-baseline">
-                <h1 className="text-lg font-semibold lg:text-xl 2xl:text-2xl text-balance max-md:mb-4">
-                  {product.title}
-                </h1>
-                <p className="text-sm font-medium">{product.description}</p>
-                <p className="flex gap-3 items-center text-lg font-semibold lg:text-xl 2xl:text-2xl max-md:mt-8">
+        <div className="flex flex-col lg:grid lg:grid-cols-12 lg:gap-10 min-h-[600px]">
+          {/* Left Column: Gallery (Amazon Style: Sticky) */}
+          <div className="col-span-12 lg:col-span-5 xl:col-span-5 h-fit lg:sticky lg:top-24">
+            {/* Mobile Gallery */}
+            <div className="lg:hidden mb-6 h-[400px]">
+              <Suspense fallback={null}>
+                <MobileGallerySlider product={product} />
+              </Suspense>
+            </div>
+
+            {/* Desktop Gallery */}
+            <div className="hidden lg:block border border-neutral-200 rounded-lg p-2">
+              <Suspense fallback={null}>
+                <DesktopGallery product={product} />
+              </Suspense>
+            </div>
+          </div>
+
+          {/* Right Column: Product Details */}
+          <div className="col-span-12 lg:col-span-7 xl:col-span-7 flex flex-col gap-6">
+
+            {/* Title & Ratings */}
+            <div className="border-b border-neutral-100 pb-4">
+              <h1 className="text-2xl md:text-3xl font-medium text-neutral-900 mb-2">
+                {product.title}
+              </h1>
+
+            </div>
+
+            {/* Price Section */}
+            <div className="bg-neutral-50/50 p-4 rounded-lg border border-neutral-100">
+              <div className="flex items-baseline gap-3">
+                <span className="text-3xl font-bold text-neutral-900">
                   {formatPrice(
                     product.priceRange.minVariantPrice.amount,
                     product.priceRange.minVariantPrice.currencyCode
                   )}
-                  <span className="text-sm font-normal text-neutral-500">/month</span>
-                  {product.compareAtPrice && (
-                    <span className="line-through opacity-30">
+                </span>
+                <span className="text-lg text-neutral-500">/month</span>
+                {product.compareAtPrice && (
+                  <>
+                    <span className="text-lg text-neutral-400 line-through">
                       {formatPrice(product.compareAtPrice.amount, product.compareAtPrice.currencyCode)}
                     </span>
-                  )}
+                    <span className="text-sm font-bold text-green-600">
+                      {Math.round(((parseFloat(product.compareAtPrice.amount) - parseFloat(product.priceRange.minVariantPrice.amount)) / parseFloat(product.compareAtPrice.amount)) * 100)}% off
+                    </span>
+                  </>
+                )}
+              </div>
+              <p className="text-xs text-neutral-500 mt-1">Inclusive of all taxes</p>
+            </div>
+
+            {/* Key Features / Highlights (Grid) */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="p-3 border border-neutral-200 rounded-md text-center">
+                <p className="text-[10px] text-neutral-500 uppercase font-bold">Type</p>
+                <p className="text-sm font-medium">{product.tags?.[0] || 'Apartment'}</p>
+              </div>
+              <div className="p-3 border border-neutral-200 rounded-md text-center">
+                <p className="text-[10px] text-neutral-500 uppercase font-bold">Status</p>
+                <p className={`text-sm font-medium ${product.availableForSale ? 'text-green-600' : 'text-red-500'}`}>
+                  {product.availableForSale ? 'Available' : 'Rented'}
                 </p>
               </div>
+              {product.tags && product.tags[1] && (
+                <div className="p-3 border border-neutral-200 rounded-md text-center">
+                  <p className="text-[10px] text-neutral-500 uppercase font-bold">City</p>
+                  <p className="text-sm font-medium truncate">{product.tags[1]}</p>
+                </div>
+              )}
+              {product.categoryId && (
+                <div className="p-3 border border-neutral-200 rounded-md text-center">
+                  <p className="text-[10px] text-neutral-500 uppercase font-bold">Location</p>
+                  <p className="text-sm font-medium truncate">{product.categoryId}</p>
+                </div>
+              )}
+            </div>
 
-              {/* Location & Contact Info */}
-              <div className="flex flex-col gap-3 px-3 py-4 rounded-md bg-neutral-50 border border-neutral-200">
-                {product.categoryId && (
-                  <div className="flex items-start gap-2">
-                    <svg className="w-5 h-5 text-neutral-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                    <div>
-                      <p className="text-xs font-medium text-neutral-500 uppercase">Address</p>
-                      <p className="text-sm font-medium text-neutral-900">{product.categoryId}</p>
-                    </div>
-                  </div>
-                )}
-                {product.tags && product.tags[1] && (
-                  <div className="flex items-start gap-2">
-                    <svg className="w-5 h-5 text-neutral-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                    </svg>
-                    <div>
-                      <p className="text-xs font-medium text-neutral-500 uppercase">City</p>
-                      <p className="text-sm font-medium text-neutral-900">{product.tags[1]}</p>
-                    </div>
-                  </div>
-                )}
-                {product.contactNumber && (
-                  <div className="flex items-start gap-2">
-                    <svg className="w-5 h-5 text-neutral-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                    </svg>
-                    <div>
-                      <p className="text-xs font-medium text-neutral-500 uppercase">Contact Owner</p>
-                      <a href={`tel:${product.contactNumber}`} className="text-sm font-bold text-blue-600 hover:text-blue-700">
-                        {product.contactNumber}
-                      </a>
-                    </div>
-                  </div>
-                )}
-              </div>
+            {/* Variants & Actions */}
+            <div className="space-y-6 py-4">
+              <Suspense fallback={<VariantSelectorSlots product={product} fallback />}>
+                <VariantSelectorSlots product={product} />
+              </Suspense>
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <Suspense fallback={<VariantSelectorSlots product={product} fallback />}>
-                  <VariantSelectorSlots product={product} />
-                </Suspense>
-
+              <div className="flex flex-col gap-3">
                 <Suspense
                   fallback={
                     <AddToCartButton
-                      className={cn('w-full', {
+                      className={cn('w-full py-4 text-base font-bold uppercase tracking-wide', {
                         'col-span-full': !hasVariants || hasEvenOptions,
                       })}
                       product={product}
@@ -232,29 +255,64 @@ export default async function ProductPage(props: { params: Promise<{ handle: str
                   <AddToCart
                     product={product}
                     size="lg"
-                    className={cn('w-full', {
+                    className={cn('w-full py-4 text-base font-bold uppercase tracking-wide shadow-md hover:shadow-lg transition-all', {
                       'col-span-full': !hasVariants || hasEvenOptions,
                     })}
                   />
                 </Suspense>
+                <div className="flex items-center justify-center gap-2 text-xs text-neutral-500">
+                  <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  Verified Owner
+                  <span className="mx-2">•</span>
+                  <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                  Secure Transaction
+                </div>
+              </div>
+            </div>
+
+            {/* Short Description / Bullets */}
+            <div className="border-t border-neutral-100 pt-6">
+              <h3 className="font-bold text-neutral-900 mb-3">About this property</h3>
+              <div className="prose prose-sm text-neutral-600 max-w-none line-clamp-4">
+                <Prose html={product.descriptionHtml || product.description} />
+              </div>
+              <a href="#full-description" className="text-blue-600 text-sm font-medium hover:underline mt-2 inline-block">
+                See full details
+              </a>
+            </div>
+
+            <div className="pt-4">
+              <SidebarLinks className="flex gap-4" />
+            </div>
+
+          </div>
+        </div>
+
+        {/* Full Description Section (Bottom) */}
+        <div id="full-description" className="mt-16 pt-10 border-t border-neutral-200">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+            <div className="lg:col-span-8">
+              <h2 className="text-2xl font-bold text-neutral-900 mb-6">Property Description</h2>
+              <Prose
+                className="prose-neutral max-w-none"
+                html={product.descriptionHtml || product.description}
+              />
+            </div>
+            <div className="lg:col-span-4">
+              {/* Potential sidebar for related products or ads */}
+              <div className="bg-neutral-50 p-6 rounded-lg border border-neutral-100">
+                <h3 className="font-bold text-neutral-900 mb-4">Safety Tips</h3>
+                <ul className="space-y-3 text-sm text-neutral-600 list-disc pl-4">
+                  <li>Always visit the property in person.</li>
+                  <li>Check the amenities before booking.</li>
+                  <li>Verify the owner's identity.</li>
+                  <li>Do not pay without a receipt.</li>
+                </ul>
               </div>
             </div>
           </div>
-
-          <Prose
-            className="col-span-full mb-auto opacity-70 max-md:order-3 max-md:my-6"
-            html={product.descriptionHtml || product.description}
-          />
-
-          <SidebarLinks className="flex-col-reverse max-md:hidden py-sides w-full max-w-[408px] pr-sides max-md:pr-0 max-md:py-0" />
         </div>
 
-        {/* Desktop Gallery */}
-        <div className="hidden overflow-y-auto relative col-span-7 col-start-6 w-full md:block">
-          <Suspense fallback={null}>
-            <DesktopGallery product={product} />
-          </Suspense>
-        </div>
       </div>
     </PageLayout>
   );

@@ -1,25 +1,20 @@
 'use client';
 
-import { useProductImages, useSelectedVariant } from '@/components/products/variant-selector';
+import { useProductImages, useSelectedOptions } from '@/components/products/variant-selector';
 import { Product } from '@/lib/types';
-import Image from 'next/image';
 
 export const ProductImage = ({ product }: { product: Product }) => {
-  const selectedVariant = useSelectedVariant(product);
+  const selectedOptions = useSelectedOptions(product);
 
-  const [variantImage] = useProductImages(product, selectedVariant?.selectedOptions);
+  const [variantImage] = useProductImages(product, selectedOptions);
 
   return (
-    <Image
+    <img
       src={variantImage.url}
       alt={variantImage.altText || product.title}
       width={variantImage.width}
       height={variantImage.height}
-      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
       className="object-cover size-full"
-      quality={100}
-      placeholder={variantImage?.thumbhash ? 'blur' : undefined}
-      blurDataURL={variantImage?.thumbhash}
     />
   );
 };

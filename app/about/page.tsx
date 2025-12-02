@@ -1,5 +1,4 @@
 import { PageLayout } from '@/components/layout/page-layout';
-import Image from 'next/image';
 
 export default function AboutPage() {
     return (
@@ -9,12 +8,10 @@ export default function AboutPage() {
                 <section className="relative h-[60vh] flex items-center justify-center overflow-hidden">
                     <div className="absolute inset-0 z-0">
                         <div className="absolute inset-0 bg-black/40 z-10" />
-                        <Image
+                        <img
                             src="/hero-background.jpg"
                             alt="About Us Hero"
-                            fill
-                            className="object-cover"
-                            priority
+                            className="absolute inset-0 w-full h-full object-cover"
                         />
                     </div>
                     <div className="relative z-20 text-center text-white px-4 max-w-4xl mx-auto">

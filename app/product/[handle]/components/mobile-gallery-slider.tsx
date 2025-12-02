@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import Image from 'next/image';
 import { ProductImage } from '@/components/ui/product-image';
 import useEmblaCarousel from 'embla-carousel-react';
 import { Product } from '@/lib/types';

@@ -3,7 +3,6 @@
 import { useProductImages, useSelectedOptions } from '@/components/products/variant-selector';
 import { getOptimizedImageUrl } from '@/lib/cloudinary-utils';
 import { Product } from '@/lib/types';
-import Image from 'next/image';
 import { ProductImage } from '@/components/ui/product-image';
 
 export const DesktopGallery = ({ product }: { product: Product }) => {

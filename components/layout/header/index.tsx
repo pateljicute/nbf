@@ -78,9 +78,14 @@ export function Header({ collections }: HeaderProps) {
             {mounted && user && <NotificationBadge />}
             <div className="pr-1.5 pl-1">
               {mounted && user ? (
-                <Link href="/profile" className="flex items-center justify-center w-8 h-8 rounded-full bg-neutral-100 hover:bg-neutral-200 transition-colors text-neutral-900 overflow-hidden" title={user.email}>
+                <Link href="/profile" className="relative flex items-center justify-center w-8 h-8 rounded-full bg-neutral-100 hover:bg-neutral-200 transition-colors text-neutral-900 overflow-hidden" title={user.email}>
                   {user.user_metadata?.avatar_url ? (
-                    <img src={user.user_metadata.avatar_url} alt="Profile" className="w-full h-full object-cover" />
+                    <img
+                      src={user.user_metadata.avatar_url}
+                      alt="Profile"
+                      className="absolute inset-0 w-full h-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
                   ) : (
                     <User className="w-4 h-4" />
                   )}
@@ -99,9 +104,14 @@ export function Header({ collections }: HeaderProps) {
           {/* Mobile Cart - Visible only on mobile */}
           <div className="md:hidden pointer-events-auto">
             {mounted && user ? (
-              <Link href="/profile" className="flex items-center justify-center w-10 h-10 rounded-full bg-neutral-100 hover:bg-neutral-200 transition-colors text-neutral-900 overflow-hidden">
+              <Link href="/profile" className="relative flex items-center justify-center w-10 h-10 rounded-full bg-neutral-100 hover:bg-neutral-200 transition-colors text-neutral-900 overflow-hidden">
                 {user.user_metadata?.avatar_url ? (
-                  <img src={user.user_metadata.avatar_url} alt="Profile" className="w-full h-full object-cover" />
+                  <img
+                    src={user.user_metadata.avatar_url}
+                    alt="Profile"
+                    className="absolute inset-0 w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
                 ) : (
                   <User className="w-5 h-5" />
                 )}
