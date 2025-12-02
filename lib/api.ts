@@ -1,6 +1,8 @@
 import { Product, Collection, Cart, ProductSortKey, ProductCollectionSortKey } from './types';
+import { supabase } from './db';
+import { mapPropertyToProduct, mapDbCollectionToCollection } from './backend-utils';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || (typeof window === 'undefined' ? 'http://localhost:3000/api' : '/api');
 
 // CSRF Token utilities
 let csrfToken: string | null = null;
@@ -38,7 +40,7 @@ const getCSRFToken = async (token?: string): Promise<string> => {
   if (!data.csrfToken || typeof data.csrfToken !== 'string') {
     throw new Error('Invalid CSRF token received from server');
   }
-  
+
   csrfToken = data.csrfToken;
   // Set expiry to 23 hours (1 hour before the 24-hour server-side expiry)
   csrfTokenExpiry = Date.now() + (23 * 60 * 60 * 1000);
@@ -115,9 +117,129 @@ const sanitizeInput = (input: any): any => {
 };
 
 // Mock data for development
-const mockProducts: Product[] = [];;
+const mockProducts: Product[] = [
+  {
+    id: 'prod_1',
+    handle: 'modern-apartment-city-center',
+    title: 'Modern Apartment in City Center',
+    description: 'A spacious and modern apartment located in the heart of the city. Close to all amenities and public transport.',
+    descriptionHtml: '<p>A spacious and modern apartment located in the heart of the city. Close to all amenities and public transport.</p>',
+    currencyCode: 'INR',
+    featuredImage: {
+      url: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?q=80&w=2000&auto=format&fit=crop',
+      altText: 'Modern Apartment'
+    },
+    seo: {
+      title: 'Modern Apartment in City Center',
+      description: 'Spacious 3BHK apartment for rent'
+    },
+    priceRange: {
+      minVariantPrice: { amount: '25000', currencyCode: 'INR' },
+      maxVariantPrice: { amount: '25000', currencyCode: 'INR' }
+    },
+    images: [
+      {
+        url: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?q=80&w=2000&auto=format&fit=crop',
+        altText: 'Living Room'
+      },
+      {
+        url: 'https://images.unsplash.com/photo-1484154218962-a1c002085d2f?q=80&w=2000&auto=format&fit=crop',
+        altText: 'Kitchen'
+      }
+    ],
+    options: [],
+    variants: [],
+    availableForSale: true,
+    tags: ['Apartment', '3BHK', 'City Center']
+  },
+  {
+    id: 'prod_2',
+    handle: 'cozy-studio-near-university',
+    title: 'Cozy Studio near University',
+    description: 'Perfect for students or young professionals. Fully furnished and ready to move in.',
+    descriptionHtml: '<p>Perfect for students or young professionals. Fully furnished and ready to move in.</p>',
+    currencyCode: 'INR',
+    featuredImage: {
+      url: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?q=80&w=2000&auto=format&fit=crop',
+      altText: 'Cozy Studio'
+    },
+    seo: {
+      title: 'Cozy Studio near University',
+      description: 'Affordable studio apartment for rent'
+    },
+    priceRange: {
+      minVariantPrice: { amount: '12000', currencyCode: 'INR' },
+      maxVariantPrice: { amount: '12000', currencyCode: 'INR' }
+    },
+    images: [
+      {
+        url: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?q=80&w=2000&auto=format&fit=crop',
+        altText: 'Bedroom'
+      }
+    ],
+    options: [],
+    variants: [],
+    availableForSale: true,
+    tags: ['Studio', 'Furnished', 'Student Friendly']
+  },
+  {
+    id: 'prod_3',
+    handle: 'luxury-villa-with-pool',
+    title: 'Luxury Villa with Pool',
+    description: 'Experience luxury living in this stunning villa with a private pool and garden.',
+    descriptionHtml: '<p>Experience luxury living in this stunning villa with a private pool and garden.</p>',
+    currencyCode: 'INR',
+    featuredImage: {
+      url: 'https://images.unsplash.com/photo-1613977257377-23b737cd95e7?q=80&w=2000&auto=format&fit=crop',
+      altText: 'Luxury Villa'
+    },
+    seo: {
+      title: 'Luxury Villa with Pool',
+      description: '4BHK Villa for rent'
+    },
+    priceRange: {
+      minVariantPrice: { amount: '85000', currencyCode: 'INR' },
+      maxVariantPrice: { amount: '85000', currencyCode: 'INR' }
+    },
+    images: [
+      {
+        url: 'https://images.unsplash.com/photo-1613977257377-23b737cd95e7?q=80&w=2000&auto=format&fit=crop',
+        altText: 'Exterior'
+      }
+    ],
+    options: [],
+    variants: [],
+    availableForSale: true,
+    tags: ['Villa', 'Luxury', 'Pool']
+  }
+];
 
-const mockCollections: Collection[] = [];;
+const mockCollections: Collection[] = [
+  {
+    id: 'col_1',
+    handle: 'apartments',
+    title: 'Apartments',
+    description: 'Find the best apartments for rent',
+    seo: { title: 'Apartments for Rent', description: 'Browse our collection of apartments' },
+    path: '/search/apartments'
+  },
+  {
+    id: 'col_2',
+    handle: 'studios',
+    title: 'Studios',
+    description: 'Compact and affordable living spaces',
+    seo: { title: 'Studio Apartments', description: 'Find the perfect studio' },
+    path: '/search/studios'
+  },
+  {
+    id: 'col_3',
+    handle: 'featured',
+    title: 'Featured Properties',
+    description: 'Our handpicked selection of premium properties',
+    seo: { title: 'Featured Properties', description: 'Top rated properties' },
+    path: '/search/featured'
+  }
+];
 
 export async function getProducts(params?: {
   sortKey?: ProductSortKey;
@@ -131,94 +253,77 @@ export async function getProducts(params?: {
   amenities?: string[];
 }): Promise<Product[]> {
   try {
-    // Validate parameters
-    if (params?.query && !validateInput(params.query, 'string')) {
-      throw new Error("Security Alert: Invalid query parameter");
+    let dbQuery = supabase.from("properties").select("*");
+
+    // Apply base filter
+    dbQuery = dbQuery.eq('available_for_sale', true);
+
+    // Apply search and filtering
+    if (params?.query) {
+      const sanitizedQuery = sanitizeInput(params.query);
+      dbQuery = dbQuery.or(`title.ilike.%${sanitizedQuery}%,description.ilike.%${sanitizedQuery}%`);
     }
 
-    if (params?.limit && !validateInput(params.limit, 'number')) {
-      throw new Error("Security Alert: Invalid limit parameter");
+    if (params?.minPrice) {
+      dbQuery = dbQuery.gte('price_range->minVariantPrice->amount', parseFloat(params.minPrice));
+    }
+    if (params?.maxPrice) {
+      dbQuery = dbQuery.lte('price_range->minVariantPrice->amount', parseFloat(params.maxPrice));
     }
 
-    if (params?.minPrice && (!validateInput(parseFloat(params.minPrice), 'number') || parseFloat(params.minPrice) < 0)) {
-      throw new Error("Security Alert: Invalid minPrice parameter");
+    if (params?.location) {
+      dbQuery = dbQuery.ilike('tags', `%${sanitizeInput(params.location)}%`);
     }
 
-    if (params?.maxPrice && (!validateInput(parseFloat(params.maxPrice), 'number') || parseFloat(params.maxPrice) < 0)) {
-      throw new Error("Security Alert: Invalid maxPrice parameter");
+    if (params?.propertyType) {
+      dbQuery = dbQuery.ilike('tags', `%${sanitizeInput(params.propertyType)}%`);
     }
 
-    if (params?.location && !validateInput(params.location, 'string')) {
-      throw new Error("Security Alert: Invalid location parameter");
-    }
-
-    if (params?.propertyType && !['PG', 'Flat', 'Room', 'Hostel', '1BHK', '2BHK', '3BHK'].includes(params.propertyType)) {
-      throw new Error("Security Alert: Invalid propertyType parameter");
-    }
-
-    if (params?.amenities && !Array.isArray(params.amenities)) {
-      throw new Error("Security Alert: Invalid amenities parameter");
-    }
-
-    // Sanitize and validate inputs
-    const sanitizedParams = {
-      ...params,
-      query: params?.query ? sanitizeInput(params.query) : undefined,
-      limit: params?.limit ? Math.min(Math.max(params.limit, 1), 1000) : undefined, // Limit range
-      minPrice: params?.minPrice ? sanitizeInput(params.minPrice) : undefined,
-      maxPrice: params?.maxPrice ? sanitizeInput(params.maxPrice) : undefined,
-      location: params?.location ? sanitizeInput(params.location) : undefined,
-      propertyType: params?.propertyType ? sanitizeInput(params.propertyType) : undefined,
-      amenities: params?.amenities ? params.amenities.map(sanitizeInput) : undefined
-    };
-
-    const isPost = sanitizedParams && Object.keys(sanitizedParams).length > 0;
-    const response = await fetch(`${API_URL}/products`, {
-      method: isPost ? 'POST' : 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        // Add security headers
-        'X-Requested-With': 'XMLHttpRequest',
-        'X-Client-Type': 'web-app'
-      },
-      body: isPost ? JSON.stringify(sanitizedParams) : undefined,
-      next: { revalidate: 300 } // Cache for 5 minutes
-    });
-
-    if (!response.ok) {
-      // Check if it's a security error
-      if (response.status === 400 || response.status === 403) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('Security error:', errorData);
-        throw new Error(errorData.message || 'Security validation failed');
+    if (params?.amenities && Array.isArray(params.amenities)) {
+      for (const amenity of params.amenities) {
+        dbQuery = dbQuery.ilike('tags', `%${sanitizeInput(amenity)}%`);
       }
-      return mockProducts;
     }
-    return await response.json();
+
+    if (params?.limit) {
+      dbQuery = dbQuery.limit(params.limit);
+    }
+
+    if (params?.sortKey === 'PRICE') {
+      dbQuery = dbQuery.order('price_range->minVariantPrice->amount', { ascending: !params.reverse });
+    } else if (params?.sortKey === 'CREATED_AT') {
+      dbQuery = dbQuery.order('created_at', { ascending: !params.reverse });
+    } else if (params?.sortKey === 'RELEVANCE' && params.query) {
+      // Relevance sorting is complex in SQL, defaulting to ID for now or created_at
+      dbQuery = dbQuery.order('created_at', { ascending: false });
+    } else {
+      dbQuery = dbQuery.order('created_at', { ascending: false });
+    }
+
+    const { data, error } = await dbQuery;
+
+    if (error) {
+      console.error('Error fetching products:', error);
+      return [];
+    }
+
+    return data.map(mapPropertyToProduct);
   } catch (error) {
-    console.error('API error:', error);
-    return mockProducts;
+    console.error('Error in getProducts:', error);
+    return [];
   }
 }
 
 export async function getProduct(handle: string): Promise<Product | null> {
-  // Validate handle parameter
-  if (!handle || !validateInput(handle, 'string') || handle.length > 200) {
-    console.error("Security Alert: Invalid handle parameter");
-    return null;
-  }
-
   try {
-    const sanitizedHandle = sanitizeInput(handle);
-    const response = await fetch(`${API_URL}/products/${sanitizedHandle}`, {
-      headers: {
-        'X-Requested-With': 'XMLHttpRequest',
-        'X-Client-Type': 'web-app'
-      },
-      next: { revalidate: 300 }
-    });
-    if (!response.ok) return null;
-    return await response.json();
+    const { data, error } = await supabase
+      .from("properties")
+      .select("*")
+      .eq('handle', handle)
+      .single();
+
+    if (error) return null;
+    return mapPropertyToProduct(data);
   } catch {
     return null;
   }
@@ -226,49 +331,46 @@ export async function getProduct(handle: string): Promise<Product | null> {
 
 export async function getUserProducts(userId: string): Promise<Product[]> {
   try {
-    const response = await fetch(`${API_URL}/products/user/${userId}`, {
-      cache: 'no-store' // User data should be fresh
-    });
-    if (!response.ok) return [];
-    return await response.json();
-  } catch {
+    const { data, error } = await supabase
+      .from("properties")
+      .select("*")
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error('Error fetching user products:', error);
+      return [];
+    }
+    return data.map(mapPropertyToProduct);
+  } catch (error) {
+    console.error('Error in getUserProducts:', error);
     return [];
   }
 }
 
 export async function getCollections(): Promise<Collection[]> {
   try {
-    const response = await fetch(`${API_URL}/collections`, {
-      next: { revalidate: 3600 }, // Cache for 1 hour
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-    
-    if (!response.ok) {
-      console.error('Failed to fetch collections:', {
-        status: response.status,
-        statusText: response.statusText,
-        url: response.url
-      });
-      return mockCollections;
+    const { data, error } = await supabase.from("collections").select("*");
+    if (error) {
+      console.error('Error fetching collections:', error);
+      return [];
     }
-    
-    const data = await response.json();
-    return data;
+    return data.map(mapDbCollectionToCollection);
   } catch (error) {
-    console.error('Error fetching collections:', error);
-    return mockCollections;
+    console.error('Error in getCollections:', error);
+    return [];
   }
 }
 
 export async function getCollection(handle: string): Promise<Collection | null> {
   try {
-    const response = await fetch(`${API_URL}/collections/${handle}`, {
-      next: { revalidate: 3600 }
-    });
-    if (!response.ok) return null;
-    return await response.json();
+    const { data, error } = await supabase
+      .from("collections")
+      .select("*")
+      .eq('handle', handle)
+      .single();
+
+    if (error) return null;
+    return mapDbCollectionToCollection(data);
   } catch {
     return null;
   }
@@ -280,17 +382,43 @@ export async function getCollectionProducts(params: {
   reverse?: boolean;
   query?: string;
 }): Promise<Product[]> {
+  // This is a bit more complex as it involves joining or filtering by collection
+  // For now, we'll fetch all products and filter (or you might have a collection_products table)
+  // Assuming 'collection' param is the handle, we first need the collection ID
   try {
-    const response = await fetch(`${API_URL}/collections/${params.collection}/products`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(params),
-      next: { revalidate: 300 }
-    });
-    if (!response.ok) return mockProducts;
-    return await response.json();
+    // 1. Get Collection ID
+    const { data: collectionData, error: colError } = await supabase
+      .from("collections")
+      .select("id")
+      .eq("handle", params.collection)
+      .single();
+
+    if (colError || !collectionData) return [];
+
+    // 2. Get Products in this collection
+    // Assuming properties table has a category_id or similar, OR there is a join table.
+    // Based on types, Product has categoryId.
+
+    let dbQuery = supabase.from("properties").select("*").eq('category_id', collectionData.id).eq('available_for_sale', true);
+
+    if (params.query) {
+      const sanitizedQuery = sanitizeInput(params.query);
+      dbQuery = dbQuery.or(`title.ilike.%${sanitizedQuery}%,description.ilike.%${sanitizedQuery}%`);
+    }
+
+    // Sort
+    if (params.sortKey === 'PRICE') {
+      dbQuery = dbQuery.order('price_range->minVariantPrice->amount', { ascending: !params.reverse });
+    } else {
+      dbQuery = dbQuery.order('created_at', { ascending: !params.reverse });
+    }
+
+    const { data, error } = await dbQuery;
+    if (error) return [];
+    return data.map(mapPropertyToProduct);
+
   } catch {
-    return mockProducts;
+    return [];
   }
 }
 
@@ -542,29 +670,43 @@ export async function deleteProduct(id: string, token?: string): Promise<{ succe
 
 export async function checkIsAdmin(userId: string): Promise<boolean> {
   try {
-    const response = await fetch(`${API_URL}/admin/check/${userId}`);
-    const data = await response.json();
-    return data.isAdmin || false;
+    const { data, error } = await supabase
+      .from("admin_users")
+      .select("user_id")
+      .eq("user_id", userId)
+      .single();
+    return !!data && !error;
   } catch {
     return false;
   }
 }
 
 export async function adminDeleteProduct(id: string, adminUserId: string): Promise<{ success: boolean }> {
-  const response = await fetch(`${API_URL}/admin/products/${id}`, {
-    method: 'DELETE',
-    headers: {
-      'x-admin-user-id': adminUserId,
-    },
-  });
-  return await response.json();
+  try {
+    const { error } = await supabase
+      .from('properties')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting product:', error);
+    return { success: false };
+  }
 }
 
 export async function getAdminStats(): Promise<{ total: number; active: number; users: number }> {
   try {
-    const response = await fetch(`${API_URL}/admin/stats`);
-    if (!response.ok) return { total: 0, active: 0, users: 0 };
-    return await response.json();
+    const { count: total } = await supabase.from('properties').select('*', { count: 'exact', head: true });
+    const { count: active } = await supabase.from('properties').select('*', { count: 'exact', head: true }).eq('available_for_sale', true);
+    const { count: users } = await supabase.from('users').select('*', { count: 'exact', head: true });
+
+    return {
+      total: total || 0,
+      active: active || 0,
+      users: users || 0
+    };
   } catch {
     return { total: 0, active: 0, users: 0 };
   }
@@ -572,9 +714,31 @@ export async function getAdminStats(): Promise<{ total: number; active: number; 
 
 export async function getAdminProducts(page: number = 1, limit: number = 10, search: string = '', status: string = 'all'): Promise<{ products: Product[]; total: number; page: number; limit: number }> {
   try {
-    const response = await fetch(`${API_URL}/admin/products?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}&status=${status}`);
-    if (!response.ok) return { products: [], total: 0, page, limit };
-    return await response.json();
+    let query = supabase.from('properties').select('*', { count: 'exact' });
+
+    if (search) {
+      query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%`);
+    }
+
+    if (status === 'active') {
+      query = query.eq('available_for_sale', true);
+    } else if (status === 'inactive') {
+      query = query.eq('available_for_sale', false);
+    }
+
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+
+    const { data, count, error } = await query.range(from, to).order('created_at', { ascending: false });
+
+    if (error) return { products: [], total: 0, page, limit };
+
+    return {
+      products: data.map(mapPropertyToProduct),
+      total: count || 0,
+      page,
+      limit
+    };
   } catch {
     return { products: [], total: 0, page, limit };
   }
@@ -582,27 +746,67 @@ export async function getAdminProducts(page: number = 1, limit: number = 10, sea
 
 export async function updateProductStatus(id: string, availableForSale: boolean, adminUserId: string): Promise<Product | null> {
   try {
-    const response = await fetch(`${API_URL}/admin/products/${id}/status`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-admin-user-id': adminUserId,
-      },
-      body: JSON.stringify({ availableForSale }),
-    });
-    if (!response.ok) return null;
-    return await response.json();
-  } catch {
+    const { data, error } = await supabase
+      .from('properties')
+      .update({ available_for_sale: availableForSale })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return mapPropertyToProduct(data);
+  } catch (error) {
+    console.error('Error updating product status:', error);
     return null;
   }
 }
 
 export async function getAdminUsers(page: number = 1, limit: number = 10): Promise<{ users: { userId: string; contactNumber: string; totalProperties: number; activeProperties: number }[]; total: number; page: number; limit: number }> {
   try {
-    const response = await fetch(`${API_URL}/admin/users?page=${page}&limit=${limit}`);
-    if (!response.ok) return { users: [], total: 0, page, limit };
-    return await response.json();
-  } catch {
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+
+    const { data: users, count, error } = await supabase
+      .from('users')
+      .select('*', { count: 'exact' })
+      .range(from, to);
+
+    if (error) {
+      console.error('Error fetching admin users:', error);
+      return { users: [], total: 0, page, limit };
+    }
+
+    if (!users) return { users: [], total: 0, page, limit };
+
+    // Fetch stats for each user
+    const usersWithStats = await Promise.all(users.map(async (user) => {
+      const { count: totalProperties } = await supabase
+        .from('properties')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+
+      const { count: activeProperties } = await supabase
+        .from('properties')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('available_for_sale', true);
+
+      return {
+        userId: user.id,
+        contactNumber: user.contact_number || 'N/A',
+        totalProperties: totalProperties || 0,
+        activeProperties: activeProperties || 0
+      };
+    }));
+
+    return {
+      users: usersWithStats,
+      total: count || 0,
+      page,
+      limit
+    };
+  } catch (error) {
+    console.error('Error in getAdminUsers:', error);
     return { users: [], total: 0, page, limit };
   }
 }

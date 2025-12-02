@@ -25,7 +25,7 @@ A modern Next.js 15 e-commerce frontend with backend API integration.
 ### Prerequisites
 
 - Node.js 18+ or Bun
-- Backend API running (default: http://localhost:4000)
+- Supabase Project (credentials required)
 
 ### Installation
 
@@ -40,7 +40,10 @@ pnpm install
 Create a `.env.local` file:
 
 ```env
-NEXT_PUBLIC_API_URL=http://localhost:4000
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+# Optional: Override API URL (defaults to internal /api)
+# NEXT_PUBLIC_API_URL=http://localhost:3000/api
 ```
 
 ### Development
@@ -63,6 +66,7 @@ npm start
 ```
 frontend/
 ├── app/                    # Next.js App Router pages
+│   ├── api/               # Internal API Routes (Backend Logic)
 │   ├── page.tsx           # Home page
 │   ├── shop/              # Shop pages
 │   └── product/           # Product detail pages
@@ -73,6 +77,8 @@ frontend/
 │   └── ui/               # UI components (shadcn)
 ├── lib/                   # Utilities and API
 │   ├── api.ts            # Backend API calls
+│   ├── db.ts             # Supabase client
+│   ├── backend-utils.ts  # Backend helpers
 │   ├── types.ts          # TypeScript types
 │   ├── utils.ts          # Helper functions
 │   └── constants.ts      # App constants
@@ -81,27 +87,24 @@ frontend/
 
 ## API Integration
 
-The frontend connects to a backend API for:
-- Product data
-- Collections
-- Cart operations
-- Checkout
+The frontend uses internal Next.js API Routes (`app/api`) which connect to Supabase.
+See `lib/api.ts` for client-side API calls and `app/api` for the backend implementation.
 
-See `lib/api.ts` for API endpoints.
+## API Endpoints
 
-## Backend API Expected Endpoints
+The internal API routes mirror the previous external backend structure:
 
 ```
-GET    /products              - List products
-GET    /products/:handle      - Get product by handle
-GET    /collections           - List collections
-GET    /collections/:handle   - Get collection
-POST   /collections/:handle/products - Get collection products
-GET    /cart/:id              - Get cart
-POST   /cart                  - Create cart
-POST   /cart/:id/items        - Add to cart
-PUT    /cart/:id/items        - Update cart items
-DELETE /cart/:id/items        - Remove from cart
+GET    /api/products              - List products
+GET    /api/products/:handle      - Get product by handle
+GET    /api/collections           - List collections
+GET    /api/collections/:handle   - Get collection
+POST   /api/collections/:handle/products - Get collection products
+GET    /api/cart/:id              - Get cart
+POST   /api/cart                  - Create cart
+POST   /api/cart/:id/items        - Add to cart
+PUT    /api/cart/:id/items        - Update cart items
+DELETE /api/cart/:id/items        - Remove from cart
 ```
 
 ## License

@@ -17,7 +17,7 @@ export default async function ProductList({ collection, searchParams }: ProductL
   const propertyType = typeof searchParams?.propertyType === 'string' ? searchParams.propertyType : undefined;
   const amenities = typeof searchParams?.amenities === 'string' ? searchParams.amenities.split(',') : undefined;
 
-  const isRootCollection = collection === 'joyco-root' || !collection;
+  const isRootCollection = collection === 'joyco-root' || collection === 'root' || !collection;
 
   const { sortKey, reverse } = isRootCollection ? mapSortKeys(sort, 'product') : mapSortKeys(sort, 'collection');
 
