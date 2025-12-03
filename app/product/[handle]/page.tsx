@@ -103,8 +103,8 @@ export default async function ProductPage(props: { params: Promise<{ handle: str
     (c: any) => c.id !== storeCatalog.rootCategoryId
   ) ?? [undefined];
 
-  const hasVariants = product.variants.length > 1;
-  const hasEvenOptions = product.options.length % 2 === 0;
+  const hasVariants = (product.variants?.length || 0) > 1;
+  const hasEvenOptions = (product.options?.length || 0) % 2 === 0;
 
   return (
     <PageLayout className="bg-white">
