@@ -51,8 +51,8 @@ export async function generateMetadata(props: { params: Promise<{ handle: string
   const indexable = !product.tags?.includes(HIDDEN_PRODUCT_TAG);
 
   return {
-    title: product.seo.title || product.title,
-    description: product.seo.description || product.description,
+    title: product.seo?.title || product.title,
+    description: product.seo?.description || product.description,
     robots: {
       index: indexable,
       follow: indexable,
