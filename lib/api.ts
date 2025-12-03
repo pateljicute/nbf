@@ -4,49 +4,14 @@ import { mapPropertyToProduct, mapDbCollectionToCollection } from './backend-uti
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || (typeof window === 'undefined' ? 'http://localhost:3000/api' : '/api');
 
-// CSRF Token utilities
+
+// CSRF Token utilities - No longer needed with direct Supabase calls
+// Keeping the variable for now to avoid breaking other potential imports, but it's unused
 let csrfToken: string | null = null;
 let csrfTokenExpiry: number | null = null;
 
 const getCSRFToken = async (token?: string): Promise<string> => {
-  // If we have a valid token, return it
-  if (csrfToken && csrfTokenExpiry && Date.now() < csrfTokenExpiry) {
-    // We've already checked that csrfToken exists, so we can safely assert it's a string
-    return csrfToken as string;
-  }
-
-  // Otherwise fetch a new one from the backend
-  const headers: any = {
-    'Content-Type': 'application/json',
-    'X-Requested-With': 'XMLHttpRequest',
-    'X-Client-Type': 'web-app'
-  };
-
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-
-  const response = await fetch(`${API_URL}/csrf-token`, {
-    method: 'GET',
-    headers
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || errorData.error || 'Failed to get CSRF token');
-  }
-
-  const data = await response.json();
-  if (!data.csrfToken || typeof data.csrfToken !== 'string') {
-    throw new Error('Invalid CSRF token received from server');
-  }
-
-  csrfToken = data.csrfToken;
-  // Set expiry to 23 hours (1 hour before the 24-hour server-side expiry)
-  csrfTokenExpiry = Date.now() + (23 * 60 * 60 * 1000);
-
-  // We've already validated that data.csrfToken is a string
-  return data.csrfToken;
+  return 'mock-csrf-token';
 };
 
 // Security utilities
@@ -502,47 +467,47 @@ export async function createProduct(data: any, token?: string): Promise<Product>
 
   // Sanitize data
   const sanitizedData = {
-    ...data,
     title: sanitizeInput(data.title),
     description: sanitizeInput(data.description),
-    address: sanitizeInput(data.address),
-    location: sanitizeInput(data.location),
-    type: sanitizeInput(data.type),
-    images: images.map((url: string) => sanitizeInput(url)),
-    contactNumber: sanitizeInput(data.contactNumber)
-  };
-  delete sanitizedData.imageUrl;
-
-  // Get CSRF token
-  const csrf = await getCSRFToken(token);
-
-  const headers: any = {
-    'Content-Type': 'application/json',
-    'X-Requested-With': 'XMLHttpRequest',
-    'X-Client-Type': 'web-app',
-    'X-CSRF-Token': csrf
+    description_html: sanitizeInput(data.description), // Simple mapping for now
+    price_range: {
+      minVariantPrice: { amount: sanitizeInput(data.price), currencyCode: 'INR' },
+      maxVariantPrice: { amount: sanitizeInput(data.price), currencyCode: 'INR' }
+    },
+    // Map address/location to tags or specific fields if available
+    tags: [sanitizeInput(data.type), sanitizeInput(data.location), sanitizeInput(data.address), 'pending_approval'].filter(Boolean),
+    images: images.map((url: string) => ({ url: sanitizeInput(url), altText: sanitizeInput(data.title) })),
+    featured_image: { url: sanitizeInput(images[0]), altText: sanitizeInput(data.title) },
+    contact_number: sanitizeInput(data.contactNumber),
+    available_for_sale: false, // Default to false for approval workflow
+    handle: sanitizeInput(data.title).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + '-' + Math.random().toString(36).substring(7),
+    category_id: 'joyco-root' // Default category
   };
 
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+  // Get current user for user_id
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user) {
+    // @ts-ignore
+    sanitizedData.user_id = user.id;
   }
 
-  const response = await fetch(`${API_URL}/products/create`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(sanitizedData),
-  });
+  // Generate ID
+  // @ts-ignore
+  sanitizedData.id = crypto.randomUUID();
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    if (response.status === 400 || response.status === 403) {
-      console.error('Security validation failed:', errorData);
-      throw new Error(errorData.message || errorData.error || 'Security validation failed');
-    }
-    throw new Error(errorData.message || errorData.error || 'Failed to create property');
+  // Insert into Supabase
+  const { data: newProduct, error } = await supabase
+    .from('properties')
+    .insert([sanitizedData])
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating property:', error);
+    throw new Error('Failed to create property: ' + error.message);
   }
 
-  return await response.json();
+  return mapPropertyToProduct(newProduct);
 }
 
 export async function updateProduct(id: string, data: any, token?: string): Promise<Product> {
@@ -588,48 +553,35 @@ export async function updateProduct(id: string, data: any, token?: string): Prom
 
   // Sanitize data
   const sanitizedData = {
-    ...data,
     title: sanitizeInput(data.title),
     description: sanitizeInput(data.description),
-    address: sanitizeInput(data.address),
-    location: sanitizeInput(data.location),
-    type: sanitizeInput(data.type),
-    images: images.map((url: string) => sanitizeInput(url)),
-    contactNumber: sanitizeInput(data.contactNumber)
+    description_html: sanitizeInput(data.description),
+    price_range: {
+      minVariantPrice: { amount: sanitizeInput(data.price), currencyCode: 'INR' },
+      maxVariantPrice: { amount: sanitizeInput(data.price), currencyCode: 'INR' }
+    },
+    tags: [sanitizeInput(data.type), sanitizeInput(data.location), sanitizeInput(data.address)].filter(Boolean),
+    images: images.map((url: string) => ({ url: sanitizeInput(url), altText: sanitizeInput(data.title) })),
+    featured_image: { url: sanitizeInput(images[0]), altText: sanitizeInput(data.title) },
+    contact_number: sanitizeInput(data.contactNumber)
   };
-  delete sanitizedData.imageUrl;
-
-  // Get CSRF token
-  const csrf = await getCSRFToken(token);
-
-  const headers: any = {
-    'Content-Type': 'application/json',
-    'X-Requested-With': 'XMLHttpRequest',
-    'X-Client-Type': 'web-app',
-    'X-CSRF-Token': csrf
-  };
-
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
 
   const sanitizedId = sanitizeInput(id);
-  const response = await fetch(`${API_URL}/products/${sanitizedId}`, {
-    method: 'PUT',
-    headers,
-    body: JSON.stringify(sanitizedData),
-  });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    if (response.status === 400 || response.status === 403) {
-      console.error('Security validation failed:', errorData);
-      throw new Error(errorData.message || errorData.error || 'Security validation failed');
-    }
-    throw new Error(errorData.message || errorData.error || 'Failed to update property');
+  // Update in Supabase
+  const { data: updatedProduct, error } = await supabase
+    .from('properties')
+    .update(sanitizedData)
+    .eq('id', sanitizedId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error updating property:', error);
+    throw new Error('Failed to update property: ' + error.message);
   }
 
-  return await response.json();
+  return mapPropertyToProduct(updatedProduct);
 }
 
 export async function deleteProduct(id: string, token?: string): Promise<{ success: boolean }> {
@@ -638,34 +590,20 @@ export async function deleteProduct(id: string, token?: string): Promise<{ succe
     throw new Error("Security Alert: Invalid ID parameter");
   }
 
-  // Get CSRF token
-  const csrf = await getCSRFToken(token);
-
-  const headers: any = {
-    'X-Requested-With': 'XMLHttpRequest',
-    'X-Client-Type': 'web-app',
-    'X-CSRF-Token': csrf
-  };
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-
   const sanitizedId = sanitizeInput(id);
-  const response = await fetch(`${API_URL}/products/${sanitizedId}`, {
-    method: 'DELETE',
-    headers,
-  });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    if (response.status === 400 || response.status === 403) {
-      console.error('Security validation failed:', errorData);
-      throw new Error(errorData.message || errorData.error || 'Security validation failed');
-    }
-    throw new Error(errorData.message || errorData.error || 'Failed to delete property');
+  // Delete from Supabase
+  const { error } = await supabase
+    .from('properties')
+    .delete()
+    .eq('id', sanitizedId);
+
+  if (error) {
+    console.error('Error deleting property:', error);
+    throw new Error('Failed to delete property: ' + error.message);
   }
 
-  return await response.json();
+  return { success: true };
 }
 
 export async function checkIsAdmin(userId: string): Promise<boolean> {
@@ -724,6 +662,8 @@ export async function getAdminProducts(page: number = 1, limit: number = 10, sea
       query = query.eq('available_for_sale', true);
     } else if (status === 'inactive') {
       query = query.eq('available_for_sale', false);
+    } else if (status === 'pending') {
+      query = query.contains('tags', ['pending_approval']);
     }
 
     const from = (page - 1) * limit;
@@ -758,6 +698,36 @@ export async function updateProductStatus(id: string, availableForSale: boolean,
   } catch (error) {
     console.error('Error updating product status:', error);
     return null;
+  }
+}
+
+export async function approveProduct(id: string, adminUserId: string): Promise<boolean> {
+  try {
+    // 1. Get current tags
+    const { data: product, error: fetchError } = await supabase
+      .from('properties')
+      .select('tags')
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !product) return false;
+
+    // 2. Remove 'pending_approval' tag
+    const newTags = (product.tags || []).filter((t: string) => t !== 'pending_approval');
+
+    // 3. Update property
+    const { error } = await supabase
+      .from('properties')
+      .update({
+        available_for_sale: true,
+        tags: newTags
+      })
+      .eq('id', id);
+
+    return !error;
+  } catch (error) {
+    console.error('Error approving product:', error);
+    return false;
   }
 }
 

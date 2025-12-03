@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { motion } from 'motion/react';
 import { getUserProducts, deleteProduct, updateProduct } from '@/lib/api';
 import { Product } from '@/lib/types';
+import { createClient } from '@/lib/supabase/client';
 
 export default function ProfilePage() {
     const { user, logout, isLoading, session } = useAuth();
@@ -16,6 +17,7 @@ export default function ProfilePage() {
     const [loadingProperties, setLoadingProperties] = useState(true);
     const [editingProperty, setEditingProperty] = useState<Product | null>(null);
     const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+    const supabase = createClient();
 
     useEffect(() => {
         if (!isLoading && !user) {
@@ -24,7 +26,7 @@ export default function ProfilePage() {
     }, [user, isLoading, router]);
 
     useEffect(() => {
-        async function fetchUserProperties() {
+        const fetchUserProperties = async () => {
             if (user) {
                 try {
                     const userProps = await getUserProducts(user.id);
@@ -35,12 +37,33 @@ export default function ProfilePage() {
                     setLoadingProperties(false);
                 }
             }
-        }
+        };
 
         if (user) {
             fetchUserProperties();
+
+            const channel = supabase
+                .channel('profile-properties-changes')
+                .on(
+                    'postgres_changes',
+                    {
+                        event: '*',
+                        schema: 'public',
+                        table: 'properties',
+                        filter: `user_id=eq.${user.id}`,
+                    },
+                    (payload) => {
+                        console.log('Real-time update received:', payload);
+                        fetchUserProperties();
+                    }
+                )
+                .subscribe();
+
+            return () => {
+                supabase.removeChannel(channel);
+            };
         }
-    }, [user]);
+    }, [user, supabase]);
 
     if (isLoading) {
         return (

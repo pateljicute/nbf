@@ -62,6 +62,7 @@ export function useAvailableColors(products: Product[]) {
     const colorSet = new Set<string>();
 
     products.forEach(product => {
+      if (!product.options) return;
       const colorOption = product.options.find(option => option.name.toLowerCase() === 'color');
 
       if (colorOption) {
