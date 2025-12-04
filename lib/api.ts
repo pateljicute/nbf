@@ -1,5 +1,6 @@
-import { Product, Collection, Cart, ProductSortKey, ProductCollectionSortKey } from './types';
+import { Product, Collection, ProductSortKey, ProductCollectionSortKey } from './types';
 import { supabase } from './db';
+import { getAdminClient } from './supabase-admin';
 import { mapPropertyToProduct, mapDbCollectionToCollection } from './backend-utils';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || (typeof window === 'undefined' ? 'http://localhost:3000/api' : '/api');
@@ -288,7 +289,46 @@ export async function getProduct(handle: string): Promise<Product | null> {
       .single();
 
     if (error) return null;
-    return mapPropertyToProduct(data);
+
+    const product = mapPropertyToProduct(data);
+
+    // Manually fetch owner details to avoid JOIN issues and RLS
+    if (product.userId) {
+      let userData = null;
+      const adminClient = getAdminClient();
+      const clientToUse = adminClient || supabase;
+
+      // Try 'users' table first
+      const { data: usersData, error: usersError } = await clientToUse
+        .from("users")
+        .select("*")
+        .eq("id", product.userId)
+        .single();
+
+      if (usersData) {
+        userData = usersData;
+      } else {
+        // Fallback to 'profiles' table if 'users' fails or is empty
+        const { data: profilesData } = await clientToUse
+          .from("profiles")
+          .select("*")
+          .eq("id", product.userId)
+          .single();
+        userData = profilesData;
+      }
+
+      if (userData) {
+        product.ownerName =
+          userData.full_name ||
+          userData.name ||
+          userData.display_name ||
+          (userData.first_name ? `${userData.first_name} ${userData.last_name || ''}`.trim() : null) ||
+          userData.username ||
+          userData.email?.split('@')[0]; // Fallback to email prefix if absolutely nothing else
+      }
+    }
+
+    return product;
   } catch {
     return null;
   }
@@ -387,47 +427,7 @@ export async function getCollectionProducts(params: {
   }
 }
 
-export async function getCart(cartId: string): Promise<Cart | null> {
-  try {
-    const response = await fetch(`${API_URL}/cart/${cartId}`);
-    if (!response.ok) return null;
-    return await response.json();
-  } catch {
-    return null;
-  }
-}
-
-export async function createCart(): Promise<Cart> {
-  const response = await fetch(`${API_URL}/cart`, { method: 'POST' });
-  return await response.json();
-}
-
-export async function addToCart(cartId: string, lines: Array<{ merchandiseId: string; quantity: number }>): Promise<Cart> {
-  const response = await fetch(`${API_URL}/cart/${cartId}/items`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ lines }),
-  });
-  return await response.json();
-}
-
-export async function updateCart(cartId: string, lines: Array<{ id: string; merchandiseId: string; quantity: number }>): Promise<Cart> {
-  const response = await fetch(`${API_URL}/cart/${cartId}/items`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ lines }),
-  });
-  return await response.json();
-}
-
-export async function removeFromCart(cartId: string, lineIds: string[]): Promise<Cart> {
-  const response = await fetch(`${API_URL}/cart/${cartId}/items`, {
-    method: 'DELETE',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ lineIds }),
-  });
-  return await response.json();
-}
+// Cart functions removed as per project requirements (Property Rental only)
 
 export async function createProduct(data: any, token?: string): Promise<Product> {
   // Validate input data

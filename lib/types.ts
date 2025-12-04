@@ -52,6 +52,7 @@ export interface Product {
   availableForSale: boolean;
   userId?: string;
   contactNumber?: string;
+  ownerName?: string;
 }
 
 export interface Collection {
@@ -67,47 +68,11 @@ export interface Collection {
   parentCategoryTree?: { id: string; name: string }[];
 }
 
-export interface CartItem {
-  id: string;
-  quantity: number;
-  cost: {
-    totalAmount: Money;
-  };
-  merchandise: {
-    id: string;
-    title: string;
-    selectedOptions: Array<{ name: string; value: string }>;
-    product: {
-      id: string;
-      handle: string;
-      title: string;
-      featuredImage?: Image;
-    };
-    price: Money;
-  };
-}
-
-export interface Cart {
-  id: string;
-  checkoutUrl: string;
-  cost: {
-    subtotalAmount: Money;
-    totalAmount: Money;
-    totalTaxAmount?: Money;
-  };
-  lines: CartItem[];
-  totalQuantity: number;
-}
-
 export type ProductSortKey = 'RELEVANCE' | 'BEST_SELLING' | 'CREATED_AT' | 'PRICE';
 export type ProductCollectionSortKey = 'RELEVANCE' | 'BEST_SELLING' | 'CREATED' | 'PRICE';
 
 export interface SelectedOptions {
   [key: string]: string;
-}
-
-export interface CartProduct extends Product {
-  selectedVariant?: ProductVariant;
 }
 
 export interface NavItem {

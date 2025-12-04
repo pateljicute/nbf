@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/breadcrumb';
 import Link from 'next/link';
 import { SidebarLinks } from '@/components/layout/sidebar/product-sidebar-links';
-import { AddToCart, AddToCartButton } from '@/components/cart/add-to-cart';
+import { ContactOwner } from '@/components/products/contact-owner';
 import { storeCatalog } from '@/lib/constants';
 import Prose from '@/components/prose';
 import { formatPrice } from '@/lib/utils';
@@ -115,13 +115,13 @@ export default async function ProductPage(props: { params: Promise<{ handle: str
         }}
       />
 
-      <div className="container mx-auto px-4 py-6">
+      <div className="container mx-auto px-4 pt-28 pb-12 md:pt-36">
         {/* Breadcrumbs - Top Full Width */}
         <Breadcrumb className="mb-6">
           <BreadcrumbList>
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
-                <Link href="/shop" className="text-xs font-medium uppercase tracking-wider text-neutral-500 hover:text-blue-600 transition-colors">
+                <Link href="/shop" className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 hover:text-black transition-colors">
                   Home
                 </Link>
               </BreadcrumbLink>
@@ -129,7 +129,7 @@ export default async function ProductPage(props: { params: Promise<{ handle: str
             <BreadcrumbSeparator />
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
-                <Link href="/shop" className="text-xs font-medium uppercase tracking-wider text-neutral-500 hover:text-blue-600 transition-colors">
+                <Link href="/shop" className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 hover:text-black transition-colors">
                   Properties
                 </Link>
               </BreadcrumbLink>
@@ -139,7 +139,7 @@ export default async function ProductPage(props: { params: Promise<{ handle: str
                 <BreadcrumbSeparator />
                 <BreadcrumbItem>
                   <BreadcrumbLink asChild>
-                    <Link href={`/shop/${rootParentCategory.id}`} className="text-xs font-medium uppercase tracking-wider text-neutral-500 hover:text-blue-600 transition-colors">
+                    <Link href={`/shop/${rootParentCategory.id}`} className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 hover:text-black transition-colors">
                       {rootParentCategory.name}
                     </Link>
                   </BreadcrumbLink>
@@ -148,16 +148,16 @@ export default async function ProductPage(props: { params: Promise<{ handle: str
             )}
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbPage className="text-xs font-medium uppercase tracking-wider text-neutral-900 truncate max-w-[200px]">
+              <BreadcrumbPage className="text-[10px] font-bold uppercase tracking-widest text-neutral-900 truncate max-w-[200px]">
                 {product.title}
               </BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
 
-        <div className="flex flex-col lg:grid lg:grid-cols-12 lg:gap-10 min-h-[600px]">
-          {/* Left Column: Gallery (Amazon Style: Sticky) */}
-          <div className="col-span-12 lg:col-span-5 xl:col-span-5 h-fit lg:sticky lg:top-24">
+        <div className="flex flex-col lg:grid lg:grid-cols-12 lg:gap-12 min-h-[600px]">
+          {/* Left Column: Gallery (Vertical Stack) */}
+          <div className="col-span-12 lg:col-span-7 xl:col-span-7">
             {/* Mobile Gallery */}
             <div className="lg:hidden mb-6 h-[400px]">
               <Suspense fallback={null}>
@@ -165,142 +165,132 @@ export default async function ProductPage(props: { params: Promise<{ handle: str
               </Suspense>
             </div>
 
-            {/* Desktop Gallery */}
-            <div className="hidden lg:block border border-neutral-200 rounded-lg p-2">
+            {/* Desktop Gallery - Clean Vertical Stack */}
+            <div className="hidden lg:flex flex-col gap-4">
               <Suspense fallback={null}>
                 <DesktopGallery product={product} />
               </Suspense>
             </div>
           </div>
 
-          {/* Right Column: Product Details */}
-          <div className="col-span-12 lg:col-span-7 xl:col-span-7 flex flex-col gap-6">
+          {/* Right Column: Product Details (Sticky) */}
+          <div className="col-span-12 lg:col-span-5 xl:col-span-5 flex flex-col gap-8 lg:sticky lg:top-24 h-fit">
 
-            {/* Title & Ratings */}
-            <div className="border-b border-neutral-100 pb-4">
-              <h1 className="text-2xl md:text-3xl font-medium text-neutral-900 mb-2">
+            {/* Title */}
+            <div>
+              <h1 className="text-3xl md:text-4xl font-medium font-serif text-neutral-900 mb-2">
                 {product.title}
               </h1>
-
             </div>
 
             {/* Price Section */}
-            <div className="bg-neutral-50/50 p-4 rounded-lg border border-neutral-100">
-              <div className="flex items-baseline gap-3">
+            <div className="p-6 bg-neutral-50 rounded-xl border border-neutral-100">
+              <div className="flex items-baseline gap-2 mb-1">
                 <span className="text-3xl font-bold text-neutral-900">
                   {formatPrice(
                     product.priceRange.minVariantPrice.amount,
                     product.priceRange.minVariantPrice.currencyCode
                   )}
                 </span>
-                <span className="text-lg text-neutral-500">/month</span>
-                {product.compareAtPrice && (
-                  <>
-                    <span className="text-lg text-neutral-400 line-through">
-                      {formatPrice(product.compareAtPrice.amount, product.compareAtPrice.currencyCode)}
-                    </span>
-                    <span className="text-sm font-bold text-green-600">
-                      {Math.round(((parseFloat(product.compareAtPrice.amount) - parseFloat(product.priceRange.minVariantPrice.amount)) / parseFloat(product.compareAtPrice.amount)) * 100)}% off
-                    </span>
-                  </>
-                )}
+                <span className="text-base text-neutral-500 font-medium">/month</span>
               </div>
-              <p className="text-xs text-neutral-500 mt-1">Inclusive of all taxes</p>
+              <p className="text-xs text-neutral-500">Inclusive of all taxes</p>
             </div>
 
             {/* Key Features / Highlights (Grid) */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div className="p-3 border border-neutral-200 rounded-md text-center">
-                <p className="text-[10px] text-neutral-500 uppercase font-bold">Type</p>
-                <p className="text-sm font-medium">{product.tags?.[0] || 'Apartment'}</p>
+              <div className="p-3 border border-neutral-200 rounded-lg text-center hover:border-neutral-300 transition-colors">
+                <p className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider mb-1">Type</p>
+                <p className="text-sm font-semibold">{product.tags?.[0] || 'Apartment'}</p>
               </div>
-              <div className="p-3 border border-neutral-200 rounded-md text-center">
-                <p className="text-[10px] text-neutral-500 uppercase font-bold">Status</p>
-                <p className={`text-sm font-medium ${product.availableForSale ? 'text-green-600' : 'text-red-500'}`}>
+              <div className="p-3 border border-neutral-200 rounded-lg text-center hover:border-neutral-300 transition-colors">
+                <p className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider mb-1">Status</p>
+                <p className={`text-sm font-semibold ${product.availableForSale ? 'text-green-600' : 'text-red-500'}`}>
                   {product.availableForSale ? 'Available' : 'Rented'}
                 </p>
               </div>
               {product.tags && product.tags[1] && (
-                <div className="p-3 border border-neutral-200 rounded-md text-center">
-                  <p className="text-[10px] text-neutral-500 uppercase font-bold">City</p>
-                  <p className="text-sm font-medium truncate">{product.tags[1]}</p>
+                <div className="p-3 border border-neutral-200 rounded-lg text-center hover:border-neutral-300 transition-colors">
+                  <p className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider mb-1">City</p>
+                  <p className="text-sm font-semibold truncate">{product.tags[1]}</p>
                 </div>
               )}
               {product.categoryId && (
-                <div className="p-3 border border-neutral-200 rounded-md text-center">
-                  <p className="text-[10px] text-neutral-500 uppercase font-bold">Location</p>
-                  <p className="text-sm font-medium truncate">{product.categoryId}</p>
+                <div className="p-3 border border-neutral-200 rounded-lg text-center hover:border-neutral-300 transition-colors">
+                  <p className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider mb-1">Location</p>
+                  <p className="text-sm font-semibold truncate">{product.categoryId}</p>
                 </div>
               )}
             </div>
 
             {/* Variants & Actions */}
-            <div className="space-y-6 py-4">
+            <div className="space-y-6">
               <Suspense fallback={<VariantSelectorSlots product={product} fallback />}>
                 <VariantSelectorSlots product={product} />
               </Suspense>
 
-              <div className="flex flex-col gap-3">
-                <Suspense
-                  fallback={
-                    <AddToCartButton
-                      className={cn('w-full py-4 text-base font-bold uppercase tracking-wide', {
-                        'col-span-full': !hasVariants || hasEvenOptions,
-                      })}
-                      product={product}
-                      size="lg"
-                    />
-                  }
-                >
-                  <AddToCart
-                    product={product}
-                    size="lg"
-                    className={cn('w-full py-4 text-base font-bold uppercase tracking-wide shadow-md hover:shadow-lg transition-all', {
-                      'col-span-full': !hasVariants || hasEvenOptions,
-                    })}
-                  />
-                </Suspense>
-                <div className="flex items-center justify-center gap-2 text-xs text-neutral-500">
-                  <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                  Verified Owner
-                  <span className="mx-2">•</span>
-                  <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-                  Secure Transaction
+              <div className="flex flex-col gap-4">
+                <ContactOwner
+                  product={product}
+                  className={cn('w-full py-6 text-sm font-bold uppercase tracking-widest bg-neutral-900 text-white hover:bg-neutral-800 rounded-lg shadow-sm transition-all', {
+                    'col-span-full': !hasVariants || hasEvenOptions,
+                  })}
+                />
+                <div className="flex items-center justify-center gap-6 text-[10px] font-medium uppercase tracking-wider text-neutral-500">
+                  <div className="flex items-center gap-1.5">
+                    <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    Verified Owner
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                    Secure Transaction
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Short Description / Bullets */}
-            <div className="border-t border-neutral-100 pt-6">
+            {/* Short Description */}
+            <div className="pt-6 border-t border-neutral-100">
               <h3 className="font-bold text-neutral-900 mb-3">About this property</h3>
-              <div className="prose prose-sm text-neutral-600 max-w-none line-clamp-4">
+              <div className="prose prose-sm text-neutral-600 max-w-none line-clamp-4 mb-2">
                 <Prose html={product.descriptionHtml || product.description} />
               </div>
-              <a href="#full-description" className="text-blue-600 text-sm font-medium hover:underline mt-2 inline-block">
+              <a href="#full-description" className="text-blue-600 text-sm font-medium hover:underline">
                 See full details
               </a>
             </div>
 
-            <div className="pt-4">
-              <SidebarLinks className="flex gap-4" />
+            {/* Additional Details Grid (Mocked for now based on image) */}
+            <div className="grid grid-cols-2 gap-y-4 gap-x-8 pt-6 border-t border-neutral-100 text-xs text-neutral-500">
+              <div>
+                <span className="block mb-1">Coordinates</span>
+                <span className="font-mono text-neutral-900">37°47'33.4"N 122°24'18.6"W</span>
+              </div>
+              <div className="text-right">
+                <span className="block mb-1">Contact</span>
+                <span className="font-mono text-neutral-900">(269) 682-1402</span>
+              </div>
+              <div>
+                <span className="block mb-1">Social</span>
+                <span className="font-medium text-neutral-900">Instagram</span>
+              </div>
             </div>
 
           </div>
         </div>
 
         {/* Full Description Section (Bottom) */}
-        <div id="full-description" className="mt-16 pt-10 border-t border-neutral-200">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+        <div id="full-description" className="mt-24 pt-12 border-t border-neutral-200">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
             <div className="lg:col-span-8">
-              <h2 className="text-2xl font-bold text-neutral-900 mb-6">Property Description</h2>
+              <h2 className="text-2xl font-serif font-medium text-neutral-900 mb-8">Property Description</h2>
               <Prose
                 className="prose-neutral max-w-none"
                 html={product.descriptionHtml || product.description}
               />
             </div>
             <div className="lg:col-span-4">
-              {/* Potential sidebar for related products or ads */}
-              <div className="bg-neutral-50 p-6 rounded-lg border border-neutral-100">
+              <div className="bg-neutral-50 p-8 rounded-xl border border-neutral-100">
                 <h3 className="font-bold text-neutral-900 mb-4">Safety Tips</h3>
                 <ul className="space-y-3 text-sm text-neutral-600 list-disc pl-4">
                   <li>Always visit the property in person.</li>

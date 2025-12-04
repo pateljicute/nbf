@@ -20,7 +20,6 @@ export const TAGS = {
   collections: 'collections',
   products: 'products',
   collectionProducts: 'collection-products',
-  cart: 'cart',
 };
 
 export const CONTACT_LINKS: NavItem[] = [

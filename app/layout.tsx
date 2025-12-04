@@ -4,7 +4,7 @@ import { Suspense } from 'react';
 import './globals.css';
 import { Toaster } from 'sonner';
 import { NuqsAdapter } from 'nuqs/adapters/next/app';
-import { CartProvider } from '@/components/cart/cart-context';
+// CartProvider removed
 import { Collection } from '@/lib/types';
 import { getCollections } from '@/lib/api';
 import { Header } from '../components/layout/header';
@@ -27,13 +27,11 @@ function ClientLayout({ children, collections }: { children: React.ReactNode; co
   return (
     <AuthProvider>
       <RealtimeProvider>
-        <CartProvider>
-          <NuqsAdapter>
+        <NuqsAdapter>
             <Header collections={collections} />
             <Suspense>{children}</Suspense>
             <Toaster closeButton position="bottom-right" />
           </NuqsAdapter>
-        </CartProvider>
       </RealtimeProvider>
     </AuthProvider>
   );

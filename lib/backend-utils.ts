@@ -42,6 +42,7 @@ export interface Product {
     userId?: string; // Added userId
     contactNumber?: string;
     categoryId?: string;
+    ownerName?: string;
 }
 
 export interface Collection {
@@ -74,7 +75,8 @@ export const mapPropertyToProduct = (prop: any): Product => ({
     availableForSale: prop.available_for_sale,
     userId: prop.user_id,
     contactNumber: prop.contact_number,
-    categoryId: prop.category_id
+    categoryId: prop.category_id,
+    ownerName: prop.users?.full_name || prop.users?.name || 'Property Owner'
 });
 
 // --- Helper to map DB result to Collection ---
