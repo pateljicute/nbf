@@ -21,6 +21,7 @@ export default function AdminPage() {
     const [usersList, setUsersList] = useState<AdminUser[]>([]);
     const [loading, setLoading] = useState(true);
     const [isAdmin, setIsAdmin] = useState(false);
+    const [adminChecked, setAdminChecked] = useState(false);
     const [stats, setStats] = useState({ total: 0, users: 0, active: 0 });
 
     // Pagination & Filter state
@@ -65,11 +66,9 @@ export default function AdminPage() {
 
         const adminStatus = await checkIsAdmin(user.id);
         setIsAdmin(adminStatus);
+        setAdminChecked(true);
 
-        if (!adminStatus) {
-            alert('Access Denied: Admin only');
-            router.push('/');
-        } else {
+        if (adminStatus) {
             fetchStats();
         }
     }, [user, router]);
@@ -81,6 +80,13 @@ export default function AdminPage() {
             checkAdmin();
         }
     }, [user, isLoading, router, checkAdmin]);
+
+    useEffect(() => {
+        if (adminChecked && !isAdmin) {
+            alert('Access Denied: Admin only');
+            router.push('/');
+        }
+    }, [adminChecked, isAdmin, router]);
 
     // Debounce search
     useEffect(() => {
