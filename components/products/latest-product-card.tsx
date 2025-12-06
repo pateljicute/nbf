@@ -10,6 +10,8 @@ import { HeroSearch } from '../hero-search';
 import { useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { LoginModal } from '@/components/auth/login-modal';
+import Image from 'next/image';
+import cloudinaryLoader from '@/lib/cloudinary-loader';
 
 interface LatestProductCardProps {
   product: Product;
@@ -37,10 +39,14 @@ export function LatestProductCard({
   if (principal) {
     return (
       <div className={cn('relative h-screen w-full overflow-hidden group', className)}>
-        <Link href={`/product/${product.handle}`} className="size-full block" prefetch onClick={handleProductClick}>
-          <img
+        <Link href={`/product/${product.handle}`} className="size-full block" onClick={handleProductClick}>
+          <Image
+            loader={cloudinaryLoader}
             src="https://res.cloudinary.com/dla8a0y7n/image/upload/v1764658021/hero-background_jdgiur.jpg"
             alt="Hero Background"
+            fill
+            priority
+            sizes="100vw"
             className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
           />
           {/* Darker overlay for better text contrast matching the reference */}
@@ -101,7 +107,7 @@ export function LatestProductCard({
       <div className={cn('group flex flex-col bg-white border border-neutral-200 rounded-xl overflow-hidden hover:shadow-lg transition-all duration-300', className)}>
         {/* Image Section */}
         <div className="relative aspect-[4/3] overflow-hidden bg-neutral-100">
-          <Link href={`/product/${product.handle}`} className="block size-full relative" prefetch onClick={handleProductClick}>
+          <Link href={`/product/${product.handle}`} className="block size-full relative" onClick={handleProductClick}>
             <ProductImage
               src={getOptimizedImageUrl(product.featuredImage?.url || '', 800, 600, 'fill')}
               fallbackSrc="/placeholder.jpg"

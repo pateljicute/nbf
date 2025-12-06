@@ -8,8 +8,8 @@ import { Hero } from '@/components/hero';
 
 import Link from 'next/link';
 
-// Cache for 5 minutes to reduce Vercel bandwidth
-export const revalidate = 300;
+// Cache for 10 minutes to reduce SSR frequency and bandwidth
+export const revalidate = 600;
 
 export default async function Home() {
   let featuredProducts: Product[] = [];

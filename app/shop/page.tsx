@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 
 // Enable ISR with 1 minute revalidation
 // Cache for 5 minutes to reduce Vercel bandwidth
-export const revalidate = 300;
+export const revalidate = 600;
 
 export default async function Shop(props: {
   searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;

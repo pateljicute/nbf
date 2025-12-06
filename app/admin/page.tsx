@@ -380,7 +380,12 @@ export default function AdminPage() {
                                                             <div className="flex items-center">
                                                                 <div className="h-10 w-10 flex-shrink-0">
                                                                     {property.featuredImage && property.featuredImage.url ? (
-                                                                        <img className="h-10 w-10 rounded object-cover" src={property.featuredImage.url} alt="" />
+                                                                        <img
+                                                                            className="h-10 w-10 rounded object-cover"
+                                                                            src={`https://res.cloudinary.com/dla8a0y7n/image/upload/f_auto,q_auto,w_160/${property.featuredImage.url.replace(/^https?:\/\/res\.cloudinary\.com\/[^/]+\/image\/upload\//, '')}`}
+                                                                            alt=""
+                                                                            loading="lazy"
+                                                                        />
                                                                     ) : (
                                                                         <div className="h-10 w-10 rounded bg-neutral-200" />
                                                                     )}
@@ -599,7 +604,12 @@ export default function AdminPage() {
                                                                 <div className="flex items-center">
                                                                     <div className="h-10 w-10 flex-shrink-0">
                                                                         {property.featuredImage && property.featuredImage.url ? (
-                                                                            <img className="h-10 w-10 rounded object-cover" src={property.featuredImage.url} alt="" />
+                                                                            <img
+                                                                                className="h-10 w-10 rounded object-cover"
+                                                                                src={`https://res.cloudinary.com/dla8a0y7n/image/upload/f_auto,q_auto,w_160/${property.featuredImage.url.replace(/^https?:\/\/res\.cloudinary\.com\/[^/]+\/image\/upload\//, '')}`}
+                                                                                alt=""
+                                                                                loading="lazy"
+                                                                            />
                                                                         ) : (
                                                                             <div className="h-10 w-10 rounded bg-neutral-200" />
                                                                         )}

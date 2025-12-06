@@ -2,19 +2,22 @@
 
 import { useProductImages, useSelectedOptions } from '@/components/products/variant-selector';
 import { Product } from '@/lib/types';
+import { ProductImage as BaseProductImage } from '@/components/ui/product-image';
 
-export const ProductImage = ({ product }: { product: Product }) => {
+export const ProductVariantImage = ({ product }: { product: Product }) => {
   const selectedOptions = useSelectedOptions(product);
-
   const [variantImage] = useProductImages(product, selectedOptions);
 
+  if (!variantImage) return null;
+
   return (
-    <img
+    <BaseProductImage
       src={variantImage.url}
       alt={variantImage.altText || product.title}
-      width={variantImage.width}
-      height={variantImage.height}
+      width={variantImage.width || 800}
+      height={variantImage.height || 600}
       className="object-cover size-full"
+      sizes="(max-width: 768px) 100vw, 50vw"
     />
   );
 };

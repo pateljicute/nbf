@@ -1,6 +1,10 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import Image from 'next/image';
+import cloudinaryLoader from '@/lib/cloudinary-loader';
+
+const HERO_SRC = 'https://res.cloudinary.com/dla8a0y7n/image/upload/v1764658021/hero-background_jdgiur.jpg';
 
 const HeroSearch = dynamic(() => import('./hero-search').then(m => m.HeroSearch), {
     ssr: false,
@@ -11,9 +15,13 @@ export function Hero() {
     return (
         <div className="relative h-screen w-full overflow-hidden group">
             <div className="size-full block">
-                <img
-                    src="https://res.cloudinary.com/dla8a0y7n/image/upload/v1764658021/hero-background_jdgiur.jpg"
+                <Image
+                    loader={cloudinaryLoader}
+                    src={HERO_SRC}
                     alt="Hero Background"
+                    fill
+                    priority
+                    sizes="100vw"
                     className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                 />
                 {/* Darker overlay for better text contrast matching the reference */}

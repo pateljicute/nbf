@@ -219,7 +219,12 @@ export async function getProducts(params?: {
   amenities?: string[];
 }): Promise<Product[]> {
   try {
-    let dbQuery = supabase.from("properties").select("*");
+    const safeLimit = params?.limit && params.limit > 0 ? Math.min(params.limit, 50) : 24;
+
+    let dbQuery = supabase
+      .from("properties")
+      .select("id,handle,title,description,price_range,currency_code,featured_image,tags,available_for_sale,category_id,contact_number,user_id,seo")
+      .limit(safeLimit);
 
     // Apply base filter
     dbQuery = dbQuery.eq('available_for_sale', true);
@@ -249,10 +254,6 @@ export async function getProducts(params?: {
       for (const amenity of params.amenities) {
         dbQuery = dbQuery.ilike('tags', `%${sanitizeInput(amenity)}%`);
       }
-    }
-
-    if (params?.limit) {
-      dbQuery = dbQuery.limit(params.limit);
     }
 
     if (params?.sortKey === 'PRICE') {
@@ -338,7 +339,7 @@ export async function getUserProducts(userId: string): Promise<Product[]> {
   try {
     const { data, error } = await supabase
       .from("properties")
-      .select("*")
+      .select("id,handle,title,description,price_range,currency_code,featured_image,tags,available_for_sale,category_id,contact_number,user_id,seo")
       .eq('user_id', userId);
 
     if (error) {
@@ -404,7 +405,12 @@ export async function getCollectionProducts(params: {
     // Assuming properties table has a category_id or similar, OR there is a join table.
     // Based on types, Product has categoryId.
 
-    let dbQuery = supabase.from("properties").select("*").eq('category_id', collectionData.id).eq('available_for_sale', true);
+    let dbQuery = supabase
+      .from("properties")
+      .select("id,handle,title,description,price_range,currency_code,featured_image,tags,available_for_sale,category_id,contact_number,user_id,seo")
+      .eq('category_id', collectionData.id)
+      .eq('available_for_sale', true)
+      .limit(50);
 
     if (params.query) {
       const sanitizedQuery = sanitizeInput(params.query);

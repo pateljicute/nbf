@@ -85,6 +85,7 @@ export function Header({ collections }: HeaderProps) {
                       alt="Profile"
                       className="absolute inset-0 w-full h-full object-cover"
                       referrerPolicy="no-referrer"
+                      loading="lazy"
                     />
                   ) : (
                     <User className="w-4 h-4" />
@@ -111,6 +112,7 @@ export function Header({ collections }: HeaderProps) {
                     alt="Profile"
                     className="absolute inset-0 w-full h-full object-cover"
                     referrerPolicy="no-referrer"
+                    loading="lazy"
                   />
                 ) : (
                   <User className="w-5 h-5" />

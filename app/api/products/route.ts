@@ -13,13 +13,17 @@ export async function GET(request: NextRequest) {
     try {
         checkRateLimit(request.headers, 'general');
 
-        const cacheKey = 'all_properties';
+        const cacheKey = 'all_properties_v2';
         const cached = cacheGet(cacheKey);
         if (cached) {
             return NextResponse.json(cached);
         }
 
-        const { data, error } = await supabase.from("properties").select("*").eq('available_for_sale', true);
+        const { data, error } = await supabase
+            .from("properties")
+            .select("id,handle,title,description,price_range,currency_code,featured_image,tags,available_for_sale,category_id,contact_number,user_id,seo")
+            .eq('available_for_sale', true)
+            .limit(50);
         if (error) throw error;
 
         const result = data.map(mapPropertyToProduct);
@@ -42,17 +46,14 @@ export async function POST(request: NextRequest) {
         // Validate and sanitize inputs
         let { query, limit, sortKey, reverse, minPrice, maxPrice, location, propertyType, amenities } = body;
 
+        const safeLimit = limit && validateInput(limit, 'number')
+            ? Math.max(1, Math.min(Math.floor(limit), 50))
+            : 24;
+
         if (query && validateInput(query, 'string')) {
             query = sanitizeInput(query);
         } else if (query) {
             throw new Error("Security Alert: Invalid query parameter");
-        }
-
-        if (limit !== undefined) {
-            if (!validateInput(limit, 'number') || limit < 1 || limit > 1000) {
-                throw new Error("Security Alert: Invalid limit parameter");
-            }
-            limit = Math.floor(limit);
         }
 
         if (sortKey && !['PRICE', 'CREATED_AT', 'RELEVANCE'].includes(sortKey)) {
@@ -83,7 +84,10 @@ export async function POST(request: NextRequest) {
             throw new Error("Security Alert: Invalid amenities parameter");
         }
 
-        let dbQuery = supabase.from("properties").select("*");
+        let dbQuery = supabase
+            .from("properties")
+            .select("id,handle,title,description,price_range,currency_code,featured_image,tags,available_for_sale,category_id,contact_number,user_id,seo")
+            .limit(safeLimit);
 
         // Apply base filter
         dbQuery = dbQuery.eq('available_for_sale', true);
@@ -114,10 +118,6 @@ export async function POST(request: NextRequest) {
                     dbQuery = dbQuery.ilike('tags', `%${sanitizeInput(amenity)}%`);
                 }
             }
-        }
-
-        if (limit) {
-            dbQuery = dbQuery.limit(limit);
         }
 
         if (sortKey === 'PRICE') {

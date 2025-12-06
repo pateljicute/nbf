@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { Heart } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { LoginModal } from '@/components/auth/login-modal';
+import { ProductImage } from '@/components/ui/product-image';
 
 export const ProductCard = ({ product, className }: { product: Product; className?: string }) => {
   const { user } = useAuth();
@@ -26,11 +27,13 @@ export const ProductCard = ({ product, className }: { product: Product; classNam
       <div className={cn('group flex flex-col bg-white border border-neutral-200 rounded-xl overflow-hidden hover:shadow-lg transition-all duration-300', className)}>
         {/* Image Section */}
         <div className="relative aspect-[4/3] overflow-hidden bg-neutral-100">
-          <Link href={`/product/${product.handle}`} className="block size-full" prefetch onClick={handleProductClick}>
-            <img
+          <Link href={`/product/${product.handle}`} className="block size-full" onClick={handleProductClick}>
+            <ProductImage
               src={product.featuredImage?.url || '/placeholder.svg'}
               alt={product.featuredImage?.altText || product.title}
+              fill
               className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
             />
           </Link>
           {/* Tag */}

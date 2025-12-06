@@ -64,8 +64,9 @@ export function MobileGallerySlider({ product }: MobileGallerySliderProps) {
                 width={image.width}
                 height={image.height}
                 className="w-full h-full object-cover"
-                quality={100}
+                quality={70}
                 priority={index === 0}
+                sizes="100vw"
               />
             </div>
           ))}

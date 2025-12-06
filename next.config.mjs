@@ -19,6 +19,14 @@ const nextConfig = {
       'embla-carousel-react',
     ],
   },
+  images: {
+    loader: 'custom',
+    loaderFile: './lib/cloudinary-loader.ts',
+    remotePatterns: [
+      { protocol: 'https', hostname: 'res.cloudinary.com' },
+    ],
+    unoptimized: true,
+  },
   eslint: { ignoreDuringBuilds: true },
   typescript: { ignoreBuildErrors: true },
   compress: true,

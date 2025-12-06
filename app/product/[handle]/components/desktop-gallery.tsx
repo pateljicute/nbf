@@ -56,7 +56,8 @@ export const DesktopGallery = ({ product }: { product: Product }) => {
           alt={selectedImage.altText}
           fill
           className="object-contain p-2"
-          priority
+          sizes="(max-width: 1024px) 100vw, 60vw"
+          priority={false}
         />
       </div>
     </div>
