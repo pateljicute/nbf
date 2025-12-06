@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ProductImage } from '@/components/ui/product-image';
 import useEmblaCarousel from 'embla-carousel-react';
-import { Product } from '@/lib/types';
+import { Product, Image as ProductImageType } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { useProductImages, useSelectedOptions } from '@/components/products/variant-selector';
 import { getOptimizedImageUrl } from '@/lib/cloudinary-utils';
@@ -49,7 +49,7 @@ export function MobileGallerySlider({ product }: MobileGallerySliderProps) {
       {/* Embla Carousel */}
       <div className="overflow-hidden h-full" ref={emblaRef}>
         <div className="flex h-full">
-          {images.map((image, index) => (
+          {images.map((image: ProductImageType, index: number) => (
             <div
               key={`${image.url}-${image.selectedOptions?.map(o => `${o.name},${o.value}`).join('-')}`}
               className="flex-shrink-0 w-full h-full relative"

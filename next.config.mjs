@@ -27,18 +27,9 @@ const nextConfig = {
     ],
     unoptimized: true,
   },
-  eslint: { ignoreDuringBuilds: true },
-  typescript: { ignoreBuildErrors: true },
   compress: true,
   productionBrowserSourceMaps: false,
   poweredByHeader: false,
-
-  // Reduce bundle size
-  modularizeImports: {
-    'lucide-react': {
-      transform: 'lucide-react/dist/esm/icons/{{kebabCase member}}',
-    },
-  },
 
   // Headers for caching static assets and security
   async headers() {

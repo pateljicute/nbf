@@ -30,7 +30,6 @@ export const uploadImage = async (file: File, folder: string = 'nbfhomes/propert
   // Log config for debugging (excluding secret)
   console.log('Cloudinary Config:', {
     cloudName: CLOUDINARY_CONFIG.cloudName,
-    apiKey: CLOUDINARY_CONFIG.apiKey,
     uploadPreset: CLOUDINARY_CONFIG.uploadPreset,
   });
 

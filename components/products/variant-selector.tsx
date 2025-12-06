@@ -1,7 +1,7 @@
 'use client';
 
 import { cva, type VariantProps } from 'class-variance-authority';
-import { CartProduct, Product, ProductOption, ProductVariant, SelectedOptions } from '@/lib/types';
+import { Product, ProductOption, ProductVariant, SelectedOptions } from '@/lib/types';
 import { startTransition, useMemo } from 'react';
 import { useQueryState, parseAsString } from 'nuqs';
 import { useParams, useSearchParams } from 'next/navigation';
@@ -198,7 +198,7 @@ export const useSelectedVariant = (product: Product) => {
   return selectedVariant;
 };
 
-export const useProductImages = (product: Product | CartProduct, selectedOptions?: SelectedOptions) => {
+export const useProductImages = (product: Product, selectedOptions?: SelectedOptions) => {
   const images = useMemo(() => {
     return Array.isArray(product.images) ? product.images : [];
   }, [product.images]);

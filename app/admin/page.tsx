@@ -60,14 +60,27 @@ export default function AdminPage() {
         }
     }, []);
 
+    const checkAdmin = useCallback(async () => {
+        if (!user) return;
+
+        const adminStatus = await checkIsAdmin(user.id);
+        setIsAdmin(adminStatus);
+
+        if (!adminStatus) {
+            alert('Access Denied: Admin only');
+            router.push('/');
+        } else {
+            fetchStats();
+        }
+    }, [user, router]);
+
     useEffect(() => {
         if (!isLoading && !user) {
             router.push('/');
         } else if (user) {
             checkAdmin();
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [user, isLoading, router]);
+    }, [user, isLoading, router, checkAdmin]);
 
     // Debounce search
     useEffect(() => {
@@ -90,20 +103,6 @@ export default function AdminPage() {
         const data = await getAdminStats();
         setStats(data);
     };
-
-    const checkAdmin = useCallback(async () => {
-        if (!user) return;
-
-        const adminStatus = await checkIsAdmin(user.id);
-        setIsAdmin(adminStatus);
-
-        if (!adminStatus) {
-            alert('Access Denied: Admin only');
-            router.push('/');
-        } else {
-            fetchStats();
-        }
-    }, [user, router]);
 
     const handlePageChange = (newPage: number) => {
         if (newPage >= 1 && newPage <= totalPages) {

@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { notFound } from 'next/navigation';
 
 import { getCollection, getProduct, getProducts } from '@/lib/api';
@@ -40,6 +40,11 @@ export async function generateStaticParams() {
 
 // Cache for 5 minutes to reduce Vercel bandwidth
 export const revalidate = 300;
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+};
 
 export async function generateMetadata(props: { params: Promise<{ handle: string }> }): Promise<Metadata> {
   const params = await props.params;
