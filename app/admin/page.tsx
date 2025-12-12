@@ -3,7 +3,8 @@
 import { useAuth } from '@/lib/auth-context';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
-import { getAdminProducts, getAdminStats, checkIsAdmin, adminDeleteProduct, updateProductStatus, getAdminUsers, approveProduct } from '@/lib/api';
+import { getAdminProducts, getAdminStats, adminDeleteProduct, updateProductStatus, getAdminUsers, approveProduct } from '@/lib/api';
+import { checkAdminStatus } from '@/app/actions';
 import { Product } from '@/lib/types';
 import { Trash2, Eye, Users, Building, TrendingUp, ChevronLeft, ChevronRight, Search, Filter, CheckCircle, XCircle, Download } from 'lucide-react';
 
@@ -64,7 +65,7 @@ export default function AdminPage() {
     const checkAdmin = useCallback(async () => {
         if (!user) return;
 
-        const adminStatus = await checkIsAdmin(user.id);
+        const adminStatus = await checkAdminStatus(user.id);
         setIsAdmin(adminStatus);
         setAdminChecked(true);
 

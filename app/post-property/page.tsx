@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { CheckCircle2, ArrowRight, ShieldCheck } from 'lucide-react';
 
 import { useAuth } from '@/lib/auth-context';
 import { getProducts, updateProduct, createProduct } from '@/lib/api';
@@ -15,6 +16,7 @@ export default function PostPropertyPage() {
     const { user, session } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
     const [isEditMode, setIsEditMode] = useState(false);
+    const [isSuccess, setIsSuccess] = useState(false);
     const [cities, setCities] = useState<string[]>([]);
     const [citySearch, setCitySearch] = useState('');
     const [showCityDropdown, setShowCityDropdown] = useState(false);
@@ -116,8 +118,8 @@ export default function PostPropertyPage() {
                     userId: user?.id
                 }, session?.access_token);
 
-                toast.success('Property posted successfully');
-                router.push('/shop');
+                setIsSuccess(true);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
             }
         } catch (error: any) {
             console.error('Error saving property:', error);
@@ -126,6 +128,51 @@ export default function PostPropertyPage() {
             setIsLoading(false);
         }
     };
+
+    const handleReturnHome = () => router.push('/');
+    const handleViewProfile = () => router.push('/profile');
+
+    if (isSuccess) {
+        return (
+            <div className="max-w-2xl mx-auto px-4 py-12">
+                <div className="bg-white p-12 rounded-2xl border border-neutral-100 shadow-xl text-center">
+                    <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-8 animate-in zoom-in duration-300">
+                        <ShieldCheck className="w-10 h-10 text-green-600" />
+                    </div>
+                    
+                    <h2 className="text-3xl font-serif font-medium text-neutral-900 mb-4">
+                        Submission Received
+                    </h2>
+                    
+                    <div className="space-y-4 max-w-md mx-auto mb-10">
+                        <p className="text-neutral-600 text-lg">
+                            Your property has been successfully submitted for review.
+                        </p>
+                        <p className="text-neutral-500 text-sm leading-relaxed bg-neutral-50 p-4 rounded-lg border border-neutral-100">
+                            To maintain our quality standards, our team reviews every listing. 
+                            Your property will be live on the platform within <span className="font-semibold text-neutral-900">24 hours</span>.
+                        </p>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+                        <button
+                            onClick={handleReturnHome}
+                            className="w-full sm:w-auto px-8 py-3 border border-neutral-200 rounded-xl hover:bg-neutral-50 transition-all font-medium text-neutral-600"
+                        >
+                            Return Home
+                        </button>
+                        <button
+                            onClick={handleViewProfile}
+                            className="w-full sm:w-auto px-8 py-3 bg-black text-white rounded-xl hover:bg-neutral-800 transition-all font-medium flex items-center justify-center gap-2 group"
+                        >
+                            View My Profile
+                            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="max-w-2xl mx-auto px-4 py-12">

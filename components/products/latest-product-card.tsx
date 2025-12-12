@@ -5,13 +5,14 @@ import { getOptimizedImageUrl } from '@/lib/cloudinary-utils';
 import { ProductImage } from '@/components/ui/product-image';
 import { Product } from '@/lib/types';
 import Link from 'next/link';
-import { Heart } from 'lucide-react';
+import { Share2 } from 'lucide-react';
 import { HeroSearch } from '../hero-search';
 import { useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { LoginModal } from '@/components/auth/login-modal';
 import Image from 'next/image';
 import cloudinaryLoader from '@/lib/cloudinary-loader';
+import { ShareModal } from '@/components/ui/share-modal';
 
 interface LatestProductCardProps {
   product: Product;
@@ -28,6 +29,28 @@ export function LatestProductCard({
 }: LatestProductCardProps) {
   const { user } = useAuth();
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+
+  const handleShare = async (product: Product) => {
+    try {
+      const shareData = {
+        title: product.title,
+        text: `Check out this property: ${product.description}\nPrice: ₹${Number(product.priceRange.minVariantPrice.amount).toLocaleString('en-IN')}/month`,
+        url: `${window.location.origin}/product/${product.handle}`
+      };
+
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        // Show custom share modal instead of browser alert
+        setShowShareModal(true);
+      }
+    } catch (error) {
+      console.error('Error sharing:', error);
+      // Show custom share modal on error as well
+      setShowShareModal(true);
+    }
+  };
 
   const handleProductClick = (e: React.MouseEvent) => {
     if (!user) {
@@ -161,13 +184,26 @@ export function LatestProductCard({
                 View Details
               </button>
             </Link>
-            <button className="p-2.5 border border-neutral-200 rounded-lg hover:bg-neutral-50 hover:border-neutral-300 transition-all text-neutral-400 hover:text-red-500 cursor-pointer">
-              <Heart className="size-5" />
+            <button
+              className="p-2.5 border border-neutral-200 rounded-lg hover:bg-neutral-50 hover:border-neutral-300 transition-all text-neutral-400 hover:text-blue-500 cursor-pointer"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleShare(product);
+              }}
+              title="Share this property"
+            >
+              <Share2 className="size-5" />
             </button>
           </div>
         </div>
       </div>
       <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} />
+      <ShareModal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        propertyTitle={product.title}
+        propertyUrl={`/product/${product.handle}`}
+      />
     </>
   );
 }

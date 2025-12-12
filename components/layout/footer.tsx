@@ -2,6 +2,9 @@ import Link from 'next/link';
 import { LogoSvg } from './header/logo-svg';
 import { getCollections } from '@/lib/api';
 import { Facebook, Instagram, Linkedin, Twitter, Globe } from 'lucide-react';
+import { CONTACT_LINKS } from '@/lib/constants';
+
+const getSocialLink = (label: string) => CONTACT_LINKS.find(l => l.label === label)?.href || '#';
 
 export async function Footer() {
   const collections = await getCollections();
@@ -19,10 +22,10 @@ export async function Footer() {
               Find your perfect room or PG on India's largest property marketplace.
             </p>
             <div className="flex gap-6">
-              <Link href="#" className="text-white hover:text-neutral-400 transition-colors"><Instagram size={24} /></Link>
-              <Link href="#" className="text-white hover:text-neutral-400 transition-colors"><Twitter size={24} /></Link>
-              <Link href="#" className="text-white hover:text-neutral-400 transition-colors"><Linkedin size={24} /></Link>
-              <Link href="#" className="text-white hover:text-neutral-400 transition-colors"><Facebook size={24} /></Link>
+              <Link href={getSocialLink('Instagram')} target="_blank" className="text-white hover:text-neutral-400 transition-colors"><Instagram size={24} /></Link>
+              <Link href={getSocialLink('X')} target="_blank" className="text-white hover:text-neutral-400 transition-colors"><Twitter size={24} /></Link>
+              <Link href={getSocialLink('LinkedIn')} target="_blank" className="text-white hover:text-neutral-400 transition-colors"><Linkedin size={24} /></Link>
+              <Link href={getSocialLink('Facebook')} target="_blank" className="text-white hover:text-neutral-400 transition-colors"><Facebook size={24} /></Link>
             </div>
           </div>
 

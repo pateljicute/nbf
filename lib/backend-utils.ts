@@ -1,4 +1,13 @@
 import { supabase } from './db';
+import { Redis } from '@upstash/redis';
+
+// Initialize Redis client
+const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
+    ? new Redis({
+        url: process.env.UPSTASH_REDIS_REST_URL,
+        token: process.env.UPSTASH_REDIS_REST_TOKEN,
+    })
+    : null;
 
 // --- Types (Mirroring Frontend Types) ---
 export interface Money {
@@ -391,6 +400,19 @@ export const verifyAdmin = async (headers: Headers) => {
         throw new Error('Security Alert: Invalid admin user ID format');
     }
 
+    // Optimization: Check Redis Cache
+    const cacheKey = `auth:admin:${adminUserId}`;
+    if (redis) {
+        try {
+            const cachedAdmin = await redis.get(cacheKey);
+            if (cachedAdmin) {
+                return cachedAdmin;
+            }
+        } catch (e) {
+            console.warn('Redis cache error:', e);
+        }
+    }
+
     // Check if user is an admin in the database
     const { data: adminCheck, error } = await supabase
         .from("admin_users")
@@ -401,6 +423,16 @@ export const verifyAdmin = async (headers: Headers) => {
     if (error || !adminCheck) {
         console.error('Admin verification failed:', error);
         throw new Error('Unauthorized: Admin access required');
+    }
+
+    // Cache the result
+    if (redis) {
+        try {
+            // Cache for 5 minutes
+            await redis.set(cacheKey, adminCheck, { ex: 300 });
+        } catch (e) {
+            console.warn('Redis set error:', e);
+        }
     }
 
     return adminCheck;

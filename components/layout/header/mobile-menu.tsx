@@ -6,7 +6,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { navItems } from './index';
-import { SidebarLinks } from '../sidebar/product-sidebar-links';
 import { ShopLinks } from '../shop-links';
 import { Collection } from '@/lib/types';
 import { useBodyScrollLock } from '@/lib/hooks/use-body-scroll-lock';
@@ -99,16 +98,6 @@ export default function MobileMenu({ collections }: MobileMenuProps) {
                 </nav>
 
                 <ShopLinks label="Categories" collections={collections} />
-
-                <div className="mt-auto mb-6 text-sm leading-tight opacity-50">
-                  <p className="italic">Refined. Minimal. Never boring.</p>
-                  <div className="mt-5">
-                    <p>Furniture that speaks softly, but stands out loud.</p>
-                    <p>Clean lines, crafted with wit.</p>
-                    <p>Elegance with a wink — style first</p>
-                  </div>
-                </div>
-                <SidebarLinks className="gap-2 w-full" />
               </div>
             </motion.div>
           </>

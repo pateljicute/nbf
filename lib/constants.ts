@@ -24,16 +24,20 @@ export const TAGS = {
 
 export const CONTACT_LINKS: NavItem[] = [
   {
-    label: '37°47\'33.4"N 122°24\'18.6"W',
-    href: 'https://maps.app.goo.gl/MnpbPDEHxoDydc9M9',
-  },
-  {
-    label: '(269) 682-1402',
-    href: 'https://joyco.studio/showcase',
-  },
-  {
     label: 'Instagram',
-    href: 'https://www.instagram.com/joyco.studio/',
+    href: 'https://www.instagram.com/nbfhomes?igsh=djhqOGFxZ3B0YTdm',
+  },
+  {
+    label: 'LinkedIn',
+    href: 'https://www.linkedin.com/in/nbf-home-2689b4381?utm_source=share_via&utm_content=profile&utm_medium=member_android',
+  },
+  {
+    label: 'Facebook',
+    href: 'https://www.facebook.com/share/1D5Wy7b6mH/',
+  },
+  {
+    label: 'X',
+    href: 'https://x.com/nbfhomes?t=qKoVLjAtKGDC01db_SJlcw&s=09',
   },
 ];
 
