@@ -266,20 +266,7 @@ export default async function ProductPage(props: { params: Promise<{ handle: str
             </div>
 
             {/* Additional Details Grid (Mocked for now based on image) */}
-            <div className="grid grid-cols-2 gap-y-4 gap-x-8 pt-6 border-t border-neutral-100 text-xs text-neutral-500">
-              <div>
-                <span className="block mb-1">Coordinates</span>
-                <span className="font-mono text-neutral-900">37°47'33.4"N 122°24'18.6"W</span>
-              </div>
-              <div className="text-right">
-                <span className="block mb-1">Contact</span>
-                <span className="font-mono text-neutral-900">(269) 682-1402</span>
-              </div>
-              <div>
-                <span className="block mb-1">Social</span>
-                <span className="font-medium text-neutral-900">Instagram</span>
-              </div>
-            </div>
+
 
           </div>
         </div>
