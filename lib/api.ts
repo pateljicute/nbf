@@ -2,6 +2,10 @@ import { Product, Collection, ProductSortKey, ProductCollectionSortKey } from '.
 import { supabase } from './db';
 import { getAdminClient } from './supabase-admin';
 import { mapPropertyToProduct, mapDbCollectionToCollection } from './backend-utils';
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || (typeof window === 'undefined' ? 'http://localhost:3000/api' : '/api');
 
@@ -505,8 +509,15 @@ export async function createProduct(data: any, token?: string): Promise<Product>
   // @ts-ignore
   sanitizedData.id = crypto.randomUUID();
 
+  // Create authenticated client if token is present
+  const client = token
+    ? createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: `Bearer ${token}` } }
+    })
+    : supabase;
+
   // Insert into Supabase
-  const { data: newProduct, error } = await supabase
+  const { data: newProduct, error } = await client
     .from('properties')
     .insert([sanitizedData])
     .select()
@@ -578,8 +589,15 @@ export async function updateProduct(id: string, data: any, token?: string): Prom
 
   const sanitizedId = sanitizeInput(id);
 
+  // Create authenticated client if token is present
+  const client = token
+    ? createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: `Bearer ${token}` } }
+    })
+    : supabase;
+
   // Update in Supabase
-  const { data: updatedProduct, error } = await supabase
+  const { data: updatedProduct, error } = await client
     .from('properties')
     .update(sanitizedData)
     .eq('id', sanitizedId)
@@ -602,8 +620,15 @@ export async function deleteProduct(id: string, token?: string): Promise<{ succe
 
   const sanitizedId = sanitizeInput(id);
 
+  // Create authenticated client if token is present
+  const client = token
+    ? createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: `Bearer ${token}` } }
+    })
+    : supabase;
+
   // Delete from Supabase
-  const { error } = await supabase
+  const { error } = await client
     .from('properties')
     .delete()
     .eq('id', sanitizedId);
