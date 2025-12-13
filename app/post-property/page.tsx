@@ -71,7 +71,7 @@ export default function PostPropertyPage() {
                     title: property.title,
                     description: property.description,
                     price: property.priceRange.minVariantPrice.amount,
-                    address: property.categoryId || '',
+                    address: property.tags?.[2] || '',
                     location: location,
                     type: property.tags?.[0] || 'PG',
                     images: existingImages,
@@ -139,17 +139,17 @@ export default function PostPropertyPage() {
                     <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-8 animate-in zoom-in duration-300">
                         <ShieldCheck className="w-10 h-10 text-green-600" />
                     </div>
-                    
+
                     <h2 className="text-3xl font-serif font-medium text-neutral-900 mb-4">
                         Submission Received
                     </h2>
-                    
+
                     <div className="space-y-4 max-w-md mx-auto mb-10">
                         <p className="text-neutral-600 text-lg">
                             Your property has been successfully submitted for review.
                         </p>
                         <p className="text-neutral-500 text-sm leading-relaxed bg-neutral-50 p-4 rounded-lg border border-neutral-100">
-                            To maintain our quality standards, our team reviews every listing. 
+                            To maintain our quality standards, our team reviews every listing.
                             Your property will be live on the platform within <span className="font-semibold text-neutral-900">24 hours</span>.
                         </p>
                     </div>

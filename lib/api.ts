@@ -495,6 +495,10 @@ export async function createProduct(data: any, token?: string): Promise<Product>
   if (user) {
     // @ts-ignore
     sanitizedData.user_id = user.id;
+  } else if (data.userId) {
+    // Fallback to passed userId
+    // @ts-ignore
+    sanitizedData.user_id = data.userId;
   }
 
   // Generate ID

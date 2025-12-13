@@ -220,10 +220,10 @@ export default async function ProductPage(props: { params: Promise<{ handle: str
                   <p className="text-sm font-semibold truncate">{product.tags[1]}</p>
                 </div>
               )}
-              {product.categoryId && (
+              {product.tags && product.tags[2] && product.tags[2] !== 'joyco-root' && (
                 <div className="p-3 border border-neutral-200 rounded-lg text-center hover:border-neutral-300 transition-colors">
                   <p className="text-[10px] text-neutral-500 uppercase font-bold tracking-wider mb-1">Location</p>
-                  <p className="text-sm font-semibold truncate">{product.categoryId}</p>
+                  <p className="text-sm font-semibold truncate">{product.tags[2]}</p>
                 </div>
               )}
             </div>
