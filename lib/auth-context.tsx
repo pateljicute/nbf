@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/db';
 import { User, Session } from '@supabase/supabase-js';
 
 interface AuthContextType {
@@ -18,7 +18,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [session, setSession] = useState<Session | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const supabase = createClient();
+    
+    // Use the global singleton client from lib/db.ts
+    // const supabase = useMemo(() => createClient(), []);
 
     useEffect(() => {
         // Check active session

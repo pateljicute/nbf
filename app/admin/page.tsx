@@ -3,11 +3,11 @@
 import { useAuth } from '@/lib/auth-context';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
-import { getAdminProducts, getAdminStats, adminDeleteProduct, updateProductStatus, getAdminUsers, approveProduct } from '@/lib/api';
-import { checkAdminStatus } from '@/app/actions';
+import { getAdminProducts, getAdminStats, getAdminUsers } from '@/lib/api';
+import { checkAdminStatus, updateProductStatusAction, approveProductAction, adminDeleteProductAction } from '@/app/actions';
 import { Product } from '@/lib/types';
+import { getOptimizedImageUrl } from '@/lib/cloudinary-utils';
 import { Trash2, Eye, Users, Building, TrendingUp, ChevronLeft, ChevronRight, Search, Filter, CheckCircle, XCircle, Download } from 'lucide-react';
-
 interface AdminUser {
     userId: string;
     contactNumber: string;
@@ -136,14 +136,14 @@ export default function AdminPage() {
     const handleApprove = async (id: string) => {
         if (!user) return;
         try {
-            const success = await approveProduct(id, user.id);
-            if (success) {
+            const result = await approveProductAction(id, user.id);
+            if (result.success) {
                 // Remove from list
                 setProperties(properties.filter(p => p.id !== id));
                 fetchStats();
                 alert('Property approved successfully');
             } else {
-                alert('Failed to approve property');
+                alert(`Failed to approve property: ${result.error || 'Unknown error'}`);
             }
         } catch (error) {
             console.error('Error approving:', error);
@@ -156,9 +156,13 @@ export default function AdminPage() {
         if (!user) return;
 
         try {
-            await adminDeleteProduct(id, user.id);
-            fetchProducts(currentPage);
-            fetchStats();
+            const result = await adminDeleteProductAction(id, user.id);
+            if (result.success) {
+                fetchProducts(currentPage);
+                fetchStats();
+            } else {
+                alert(`Failed to delete property: ${result.error || 'Unknown error'}`);
+            }
         } catch (error) {
             console.error('Error deleting:', error);
             alert('Failed to delete property');
@@ -168,12 +172,16 @@ export default function AdminPage() {
     const handleStatusToggle = async (id: string, currentStatus: boolean) => {
         if (!user) return;
         try {
-            await updateProductStatus(id, !currentStatus, user.id);
-            // Optimistic update
-            setProperties(properties.map(p =>
-                p.id === id ? { ...p, availableForSale: !currentStatus } : p
-            ));
-            fetchStats();
+            const result = await updateProductStatusAction(id, !currentStatus, user.id);
+            if (result.success) {
+                // Optimistic update
+                setProperties(properties.map(p =>
+                    p.id === id ? { ...p, availableForSale: !currentStatus } : p
+                ));
+                fetchStats();
+            } else {
+                alert(`Failed to update status: ${result.error || 'Unknown error'}`);
+            }
         } catch (error) {
             console.error('Error updating status:', error);
             alert('Failed to update status');
@@ -388,12 +396,11 @@ export default function AdminPage() {
                                                                     {property.featuredImage && property.featuredImage.url ? (
                                                                         <img
                                                                             className="h-10 w-10 rounded object-cover"
-                                                                            src={`https://res.cloudinary.com/dla8a0y7n/image/upload/f_auto,q_auto,w_160/${property.featuredImage.url.replace(/^https?:\/\/res\.cloudinary\.com\/[^/]+\/image\/upload\//, '')}`}
+                                                                            src={getOptimizedImageUrl(property.featuredImage.url, 160, 160, 'fill')}
                                                                             alt=""
                                                                             loading="lazy"
                                                                         />
-                                                                    ) : (
-                                                                        <div className="h-10 w-10 rounded bg-neutral-200" />
+                                                                    ) : (                                                                        <div className="h-10 w-10 rounded bg-neutral-200" />
                                                                     )}
                                                                 </div>
                                                                 <div className="ml-4">
@@ -612,12 +619,11 @@ export default function AdminPage() {
                                                                         {property.featuredImage && property.featuredImage.url ? (
                                                                             <img
                                                                                 className="h-10 w-10 rounded object-cover"
-                                                                                src={`https://res.cloudinary.com/dla8a0y7n/image/upload/f_auto,q_auto,w_160/${property.featuredImage.url.replace(/^https?:\/\/res\.cloudinary\.com\/[^/]+\/image\/upload\//, '')}`}
+                                                                                src={getOptimizedImageUrl(property.featuredImage.url, 160, 160, 'fill')}
                                                                                 alt=""
                                                                                 loading="lazy"
                                                                             />
-                                                                        ) : (
-                                                                            <div className="h-10 w-10 rounded bg-neutral-200" />
+                                                                        ) : (                                                                            <div className="h-10 w-10 rounded bg-neutral-200" />
                                                                         )}
                                                                     </div>
                                                                     <div className="ml-4">

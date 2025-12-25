@@ -2,7 +2,7 @@
 
 import { useAuth } from '@/lib/auth-context';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { User, LogOut, MapPin, Phone, Mail, Building, Edit, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'motion/react';
@@ -17,7 +17,9 @@ export default function ProfilePage() {
     const [loadingProperties, setLoadingProperties] = useState(true);
     const [editingProperty, setEditingProperty] = useState<Product | null>(null);
     const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-    const supabase = createClient();
+    
+    // Create client only once using useMemo to prevent multiple instances
+    const supabase = useMemo(() => createClient(), []);
 
     useEffect(() => {
         if (!isLoading && !user) {

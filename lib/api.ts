@@ -721,7 +721,14 @@ export async function getAdminProducts(page: number = 1, limit: number = 10, sea
 
 export async function updateProductStatus(id: string, availableForSale: boolean, adminUserId: string): Promise<Product | null> {
   try {
-    const { data, error } = await supabase
+    // Use admin client to bypass RLS policies
+    const adminClient = getAdminClient();
+    if (!adminClient) {
+      console.error('Admin client not available');
+      return null;
+    }
+
+    const { data, error } = await adminClient
       .from('properties')
       .update({ available_for_sale: availableForSale })
       .eq('id', id)
