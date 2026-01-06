@@ -53,7 +53,7 @@ export function HomeClient({ initialProducts, adSettings }: HomeClientProps) {
             {/* Product Grid Section */}
             <section
                 suppressHydrationWarning
-                className="w-full max-w-[1920px] mx-auto px-6 md:px-12 relative z-20 mt-0 bg-white rounded-t-3xl pt-8"
+                className="w-full max-w-[1920px] mx-auto px-6 md:px-12 relative z-20 -mt-20 bg-white rounded-t-3xl pt-8"
             >
                 <div
                     suppressHydrationWarning
