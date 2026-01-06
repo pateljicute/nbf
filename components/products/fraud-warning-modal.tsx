@@ -29,7 +29,7 @@ export function FraudWarningModal({ isOpen, onClose, onConfirm }: FraudWarningMo
                     {/* Warning Box */}
                     <div className="bg-neutral-50 border border-neutral-100 rounded-lg p-4 text-center">
                         <p className="text-sm font-medium text-neutral-900 leading-relaxed">
-                            Do not pay or transfer any money to owners before meeting them in person.
+                            Safety Warning: Do not give advance money to anyone without seeing the property or meeting the owner. Finalize the deal only after talking directly to the owner.
                         </p>
                     </div>
 

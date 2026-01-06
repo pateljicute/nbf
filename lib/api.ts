@@ -1,4 +1,5 @@
 import { Product, Collection, ProductSortKey, ProductCollectionSortKey } from './types';
+import { apiClient } from './api-client';
 import { supabase } from './db';
 import { getAdminClient } from './supabase-admin';
 import { mapPropertyToProduct, mapDbCollectionToCollection } from './backend-utils';
@@ -7,7 +8,7 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || (typeof window === 'undefined' ? 'http://localhost:3000/api' : '/api');
+const API_URL = process.env.NEXT_PUBLIC_API_URL || (typeof window === 'undefined' ? (process.env.NEXT_PUBLIC_SITE_URL ? `${process.env.NEXT_PUBLIC_SITE_URL}/api` : 'http://localhost:3000/api') : '/api');
 
 
 // CSRF Token utilities - No longer needed with direct Supabase calls
@@ -211,6 +212,60 @@ const mockCollections: Collection[] = [
   }
 ];
 
+// Location Suggestion Interface
+export interface LocationSuggestion {
+  label: string;
+  type: 'City' | 'Area' | 'Type';
+}
+
+export async function getLocationSuggestions(query: string): Promise<LocationSuggestion[]> {
+  // Using cached API endpoint if available, but for now internal simple logic is fine if it doesn't leak secrets.
+  // However, strict API usage suggests we should move this to an API route too. 
+  // For 'getLocationSuggestions', it's okay to keep client-side Supabase for simpler auto-complete 
+  // unles we want to hide DB structure strictly. 
+  // Let's implement a quick API route scan later if needed, but for now, 
+  // keeping this direct is acceptable as it READS public data.
+  // BUT user asked for removing direct calls.
+  // Let's try to map it to the products searh or a new `api/suggestions` route.
+
+  // Since we don't have `api/suggestions` route yet, let's keep it safe.
+  // But wait! `getProducts` with `query` param does a search. 
+
+  if (!query || query.length < 2) return [];
+  const sanitizedQuery = query.toLowerCase(); // simplified for brevity
+
+  try {
+    // TODO: Move to /api/suggestions
+    // For now, retaining direct READ access to 'properties' is standard for public data in Supabase apps.
+    // However, I will wrap it in a cleaner try/catch block.
+
+    // Use the main search API to get suggestions
+    // This avoids direct DB access and uses the centralized logic
+    const products = await getProducts({ query: sanitizedQuery, limit: 8 });
+
+    // Extract suggestions from products
+    const suggestions = new Set<string>();
+    const results: LocationSuggestion[] = [];
+
+    products.forEach(product => {
+      // Add title (partial) or location/tags
+      if (product.tags) {
+        product.tags.forEach(tag => {
+          if (tag.toLowerCase().includes(sanitizedQuery) && !suggestions.has(tag.toLowerCase())) {
+            suggestions.add(tag.toLowerCase());
+            results.push({ label: tag, type: 'Type' }); // tagging as Type for generic
+          }
+        });
+      }
+    });
+
+    return results.slice(0, 8);
+  } catch (error) {
+    console.error('Auto-suggest error:', error);
+    return [];
+  }
+}
+
 export async function getProducts(params?: {
   sortKey?: ProductSortKey;
   reverse?: boolean;
@@ -221,67 +276,25 @@ export async function getProducts(params?: {
   location?: string;
   propertyType?: string;
   amenities?: string[];
+  city?: string;
+  area?: string;
+  type?: string;
 }): Promise<Product[]> {
   try {
-    const safeLimit = params?.limit && params.limit > 0 ? Math.min(params.limit, 50) : 24;
+    // Determine if we need to filter/search (POST) or just get all (GET)
+    // Actually, the GET endpoint is cached and simple, while POST handles all query logic.
+    // If we have ANY params, use POST. If empty, use GET.
 
-    let dbQuery = supabase
-      .from("properties")
-      .select("id,handle,title,description,price_range,currency_code,featured_image,tags,available_for_sale,category_id,contact_number,user_id,seo")
-      .limit(safeLimit);
-
-    // Apply base filter
-    dbQuery = dbQuery.eq('available_for_sale', true);
-
-    // Apply search and filtering
-    if (params?.query) {
-      const sanitizedQuery = sanitizeInput(params.query);
-      dbQuery = dbQuery.or(`title.ilike.%${sanitizedQuery}%,description.ilike.%${sanitizedQuery}%`);
-    }
-
-    if (params?.minPrice) {
-      dbQuery = dbQuery.gte('price_range->minVariantPrice->amount', parseFloat(params.minPrice));
-    }
-    if (params?.maxPrice) {
-      dbQuery = dbQuery.lte('price_range->minVariantPrice->amount', parseFloat(params.maxPrice));
-    }
-
-    if (params?.location) {
-      dbQuery = dbQuery.ilike('tags', `%${sanitizeInput(params.location)}%`);
-    }
-
-    if (params?.propertyType) {
-      dbQuery = dbQuery.ilike('tags', `%${sanitizeInput(params.propertyType)}%`);
-    }
-
-    if (params?.amenities && Array.isArray(params.amenities)) {
-      for (const amenity of params.amenities) {
-        dbQuery = dbQuery.ilike('tags', `%${sanitizeInput(amenity)}%`);
-      }
-    }
-
-    if (params?.sortKey === 'PRICE') {
-      dbQuery = dbQuery.order('price_range->minVariantPrice->amount', { ascending: !params.reverse });
-    } else if (params?.sortKey === 'CREATED_AT') {
-      dbQuery = dbQuery.order('created_at', { ascending: !params.reverse });
-    } else if (params?.sortKey === 'RELEVANCE' && params.query) {
-      // Relevance sorting is complex in SQL, defaulting to ID for now or created_at
-      dbQuery = dbQuery.order('created_at', { ascending: false });
-    } else {
-      dbQuery = dbQuery.order('created_at', { ascending: false });
-    }
-
-    const { data, error } = await dbQuery;
-
-    if (error) {
-      console.error('Error fetching products:', error);
-      return [];
-    }
-
-    return data.map(mapPropertyToProduct);
+    // Using POST for everything for consistency and simpler logic mapping to existing route
+    return await apiClient.post<Product[]>('/products', {
+      ...params,
+      limit: params?.limit || 24
+    });
   } catch (error) {
     console.error('Error in getProducts:', error);
-    return [];
+    // Return empty array to avoid crashing, let UI handle empty state 
+    // OR rethrow if we want specific ErrorMessage component to catch it
+    throw error;
   }
 }
 
@@ -440,205 +453,43 @@ export async function getCollectionProducts(params: {
 // Cart functions removed as per project requirements (Property Rental only)
 
 export async function createProduct(data: any, token?: string): Promise<Product> {
-  // Validate input data
-  if (!data.title || !validateInput(data.title, 'string') || data.title.length < 3 || data.title.length > 200) {
-    throw new Error("Security Alert: Invalid title parameter");
+  // Use POST /api/products/create (we need to ensure this route exists or matches /products)
+  // Actually, existing route app/api/products handles POST for *search* in strict standard,
+  // but commonly POST /products is CREATE.
+  // Let's look at `app/api/products/route.ts` - it handles SEARCH logic in POST!
+  // This is non-standard. The CREATE logic is missing or elsewhere.
+  // I need to create `app/api/properties/create` or similar if it doesn't exist.
+  // I see `app/api/products/create` in the file list earlier!
+
+  try {
+    const resCandidate = await apiClient.post<any>('/products/create', data, { token });
+    return mapPropertyToProduct(resCandidate);
+  } catch (e: any) {
+    // Fallback if the route doesn't exist yet but user wants it dynamic:
+    // We should throw to prompt the UI to handle it, or fix the route.
+    console.error("Create Product API failed", e);
+    throw e;
   }
-
-  if (!data.description || !validateInput(data.description, 'string') || data.description.length > 5000) {
-    throw new Error("Security Alert: Invalid description parameter");
-  }
-
-  if (!data.price || !validateInput(parseFloat(data.price), 'number') || parseFloat(data.price) <= 0) {
-    throw new Error("Security Alert: Invalid price parameter");
-  }
-
-  if (!data.address || !validateInput(data.address, 'string') || data.address.length > 500) {
-    throw new Error("Security Alert: Invalid address parameter");
-  }
-
-  if (!data.location || !validateInput(data.location, 'string') || data.location.length > 200) {
-    throw new Error("Security Alert: Invalid location parameter");
-  }
-
-  if (!data.type || !['PG', 'Flat', 'Room', 'Hostel'].includes(data.type)) {
-    throw new Error("Security Alert: Invalid property type parameter");
-  }
-
-  // Validate images array (support both old imageUrl and new images array)
-  const images = data.images || (data.imageUrl ? [data.imageUrl] : []);
-  if (!images.length || !images.every((url: string) => validateInput(url, 'url'))) {
-    throw new Error("Security Alert: Invalid image URL parameter");
-  }
-
-  if (!data.contactNumber || !validateInput(data.contactNumber, 'string') || data.contactNumber.length > 20) {
-    throw new Error("Security Alert: Invalid contact number parameter");
-  }
-
-  // Sanitize data
-  const sanitizedData = {
-    title: sanitizeInput(data.title),
-    description: sanitizeInput(data.description),
-    description_html: sanitizeInput(data.description), // Simple mapping for now
-    price_range: {
-      minVariantPrice: { amount: sanitizeInput(data.price), currencyCode: 'INR' },
-      maxVariantPrice: { amount: sanitizeInput(data.price), currencyCode: 'INR' }
-    },
-    // Map address/location to tags or specific fields if available
-    tags: [sanitizeInput(data.type), sanitizeInput(data.location), sanitizeInput(data.address), 'pending_approval'].filter(Boolean),
-    images: images.map((url: string) => ({ url: sanitizeInput(url), altText: sanitizeInput(data.title) })),
-    featured_image: { url: sanitizeInput(images[0]), altText: sanitizeInput(data.title) },
-    contact_number: sanitizeInput(data.contactNumber),
-    available_for_sale: false, // Default to false for approval workflow
-    handle: sanitizeInput(data.title).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + '-' + Math.random().toString(36).substring(7),
-    category_id: 'joyco-root' // Default category
-  };
-
-  // Get current user for user_id
-  const { data: { user } } = await supabase.auth.getUser();
-  if (user) {
-    // @ts-ignore
-    sanitizedData.user_id = user.id;
-  } else if (data.userId) {
-    // Fallback to passed userId
-    // @ts-ignore
-    sanitizedData.user_id = data.userId;
-  }
-
-  // Generate ID
-  // @ts-ignore
-  sanitizedData.id = crypto.randomUUID();
-
-  // Create authenticated client if token is present
-  const client = token
-    ? createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: `Bearer ${token}` } }
-    })
-    : supabase;
-
-  // Insert into Supabase
-  const { data: newProduct, error } = await client
-    .from('properties')
-    .insert([sanitizedData])
-    .select()
-    .single();
-
-  if (error) {
-    console.error('Error creating property:', error);
-    throw new Error('Failed to create property: ' + error.message);
-  }
-
-  return mapPropertyToProduct(newProduct);
 }
 
 export async function updateProduct(id: string, data: any, token?: string): Promise<Product> {
-  // Validate ID parameter
-  if (!id || !validateInput(id, 'string') || id.length > 100) {
-    throw new Error("Security Alert: Invalid ID parameter");
+  try {
+    const res = await apiClient.put<Product>(`/products/${id}`, data, { token });
+    return res;
+  } catch (e: any) {
+    console.error("Update Product API failed", e);
+    throw e;
   }
-
-  // Validate input data (same as createProduct)
-  if (!data.title || !validateInput(data.title, 'string') || data.title.length < 3 || data.title.length > 200) {
-    throw new Error("Security Alert: Invalid title parameter");
-  }
-
-  if (!data.description || !validateInput(data.description, 'string') || data.description.length > 5000) {
-    throw new Error("Security Alert: Invalid description parameter");
-  }
-
-  if (!data.price || !validateInput(parseFloat(data.price), 'number') || parseFloat(data.price) <= 0) {
-    throw new Error("Security Alert: Invalid price parameter");
-  }
-
-  if (!data.address || !validateInput(data.address, 'string') || data.address.length > 500) {
-    throw new Error("Security Alert: Invalid address parameter");
-  }
-
-  if (!data.location || !validateInput(data.location, 'string') || data.location.length > 200) {
-    throw new Error("Security Alert: Invalid location parameter");
-  }
-
-  if (!data.type || !['PG', 'Flat', 'Room', 'Hostel'].includes(data.type)) {
-    throw new Error("Security Alert: Invalid property type parameter");
-  }
-
-  // Validate images array (support both old imageUrl and new images array)
-  const images = data.images || (data.imageUrl ? [data.imageUrl] : []);
-  if (!images.length || !images.every((url: string) => validateInput(url, 'url'))) {
-    throw new Error("Security Alert: Invalid image URL parameter");
-  }
-
-  if (!data.contactNumber || !validateInput(data.contactNumber, 'string') || data.contactNumber.length > 20) {
-    throw new Error("Security Alert: Invalid contact number parameter");
-  }
-
-  // Sanitize data
-  const sanitizedData = {
-    title: sanitizeInput(data.title),
-    description: sanitizeInput(data.description),
-    description_html: sanitizeInput(data.description),
-    price_range: {
-      minVariantPrice: { amount: sanitizeInput(data.price), currencyCode: 'INR' },
-      maxVariantPrice: { amount: sanitizeInput(data.price), currencyCode: 'INR' }
-    },
-    tags: [sanitizeInput(data.type), sanitizeInput(data.location), sanitizeInput(data.address)].filter(Boolean),
-    images: images.map((url: string) => ({ url: sanitizeInput(url), altText: sanitizeInput(data.title) })),
-    featured_image: { url: sanitizeInput(images[0]), altText: sanitizeInput(data.title) },
-    contact_number: sanitizeInput(data.contactNumber)
-  };
-
-  const sanitizedId = sanitizeInput(id);
-
-  // Create authenticated client if token is present
-  const client = token
-    ? createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: `Bearer ${token}` } }
-    })
-    : supabase;
-
-  // Update in Supabase
-  const { data: updatedProduct, error } = await client
-    .from('properties')
-    .update(sanitizedData)
-    .eq('id', sanitizedId)
-    .select()
-    .single();
-
-  if (error) {
-    console.error('Error updating property:', error);
-    throw new Error('Failed to update property: ' + error.message);
-  }
-
-  return mapPropertyToProduct(updatedProduct);
 }
 
 export async function deleteProduct(id: string, token?: string): Promise<{ success: boolean }> {
-  // Validate ID parameter
-  if (!id || !validateInput(id, 'string') || id.length > 100) {
-    throw new Error("Security Alert: Invalid ID parameter");
+  try {
+    await apiClient.delete<{ success: boolean }>(`/products/${id}`, { token });
+    return { success: true };
+  } catch (e: any) {
+    console.error("Delete Product API failed", e);
+    throw e;
   }
-
-  const sanitizedId = sanitizeInput(id);
-
-  // Create authenticated client if token is present
-  const client = token
-    ? createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: `Bearer ${token}` } }
-    })
-    : supabase;
-
-  // Delete from Supabase
-  const { error } = await client
-    .from('properties')
-    .delete()
-    .eq('id', sanitizedId);
-
-  if (error) {
-    console.error('Error deleting property:', error);
-    throw new Error('Failed to delete property: ' + error.message);
-  }
-
-  return { success: true };
 }
 
 export async function checkIsAdmin(userId: string): Promise<boolean> {
@@ -685,12 +536,20 @@ export async function getAdminStats(): Promise<{ total: number; active: number; 
   }
 }
 
-export async function getAdminProducts(page: number = 1, limit: number = 10, search: string = '', status: string = 'all'): Promise<{ products: Product[]; total: number; page: number; limit: number }> {
+export async function getAdminProducts(
+  page: number = 1,
+  limit: number = 10,
+  search: string = '',
+  status: string = 'all',
+  city: string = '',
+  minPrice?: number,
+  maxPrice?: number
+): Promise<{ products: Product[]; total: number; page: number; limit: number }> {
   try {
-    let query = supabase.from('properties').select('*', { count: 'exact' });
+    let query = supabase.from('properties').select('*, properties_leads(count)', { count: 'exact' });
 
     if (search) {
-      query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%`);
+      query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%,id.eq.${search},contact_number.ilike.%${search}%`);
     }
 
     if (status === 'active') {
@@ -701,12 +560,28 @@ export async function getAdminProducts(page: number = 1, limit: number = 10, sea
       query = query.contains('tags', ['pending_approval']);
     }
 
+    // Advanced Filters
+    if (city) {
+      query = query.contains('tags', [city]);
+    }
+    if (minPrice !== undefined) {
+      query = query.gte('price_range->minVariantPrice->amount', minPrice);
+    }
+    if (maxPrice !== undefined) {
+      query = query.lte('price_range->minVariantPrice->amount', maxPrice);
+    }
+
     const from = (page - 1) * limit;
     const to = from + limit - 1;
 
     const { data, count, error } = await query.range(from, to).order('created_at', { ascending: false });
 
     if (error) return { products: [], total: 0, page, limit };
+
+    // Fetch IsVerified status for properties (if column exists, else default false)
+    // Note: TypeScript might complain if 'is_verified' isn't in Product type yet.
+    // We map it manually or update mapPropertyToProduct.
+    // For now, let's assume it's part of the data object.
 
     return {
       products: data.map(mapPropertyToProduct),
@@ -716,6 +591,53 @@ export async function getAdminProducts(page: number = 1, limit: number = 10, sea
     };
   } catch {
     return { products: [], total: 0, page, limit };
+  }
+}
+
+export async function updateUserRole(userId: string, role: 'admin' | 'vendor' | 'user'): Promise<boolean> {
+  try {
+    const { error } = await supabase.from('users').update({ role }).eq('id', userId);
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+export async function toggleUserVerified(userId: string, isVerified: boolean): Promise<boolean> {
+  try {
+    const { error } = await supabase.from('users').update({ is_verified: isVerified }).eq('id', userId);
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+export async function updatePropertyVerified(propertyId: string, isVerified: boolean): Promise<boolean> {
+  try {
+    const { error } = await supabase.from('properties').update({ is_verified: isVerified }).eq('id', propertyId);
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+export async function getSiteSettings(): Promise<Record<string, string>> {
+  try {
+    const { data, error } = await supabase.from('site_settings').select('*');
+    if (error) return {};
+    return data.reduce((acc, curr) => ({ ...acc, [curr.key]: curr.value }), {});
+  } catch {
+    return {};
+  }
+}
+
+export async function updateSiteSettings(settings: Record<string, string>): Promise<boolean> {
+  try {
+    const upserts = Object.entries(settings).map(([key, value]) => ({ key, value }));
+    const { error } = await supabase.from('site_settings').upsert(upserts);
+    return !error;
+  } catch {
+    return false;
   }
 }
 
@@ -773,15 +695,46 @@ export async function approveProduct(id: string, adminUserId: string): Promise<b
   }
 }
 
-export async function getAdminUsers(page: number = 1, limit: number = 10): Promise<{ users: { userId: string; contactNumber: string; totalProperties: number; activeProperties: number }[]; total: number; page: number; limit: number }> {
+export async function updateUserPhoneNumber(userId: string, phoneNumber: string): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('users')
+      .update({ phone_number: phoneNumber })
+      .eq('id', userId);
+
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error('Error updating phone number:', error);
+    throw error;
+  }
+}
+
+export async function trackLead(propertyId: string, type: 'contact' | 'whatsapp'): Promise<void> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    await supabase.from('properties_leads').insert({
+      property_id: propertyId,
+      type,
+      user_id: user?.id || null
+    });
+  } catch (error) {
+    console.error('Error tracking lead:', error);
+  }
+}
+
+export async function getAdminUsers(page: number = 1, limit: number = 10, search: string = ''): Promise<{ users: { userId: string; name: string; email: string; contactNumber: string; role: string; isVerified: boolean; totalProperties: number; activeProperties: number }[]; total: number; page: number; limit: number }> {
   try {
     const from = (page - 1) * limit;
     const to = from + limit - 1;
 
-    const { data: users, count, error } = await supabase
-      .from('users')
-      .select('*', { count: 'exact' })
-      .range(from, to);
+    let query = supabase.from('users').select('*', { count: 'exact' });
+
+    if (search) {
+      query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%,contact_number.ilike.%${search}%`);
+    }
+
+    const { data: users, count, error } = await query.range(from, to).order('created_at', { ascending: false });
 
     if (error) {
       console.error('Error fetching admin users:', error);
@@ -805,7 +758,11 @@ export async function getAdminUsers(page: number = 1, limit: number = 10): Promi
 
       return {
         userId: user.id,
-        contactNumber: user.contact_number || 'N/A',
+        name: user.full_name || 'N/A',
+        email: user.email || 'N/A',
+        contactNumber: user.phone_number || user.contact_number || 'N/A',
+        role: user.role || 'user',
+        isVerified: user.is_verified || false,
         totalProperties: totalProperties || 0,
         activeProperties: activeProperties || 0
       };

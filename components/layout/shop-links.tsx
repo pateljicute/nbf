@@ -17,7 +17,7 @@ export function ShopLinks({ collections, label = 'Shop', align = 'left', classNa
       <ul className="flex flex-col gap-1.5 leading-5 mt-5">
         {collections.map((item, index) => (
           <li key={`${item.handle}-${index}`}>
-            <Link href={`/shop/${item.handle}`} prefetch>
+            <Link href={`/properties?type=${encodeURIComponent(item.title)}`} prefetch>
               {item.title}
             </Link>
           </li>

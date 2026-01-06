@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
             handle,
             title: cleanTitle,
             description: cleanDescription,
-            category_id: cleanAddress,
+            category_id: 'joyco-root', // Default category
             currency_code: "INR",
             seo: { title: cleanTitle, description: cleanDescription },
             featured_image: {

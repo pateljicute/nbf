@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { LogoSvg } from './header/logo-svg';
 import { getCollections } from '@/lib/api';
-import { Facebook, Instagram, Linkedin, Twitter, Globe } from 'lucide-react';
+import { Globe } from 'lucide-react';
 import { CONTACT_LINKS } from '@/lib/constants';
 
 const getSocialLink = (label: string) => CONTACT_LINKS.find(l => l.label === label)?.href || '#';
@@ -19,31 +19,25 @@ export async function Footer() {
               <LogoSvg className="w-full h-auto text-white fill-white" />
             </Link>
             <p className="text-neutral-400 text-lg leading-relaxed max-w-sm">
-              Find your perfect room or PG on India's largest property marketplace.
+              NBF Homes is India's growing property marketplace for Tier 1-4 cities. We help you find the best rental options in Mandsaur, Neemuch, Ratlam, and Indore with 0% brokerage fees.
             </p>
-            <div className="flex gap-6">
-              <Link href={getSocialLink('Instagram')} target="_blank" className="text-white hover:text-neutral-400 transition-colors"><Instagram size={24} /></Link>
-              <Link href={getSocialLink('X')} target="_blank" className="text-white hover:text-neutral-400 transition-colors"><Twitter size={24} /></Link>
-              <Link href={getSocialLink('LinkedIn')} target="_blank" className="text-white hover:text-neutral-400 transition-colors"><Linkedin size={24} /></Link>
-              <Link href={getSocialLink('Facebook')} target="_blank" className="text-white hover:text-neutral-400 transition-colors"><Facebook size={24} /></Link>
-            </div>
           </div>
 
           {/* Links Columns */}
-          <div className="md:col-span-8 grid grid-cols-2 md:grid-cols-4 gap-8">
+          <div className="md:col-span-8 grid grid-cols-2 lg:grid-cols-5 gap-8">
             {/* Shop */}
             <div className="flex flex-col gap-6">
               <h4 className="font-serif text-lg font-medium">Properties</h4>
               <ul className="flex flex-col gap-4 text-neutral-400">
-                <li><Link href="/shop" className="hover:text-white transition-colors">All Properties</Link></li>
+                <li><Link href="/properties" className="hover:text-white transition-colors">All Properties</Link></li>
                 {collections.slice(0, 4).map((collection) => (
                   <li key={collection.handle}>
-                    <Link href={`/search/${collection.handle}`} className="hover:text-white transition-colors capitalize">
+                    <Link href={`/properties?type=${encodeURIComponent(collection.title)}`} className="hover:text-white transition-colors capitalize">
                       {collection.title}
                     </Link>
                   </li>
                 ))}
-                <li><Link href="/shop/new-arrivals" className="hover:text-white transition-colors">New Listings</Link></li>
+                <li><Link href="/properties?sort=newest" className="hover:text-white transition-colors">New Listings</Link></li>
               </ul>
             </div>
 
@@ -76,6 +70,23 @@ export async function Footer() {
                 <li><Link href="/terms" className="hover:text-white transition-colors">Terms of Service</Link></li>
                 <li><Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link></li>
                 <li><Link href="/cookies" className="hover:text-white transition-colors">Cookie Policy</Link></li>
+              </ul>
+            </div>
+
+            {/* SEO Targets / Nearby Locations */}
+            <div className="flex flex-col gap-6">
+              <h4 className="font-serif text-lg font-medium">Nearby Locations</h4>
+              <ul className="flex flex-col gap-4 text-neutral-400 text-sm">
+                {/* Primary */}
+                <li><Link href="/properties?search=Mandsaur" className="hover:text-white transition-colors">PG in Mandsaur</Link></li>
+                <li><Link href="/properties?search=Neemuch" className="hover:text-white transition-colors">Rooms in Neemuch</Link></li>
+                <li><Link href="/properties?search=Ratlam" className="hover:text-white transition-colors">Flats in Ratlam</Link></li>
+                <li><Link href="/properties?search=Jaora" className="hover:text-white transition-colors">Rentals in Jaora</Link></li>
+                <li><Link href="/properties?search=Pratapgarh" className="hover:text-white transition-colors">Pratapgarh Housing</Link></li>
+                {/* Secondary (Hidden on Mobile/Tablet if needed, strictly visible for SEO) */}
+                <li><Link href="/properties?search=Indore" className="hover:text-white transition-colors">Indore</Link></li>
+                <li><Link href="/properties?search=Ujjain" className="hover:text-white transition-colors">Ujjain</Link></li>
+                <li><Link href="/properties?search=Kota" className="hover:text-white transition-colors">Kota</Link></li>
               </ul>
             </div>
           </div>

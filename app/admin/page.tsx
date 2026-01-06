@@ -3,19 +3,29 @@
 import { useAuth } from '@/lib/auth-context';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
-import { getAdminProducts, getAdminStats, getAdminUsers } from '@/lib/api';
-import { checkAdminStatus, updateProductStatusAction, approveProductAction, adminDeleteProductAction } from '@/app/actions';
-import { Product } from '@/lib/types';
-import { getOptimizedImageUrl } from '@/lib/cloudinary-utils';
 import { Trash2, Eye, Users, Building, TrendingUp, ChevronLeft, ChevronRight, Search, Filter, CheckCircle, XCircle, Download } from 'lucide-react';
+// ... imports
+import { checkAdminStatus, updateProductStatusAction, approveProductAction, adminDeleteProductAction, updateUserRoleAction, toggleUserVerifiedAction, togglePropertyVerifiedAction, updateSiteSettingsAction } from '@/app/actions';
+import { Product } from '@/lib/types';
+import { getAdminProducts, getAdminStats, getAdminUsers, getSiteSettings } from '@/lib/api';
+import { getOptimizedImageUrl } from '@/lib/cloudinary-utils';
+import { AdManager } from '@/components/admin/ad-manager'; // New Import
+
+// ... existing code ...
+
 interface AdminUser {
     userId: string;
+    name: string;
+    email: string;
     contactNumber: string;
+    role: string;
+    isVerified: boolean;
     totalProperties: number;
     activeProperties: number;
 }
 
 export default function AdminPage() {
+    // ... states ...
     const { user, isLoading } = useAuth();
     const router = useRouter();
     const [properties, setProperties] = useState<Product[]>([]);
@@ -25,19 +35,32 @@ export default function AdminPage() {
     const [adminChecked, setAdminChecked] = useState(false);
     const [stats, setStats] = useState({ total: 0, users: 0, active: 0 });
 
+    // New Filter States
+    const [cityFilter, setCityFilter] = useState('');
+    const [minPrice, setMinPrice] = useState<number | undefined>(undefined);
+    const [maxPrice, setMaxPrice] = useState<number | undefined>(undefined);
+
+    // Settings State
+    const [settings, setSettings] = useState({
+        homepage_title: '',
+        homepage_description: '',
+        whatsapp_number: ''
+    });
+
     // Pagination & Filter state
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
-    const [activeTab, setActiveTab] = useState<'overview' | 'properties' | 'users' | 'approvals'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'properties' | 'users' | 'approvals' | 'settings' | 'ads'>('overview');
 
     const ITEMS_PER_PAGE = 10;
 
+    // Fetch Products with new filters
     const fetchProducts = useCallback(async (page: number) => {
         setLoading(true);
         try {
-            const data = await getAdminProducts(page, ITEMS_PER_PAGE, searchQuery, statusFilter);
+            const data = await getAdminProducts(page, ITEMS_PER_PAGE, searchQuery, statusFilter, cityFilter, minPrice, maxPrice);
             setProperties(data.products);
             setTotalPages(Math.ceil(data.total / ITEMS_PER_PAGE));
             setCurrentPage(page);
@@ -46,12 +69,13 @@ export default function AdminPage() {
         } finally {
             setLoading(false);
         }
-    }, [searchQuery, statusFilter]);
+    }, [searchQuery, statusFilter, cityFilter, minPrice, maxPrice]);
 
+    // Fetch Users with search
     const fetchUsers = useCallback(async (page: number) => {
         setLoading(true);
         try {
-            const data = await getAdminUsers(page, ITEMS_PER_PAGE);
+            const data = await getAdminUsers(page, ITEMS_PER_PAGE, searchQuery); // Pass search query
             setUsersList(data.users);
             setTotalPages(Math.ceil(data.total / ITEMS_PER_PAGE));
             setCurrentPage(page);
@@ -60,7 +84,59 @@ export default function AdminPage() {
         } finally {
             setLoading(false);
         }
+    }, [searchQuery]);
+
+    // Fetch Settings
+    const fetchSettings = useCallback(async () => {
+        setLoading(true);
+        try {
+            const data = await getSiteSettings();
+            setSettings({
+                homepage_title: data.homepage_title || '',
+                homepage_description: data.homepage_description || '',
+                whatsapp_number: data.whatsapp_number || ''
+            });
+        } finally {
+            setLoading(false);
+        }
     }, []);
+
+    // ... Check Admin Logic ...
+
+    const handleRoleUpdate = async (userId: string, newRole: 'admin' | 'vendor' | 'user') => {
+        if (!user) return;
+        if (!confirm(`Change user role to ${newRole}?`)) return;
+        const res = await updateUserRoleAction(userId, newRole, user.id);
+        if (res.success) fetchUsers(currentPage);
+        else alert('Failed to update role');
+    };
+
+    const handleUserVerify = async (userId: string, status: boolean) => {
+        if (!user) return;
+        const res = await toggleUserVerifiedAction(userId, status, user.id);
+        if (res.success) fetchUsers(currentPage);
+        else alert('Failed to verify user');
+    };
+
+    const handlePropertyVerify = async (propertyId: string, status: boolean) => {
+        if (!user) return;
+        const res = await togglePropertyVerifiedAction(propertyId, status, user.id);
+        if (res.success) fetchProducts(currentPage);
+        else alert('Failed to verify property');
+    };
+
+    const handleSettingsSave = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!user) return;
+        const res = await updateSiteSettingsAction(settings, user.id);
+        if (res.success) alert('Settings saved successfully');
+        else alert('Failed to save settings');
+    };
+
+    // ... Render ...
+
+    // (I will output the Full Render Logic in the next chunks, focusing on Tabs first)
+
 
     const checkAdmin = useCallback(async () => {
         if (!user) return;
@@ -240,155 +316,354 @@ export default function AdminPage() {
                         <h1 className="text-3xl font-bold text-neutral-900">Admin Dashboard</h1>
                         <p className="text-neutral-600 mt-1">Manage platform activity</p>
                     </div>
-                    <div className="mt-4 sm:mt-0 flex space-x-4">
-                        <button
-                            onClick={() => {
-                                setActiveTab('overview');
-                                fetchStats();
-                            }}
-                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'overview'
-                                ? 'bg-neutral-900 text-white'
-                                : 'bg-white text-neutral-600 hover:bg-neutral-100'
-                                }`}
-                        >
-                            Overview
-                        </button>
-                        <button
-                            onClick={() => {
-                                setActiveTab('properties');
-                                fetchProducts(1);
-                            }}
-                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'properties'
-                                ? 'bg-neutral-900 text-white'
-                                : 'bg-white text-neutral-600 hover:bg-neutral-100'
-                                }`}
-                        >
-                            Properties
-                        </button>
-                        <button
-                            onClick={() => {
-                                setActiveTab('users');
-                                fetchUsers(1);
-                            }}
-                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'users'
-                                ? 'bg-neutral-900 text-white'
-                                : 'bg-white text-neutral-600 hover:bg-neutral-100'
-                                }`}
-                        >
-                            Users
-                        </button>
-                        <button
-                            onClick={() => {
-                                setActiveTab('approvals');
-                                fetchApprovals(1);
-                            }}
-                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'approvals'
-                                ? 'bg-neutral-900 text-white'
-                                : 'bg-white text-neutral-600 hover:bg-neutral-100'
-                                }`}
-                        >
-                            Approvals
-                        </button>
+                    <div className="flex flex-wrap gap-2 mt-4 sm:mt-0">
+                        <button onClick={() => { setActiveTab('overview'); fetchStats(); }} className={`px-3 py-2 sm:px-4 rounded-lg text-sm font-medium transition-colors ${activeTab === 'overview' ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-600 hover:bg-neutral-100'}`}>Overview</button>
+                        <button onClick={() => { setActiveTab('properties'); fetchProducts(1); }} className={`px-3 py-2 sm:px-4 rounded-lg text-sm font-medium transition-colors ${activeTab === 'properties' ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-600 hover:bg-neutral-100'}`}>Properties</button>
+                        <button onClick={() => { setActiveTab('users'); fetchUsers(1); }} className={`px-3 py-2 sm:px-4 rounded-lg text-sm font-medium transition-colors ${activeTab === 'users' ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-600 hover:bg-neutral-100'}`}>Users</button>
+                        <button onClick={() => { setActiveTab('approvals'); fetchApprovals(1); }} className={`px-3 py-2 sm:px-4 rounded-lg text-sm font-medium transition-colors ${activeTab === 'approvals' ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-600 hover:bg-neutral-100'}`}>Approvals</button>
+                        <button onClick={() => { setActiveTab('ads'); }} className={`px-3 py-2 sm:px-4 rounded-lg text-sm font-medium transition-colors ${activeTab === 'ads' ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-600 hover:bg-neutral-100'}`}>Manage Ads</button>
+                        <button onClick={() => { setActiveTab('settings'); fetchSettings(); }} className={`px-3 py-2 sm:px-4 rounded-lg text-sm font-medium transition-colors ${activeTab === 'settings' ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-600 hover:bg-neutral-100'}`}>Settings</button>
                     </div>
                 </div>
+            </div>
 
-                {activeTab === 'overview' && (
-                    /* Stats View */
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                        <div className="bg-white rounded-xl p-6 shadow-sm border border-neutral-200">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-sm font-medium text-neutral-600">Total Properties</p>
-                                    <p className="text-3xl font-bold text-neutral-900 mt-2">{stats.total}</p>
-                                </div>
-                                <Building className="w-12 h-12 text-blue-500 opacity-20" />
+            {activeTab === 'overview' && (
+                /* Stats View */
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div className="bg-white rounded-xl p-6 shadow-sm border border-neutral-200">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-neutral-600">Total Properties</p>
+                                <p className="text-3xl font-bold text-neutral-900 mt-2">{stats.total}</p>
                             </div>
-                        </div>
-                        <div className="bg-white rounded-xl p-6 shadow-sm border border-neutral-200">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-sm font-medium text-neutral-600">Total Users</p>
-                                    <p className="text-3xl font-bold text-neutral-900 mt-2">{stats.users}</p>
-                                </div>
-                                <Users className="w-12 h-12 text-green-500 opacity-20" />
-                            </div>
-                        </div>
-                        <div className="bg-white rounded-xl p-6 shadow-sm border border-neutral-200">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-sm font-medium text-neutral-600">Active Listings</p>
-                                    <p className="text-3xl font-bold text-neutral-900 mt-2">{stats.active}</p>
-                                </div>
-                                <TrendingUp className="w-12 h-12 text-orange-500 opacity-20" />
-                            </div>
+                            <Building className="w-12 h-12 text-blue-500 opacity-20" />
                         </div>
                     </div>
-                )}
-
-                {activeTab === 'properties' && (
-                    /* Properties View */
-                    <div className="space-y-6">
-                        {/* Filters */}
-                        <div className="bg-white p-4 rounded-xl shadow-sm border border-neutral-200 flex flex-col sm:flex-row gap-4 justify-between">
-                            <div className="flex flex-1 gap-4">
-                                <div className="relative flex-1">
-                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-neutral-400 w-5 h-5" />
-                                    <input
-                                        type="text"
-                                        placeholder="Search properties..."
-                                        value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                        className="w-full pl-10 pr-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                                    />
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <Filter className="text-neutral-400 w-5 h-5" />
-                                    <select
-                                        value={statusFilter}
-                                        onChange={(e) => setStatusFilter(e.target.value)}
-                                        className="border border-neutral-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                                    >
-                                        <option value="all">All Status</option>
-                                        <option value="active">Active</option>
-                                        <option value="inactive">Inactive</option>
-                                    </select>
-                                </div>
+                    <div className="bg-white rounded-xl p-6 shadow-sm border border-neutral-200">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-neutral-600">Total Users</p>
+                                <p className="text-3xl font-bold text-neutral-900 mt-2">{stats.users}</p>
                             </div>
-                            <button
-                                onClick={handleExport}
-                                className="flex items-center px-4 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-lg transition-colors"
-                            >
-                                <Download className="w-4 h-4 mr-2" />
-                                Export CSV
-                            </button>
+                            <Users className="w-12 h-12 text-green-500 opacity-20" />
+                        </div>
+                    </div>
+                    <div className="bg-white rounded-xl p-6 shadow-sm border border-neutral-200">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-neutral-600">Active Listings</p>
+                                <p className="text-3xl font-bold text-neutral-900 mt-2">{stats.active}</p>
+                            </div>
+                            <TrendingUp className="w-12 h-12 text-orange-500 opacity-20" />
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {activeTab === 'properties' && (
+                /* Properties View */
+                <div className="space-y-6">
+                    {/* Filters */}
+                    <div className="bg-white p-4 rounded-xl shadow-sm border border-neutral-200 flex flex-col sm:flex-row gap-4 justify-between">
+                        <div className="flex flex-1 gap-4">
+                            <div className="relative flex-1">
+                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-neutral-400 w-5 h-5" />
+                                <input
+                                    type="text"
+                                    placeholder="Search properties..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full pl-10 pr-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                                />
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Filter className="text-neutral-400 w-5 h-5" />
+                                <select
+                                    value={statusFilter}
+                                    onChange={(e) => setStatusFilter(e.target.value)}
+                                    className="border border-neutral-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                                >
+                                    <option value="all">All Status</option>
+                                    <option value="active">Active</option>
+                                    <option value="inactive">Inactive</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button
+                            onClick={handleExport}
+                            className="flex items-center px-4 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-lg transition-colors"
+                        >
+                            <Download className="w-4 h-4 mr-2" />
+                            Export CSV
+                        </button>
+                    </div>
+
+                    {/* Table */}
+                    <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden">
+                        <div className="px-6 py-4 border-b border-neutral-200 flex justify-between items-center">
+                            <h2 className="text-lg font-semibold text-neutral-900">Property Listings</h2>
+                            <span className="text-sm text-neutral-500">Page {currentPage} of {totalPages}</span>
                         </div>
 
-                        {/* Table */}
-                        <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden">
-                            <div className="px-6 py-4 border-b border-neutral-200 flex justify-between items-center">
-                                <h2 className="text-lg font-semibold text-neutral-900">Property Listings</h2>
-                                <span className="text-sm text-neutral-500">Page {currentPage} of {totalPages}</span>
+                        {loading ? (
+                            <div className="p-12 flex justify-center">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
                             </div>
-
-                            {loading ? (
-                                <div className="p-12 flex justify-center">
-                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
-                                </div>
-                            ) : (
-                                <>
-                                    <div className="overflow-x-auto">
-                                        <table className="w-full">
-                                            <thead className="bg-neutral-50">
-                                                <tr>
-                                                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Property</th>
-                                                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Status</th>
-                                                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Price</th>
-                                                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Contact</th>
-                                                    <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 uppercase tracking-wider">Actions</th>
+                        ) : (
+                            <>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full">
+                                        <thead className="bg-neutral-50">
+                                            <tr>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Property</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Inquiry Status</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Price</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Leads</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Contact</th>
+                                                <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 uppercase tracking-wider">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="bg-white divide-y divide-neutral-200">
+                                            {properties.map((property) => (
+                                                <tr key={property.id} className="hover:bg-neutral-50">
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <div className="flex items-center">
+                                                            <div className="h-10 w-10 flex-shrink-0">
+                                                                {property.featuredImage && property.featuredImage.url ? (
+                                                                    <img
+                                                                        className="h-10 w-10 rounded object-cover"
+                                                                        src={getOptimizedImageUrl(property.featuredImage.url, 160, 160, 'fill')}
+                                                                        alt=""
+                                                                        loading="lazy"
+                                                                    />
+                                                                ) : (<div className="h-10 w-10 rounded bg-neutral-200" />
+                                                                )}
+                                                            </div>
+                                                            <div className="ml-4">
+                                                                <div className="text-sm font-medium text-neutral-900 max-w-[200px] truncate">{property.title}</div>
+                                                                <div className="text-xs text-neutral-500">{property.tags?.[0]}</div>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <button
+                                                            onClick={() => handleStatusToggle(property.id, property.availableForSale)}
+                                                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${property.availableForSale
+                                                                ? 'bg-green-100 text-green-800'
+                                                                : 'bg-red-100 text-red-800'
+                                                                }`}
+                                                        >
+                                                            {property.availableForSale ? 'Active' : 'Inactive'}
+                                                        </button>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900 font-medium">
+                                                        ₹{Number(property.priceRange.minVariantPrice.amount).toLocaleString('en-IN')}
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900 font-medium">
+                                                        {property.leadsCount || 0}
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
+                                                        {property.contactNumber || 'N/A'}
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                        <button
+                                                            onClick={() => router.push(`/product/${property.handle}`)}
+                                                            className="text-blue-600 hover:text-blue-900 mr-4"
+                                                            title="View"
+                                                        >
+                                                            <Eye className="w-4 h-4 inline" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleStatusToggle(property.id, property.availableForSale)}
+                                                            className={`mr-4 ${property.availableForSale ? 'text-orange-600 hover:text-orange-900' : 'text-green-600 hover:text-green-900'}`}
+                                                            title={property.availableForSale ? "Deactivate" : "Activate"}
+                                                        >
+                                                            {property.availableForSale ? <XCircle className="w-4 h-4 inline" /> : <CheckCircle className="w-4 h-4 inline" />}
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDelete(property.id)}
+                                                            className="text-red-600 hover:text-red-900"
+                                                            title="Delete"
+                                                        >
+                                                            <Trash2 className="w-4 h-4 inline" />
+                                                        </button>
+                                                    </td>
                                                 </tr>
-                                            </thead>
-                                            <tbody className="bg-white divide-y divide-neutral-200">
-                                                {properties.map((property) => (
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {/* Pagination Controls */}
+                                <div className="px-6 py-4 border-t border-neutral-200 flex items-center justify-between">
+                                    <button
+                                        onClick={() => handlePageChange(currentPage - 1)}
+                                        disabled={currentPage === 1}
+                                        className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${currentPage === 1
+                                            ? 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
+                                            : 'text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50'
+                                            }`}
+                                    >
+                                        <ChevronLeft className="w-4 h-4 mr-2" />
+                                        Previous
+                                    </button>
+                                    <div className="hidden sm:flex">
+                                        <p className="text-sm text-neutral-700">
+                                            Showing page <span className="font-medium">{currentPage}</span> of <span className="font-medium">{totalPages}</span>
+                                        </p>
+                                    </div>
+                                    <button
+                                        onClick={() => handlePageChange(currentPage + 1)}
+                                        disabled={currentPage === totalPages}
+                                        className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${currentPage === totalPages
+                                            ? 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
+                                            : 'text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50'
+                                            }`}
+                                    >
+                                        Next
+                                        <ChevronRight className="w-4 h-4 ml-2" />
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
+            {activeTab === 'users' && (
+                /* Users View */
+                <div className="space-y-6">
+                    <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden">
+                        <div className="px-6 py-4 border-b border-neutral-200 flex justify-between items-center">
+                            <h2 className="text-lg font-semibold text-neutral-900">Registered Users</h2>
+                            <span className="text-sm text-neutral-500">Page {currentPage} of {totalPages}</span>
+                        </div>
+
+                        {loading ? (
+                            <div className="p-12 flex justify-center">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full">
+                                        <thead className="bg-neutral-50">
+                                            <tr>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">User ID</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Contact</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Total Properties</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Active Properties</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="bg-white divide-y divide-neutral-200">
+                                            {usersList.map((userItem) => (
+                                                <tr key={userItem.userId} className="hover:bg-neutral-50">
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-900">
+                                                        {userItem.userId}
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
+                                                        <div className="flex items-center gap-2">
+                                                            {userItem.contactNumber}
+                                                            {userItem.contactNumber !== 'N/A' && (
+                                                                <a
+                                                                    href={`https://wa.me/${userItem.contactNumber.replace(/\D/g, '')}`}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="text-green-600 hover:text-green-700 hover:bg-green-50 p-1 rounded-full transition-colors"
+                                                                    title="Chat on WhatsApp"
+                                                                >
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>
+                                                                </a>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900">
+                                                        {userItem.totalProperties}
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                                            {userItem.activeProperties} Active
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {/* Pagination Controls */}
+                                <div className="px-6 py-4 border-t border-neutral-200 flex items-center justify-between">
+                                    <button
+                                        onClick={() => handlePageChange(currentPage - 1)}
+                                        disabled={currentPage === 1}
+                                        className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${currentPage === 1
+                                            ? 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
+                                            : 'text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50'
+                                            }`}
+                                    >
+                                        <ChevronLeft className="w-4 h-4 mr-2" />
+                                        Previous
+                                    </button>
+                                    <div className="hidden sm:flex">
+                                        <p className="text-sm text-neutral-700">
+                                            Showing page <span className="font-medium">{currentPage}</span> of <span className="font-medium">{totalPages}</span>
+                                        </p>
+                                    </div>
+                                    <button
+                                        onClick={() => handlePageChange(currentPage + 1)}
+                                        disabled={currentPage === totalPages}
+                                        className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${currentPage === totalPages
+                                            ? 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
+                                            : 'text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50'
+                                            }`}
+                                    >
+                                        Next
+                                        <ChevronRight className="w-4 h-4 ml-2" />
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
+            {activeTab === 'approvals' && (
+                /* Approvals View */
+                <div className="space-y-6">
+                    <div className="bg-white p-4 rounded-xl shadow-sm border border-neutral-200">
+                        <h2 className="text-lg font-semibold text-neutral-900 mb-2">Pending Approvals</h2>
+                        <p className="text-sm text-neutral-500">Review and approve new property listings.</p>
+                    </div>
+
+                    <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden">
+                        <div className="px-6 py-4 border-b border-neutral-200 flex justify-between items-center">
+                            <h2 className="text-lg font-semibold text-neutral-900">Pending Listings</h2>
+                            <span className="text-sm text-neutral-500">Page {currentPage} of {totalPages}</span>
+                        </div>
+
+                        {loading ? (
+                            <div className="p-12 flex justify-center">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full">
+                                        <thead className="bg-neutral-50">
+                                            <tr>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Property</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Price</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Contact</th>
+                                                <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 uppercase tracking-wider">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="bg-white divide-y divide-neutral-200">
+                                            {properties.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan={4} className="px-6 py-12 text-center text-neutral-500">
+                                                        No pending approvals found.
+                                                    </td>
+                                                </tr>
+                                            ) : (
+                                                properties.map((property) => (
                                                     <tr key={property.id} className="hover:bg-neutral-50">
                                                         <td className="px-6 py-4 whitespace-nowrap">
                                                             <div className="flex items-center">
@@ -400,7 +675,7 @@ export default function AdminPage() {
                                                                             alt=""
                                                                             loading="lazy"
                                                                         />
-                                                                    ) : (                                                                        <div className="h-10 w-10 rounded bg-neutral-200" />
+                                                                    ) : (<div className="h-10 w-10 rounded bg-neutral-200" />
                                                                     )}
                                                                 </div>
                                                                 <div className="ml-4">
@@ -408,17 +683,6 @@ export default function AdminPage() {
                                                                     <div className="text-xs text-neutral-500">{property.tags?.[0]}</div>
                                                                 </div>
                                                             </div>
-                                                        </td>
-                                                        <td className="px-6 py-4 whitespace-nowrap">
-                                                            <button
-                                                                onClick={() => handleStatusToggle(property.id, property.availableForSale)}
-                                                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${property.availableForSale
-                                                                    ? 'bg-green-100 text-green-800'
-                                                                    : 'bg-red-100 text-red-800'
-                                                                    }`}
-                                                            >
-                                                                {property.availableForSale ? 'Active' : 'Inactive'}
-                                                            </button>
                                                         </td>
                                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900 font-medium">
                                                             ₹{Number(property.priceRange.minVariantPrice.amount).toLocaleString('en-IN')}
@@ -435,275 +699,114 @@ export default function AdminPage() {
                                                                 <Eye className="w-4 h-4 inline" />
                                                             </button>
                                                             <button
-                                                                onClick={() => handleStatusToggle(property.id, property.availableForSale)}
-                                                                className={`mr-4 ${property.availableForSale ? 'text-orange-600 hover:text-orange-900' : 'text-green-600 hover:text-green-900'}`}
-                                                                title={property.availableForSale ? "Deactivate" : "Activate"}
+                                                                onClick={() => handleApprove(property.id)}
+                                                                className="text-green-600 hover:text-green-900 mr-4"
+                                                                title="Approve"
                                                             >
-                                                                {property.availableForSale ? <XCircle className="w-4 h-4 inline" /> : <CheckCircle className="w-4 h-4 inline" />}
+                                                                <CheckCircle className="w-4 h-4 inline" />
                                                             </button>
                                                             <button
                                                                 onClick={() => handleDelete(property.id)}
                                                                 className="text-red-600 hover:text-red-900"
-                                                                title="Delete"
+                                                                title="Reject"
                                                             >
-                                                                <Trash2 className="w-4 h-4 inline" />
+                                                                <XCircle className="w-4 h-4 inline" />
                                                             </button>
                                                         </td>
                                                     </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-
-                                    {/* Pagination Controls */}
-                                    <div className="px-6 py-4 border-t border-neutral-200 flex items-center justify-between">
-                                        <button
-                                            onClick={() => handlePageChange(currentPage - 1)}
-                                            disabled={currentPage === 1}
-                                            className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${currentPage === 1
-                                                ? 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
-                                                : 'text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50'
-                                                }`}
-                                        >
-                                            <ChevronLeft className="w-4 h-4 mr-2" />
-                                            Previous
-                                        </button>
-                                        <div className="hidden sm:flex">
-                                            <p className="text-sm text-neutral-700">
-                                                Showing page <span className="font-medium">{currentPage}</span> of <span className="font-medium">{totalPages}</span>
-                                            </p>
-                                        </div>
-                                        <button
-                                            onClick={() => handlePageChange(currentPage + 1)}
-                                            disabled={currentPage === totalPages}
-                                            className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${currentPage === totalPages
-                                                ? 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
-                                                : 'text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50'
-                                                }`}
-                                        >
-                                            Next
-                                            <ChevronRight className="w-4 h-4 ml-2" />
-                                        </button>
-                                    </div>
-                                </>
-                            )}
-                        </div>
-                    </div>
-                )}
-                {activeTab === 'users' && (
-                    /* Users View */
-                    <div className="space-y-6">
-                        <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden">
-                            <div className="px-6 py-4 border-b border-neutral-200 flex justify-between items-center">
-                                <h2 className="text-lg font-semibold text-neutral-900">Registered Users</h2>
-                                <span className="text-sm text-neutral-500">Page {currentPage} of {totalPages}</span>
-                            </div>
-
-                            {loading ? (
-                                <div className="p-12 flex justify-center">
-                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
+                                                ))
+                                            )}
+                                        </tbody>
+                                    </table>
                                 </div>
-                            ) : (
-                                <>
-                                    <div className="overflow-x-auto">
-                                        <table className="w-full">
-                                            <thead className="bg-neutral-50">
-                                                <tr>
-                                                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">User ID</th>
-                                                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Contact</th>
-                                                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Total Properties</th>
-                                                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Active Properties</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="bg-white divide-y divide-neutral-200">
-                                                {usersList.map((userItem) => (
-                                                    <tr key={userItem.userId} className="hover:bg-neutral-50">
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-900">
-                                                            {userItem.userId}
-                                                        </td>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
-                                                            {userItem.contactNumber}
-                                                        </td>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900">
-                                                            {userItem.totalProperties}
-                                                        </td>
-                                                        <td className="px-6 py-4 whitespace-nowrap">
-                                                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                                                {userItem.activeProperties} Active
-                                                            </span>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
+
+                                {/* Pagination Controls */}
+                                <div className="px-6 py-4 border-t border-neutral-200 flex items-center justify-between">
+                                    <button
+                                        onClick={() => handlePageChange(currentPage - 1)}
+                                        disabled={currentPage === 1}
+                                        className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${currentPage === 1
+                                            ? 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
+                                            : 'text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50'
+                                            }`}
+                                    >
+                                        <ChevronLeft className="w-4 h-4 mr-2" />
+                                        Previous
+                                    </button>
+                                    <div className="hidden sm:flex">
+                                        <p className="text-sm text-neutral-700">
+                                            Showing page <span className="font-medium">{currentPage}</span> of <span className="font-medium">{totalPages}</span>
+                                        </p>
                                     </div>
-
-                                    {/* Pagination Controls */}
-                                    <div className="px-6 py-4 border-t border-neutral-200 flex items-center justify-between">
-                                        <button
-                                            onClick={() => handlePageChange(currentPage - 1)}
-                                            disabled={currentPage === 1}
-                                            className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${currentPage === 1
-                                                ? 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
-                                                : 'text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50'
-                                                }`}
-                                        >
-                                            <ChevronLeft className="w-4 h-4 mr-2" />
-                                            Previous
-                                        </button>
-                                        <div className="hidden sm:flex">
-                                            <p className="text-sm text-neutral-700">
-                                                Showing page <span className="font-medium">{currentPage}</span> of <span className="font-medium">{totalPages}</span>
-                                            </p>
-                                        </div>
-                                        <button
-                                            onClick={() => handlePageChange(currentPage + 1)}
-                                            disabled={currentPage === totalPages}
-                                            className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${currentPage === totalPages
-                                                ? 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
-                                                : 'text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50'
-                                                }`}
-                                        >
-                                            Next
-                                            <ChevronRight className="w-4 h-4 ml-2" />
-                                        </button>
-                                    </div>
-                                </>
-                            )}
-                        </div>
-                    </div>
-                )}
-                {activeTab === 'approvals' && (
-                    /* Approvals View */
-                    <div className="space-y-6">
-                        <div className="bg-white p-4 rounded-xl shadow-sm border border-neutral-200">
-                            <h2 className="text-lg font-semibold text-neutral-900 mb-2">Pending Approvals</h2>
-                            <p className="text-sm text-neutral-500">Review and approve new property listings.</p>
-                        </div>
-
-                        <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden">
-                            <div className="px-6 py-4 border-b border-neutral-200 flex justify-between items-center">
-                                <h2 className="text-lg font-semibold text-neutral-900">Pending Listings</h2>
-                                <span className="text-sm text-neutral-500">Page {currentPage} of {totalPages}</span>
-                            </div>
-
-                            {loading ? (
-                                <div className="p-12 flex justify-center">
-                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
+                                    <button
+                                        onClick={() => handlePageChange(currentPage + 1)}
+                                        disabled={currentPage === totalPages}
+                                        className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${currentPage === totalPages
+                                            ? 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
+                                            : 'text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50'
+                                            }`}
+                                    >
+                                        Next
+                                        <ChevronRight className="w-4 h-4 ml-2" />
+                                    </button>
                                 </div>
-                            ) : (
-                                <>
-                                    <div className="overflow-x-auto">
-                                        <table className="w-full">
-                                            <thead className="bg-neutral-50">
-                                                <tr>
-                                                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Property</th>
-                                                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Price</th>
-                                                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Contact</th>
-                                                    <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 uppercase tracking-wider">Actions</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="bg-white divide-y divide-neutral-200">
-                                                {properties.length === 0 ? (
-                                                    <tr>
-                                                        <td colSpan={4} className="px-6 py-12 text-center text-neutral-500">
-                                                            No pending approvals found.
-                                                        </td>
-                                                    </tr>
-                                                ) : (
-                                                    properties.map((property) => (
-                                                        <tr key={property.id} className="hover:bg-neutral-50">
-                                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                                <div className="flex items-center">
-                                                                    <div className="h-10 w-10 flex-shrink-0">
-                                                                        {property.featuredImage && property.featuredImage.url ? (
-                                                                            <img
-                                                                                className="h-10 w-10 rounded object-cover"
-                                                                                src={getOptimizedImageUrl(property.featuredImage.url, 160, 160, 'fill')}
-                                                                                alt=""
-                                                                                loading="lazy"
-                                                                            />
-                                                                        ) : (                                                                            <div className="h-10 w-10 rounded bg-neutral-200" />
-                                                                        )}
-                                                                    </div>
-                                                                    <div className="ml-4">
-                                                                        <div className="text-sm font-medium text-neutral-900 max-w-[200px] truncate">{property.title}</div>
-                                                                        <div className="text-xs text-neutral-500">{property.tags?.[0]}</div>
-                                                                    </div>
-                                                                </div>
-                                                            </td>
-                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900 font-medium">
-                                                                ₹{Number(property.priceRange.minVariantPrice.amount).toLocaleString('en-IN')}
-                                                            </td>
-                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
-                                                                {property.contactNumber || 'N/A'}
-                                                            </td>
-                                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                                <button
-                                                                    onClick={() => router.push(`/product/${property.handle}`)}
-                                                                    className="text-blue-600 hover:text-blue-900 mr-4"
-                                                                    title="View"
-                                                                >
-                                                                    <Eye className="w-4 h-4 inline" />
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => handleApprove(property.id)}
-                                                                    className="text-green-600 hover:text-green-900 mr-4"
-                                                                    title="Approve"
-                                                                >
-                                                                    <CheckCircle className="w-4 h-4 inline" />
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => handleDelete(property.id)}
-                                                                    className="text-red-600 hover:text-red-900"
-                                                                    title="Reject"
-                                                                >
-                                                                    <XCircle className="w-4 h-4 inline" />
-                                                                </button>
-                                                            </td>
-                                                        </tr>
-                                                    ))
-                                                )}
-                                            </tbody>
-                                        </table>
-                                    </div>
-
-                                    {/* Pagination Controls */}
-                                    <div className="px-6 py-4 border-t border-neutral-200 flex items-center justify-between">
-                                        <button
-                                            onClick={() => handlePageChange(currentPage - 1)}
-                                            disabled={currentPage === 1}
-                                            className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${currentPage === 1
-                                                ? 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
-                                                : 'text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50'
-                                                }`}
-                                        >
-                                            <ChevronLeft className="w-4 h-4 mr-2" />
-                                            Previous
-                                        </button>
-                                        <div className="hidden sm:flex">
-                                            <p className="text-sm text-neutral-700">
-                                                Showing page <span className="font-medium">{currentPage}</span> of <span className="font-medium">{totalPages}</span>
-                                            </p>
-                                        </div>
-                                        <button
-                                            onClick={() => handlePageChange(currentPage + 1)}
-                                            disabled={currentPage === totalPages}
-                                            className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${currentPage === totalPages
-                                                ? 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
-                                                : 'text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50'
-                                                }`}
-                                        >
-                                            Next
-                                            <ChevronRight className="w-4 h-4 ml-2" />
-                                        </button>
-                                    </div>
-                                </>
-                            )}
-                        </div>
+                            </>
+                        )}
                     </div>
-                )}
-            </div>
+                </div>
+            )}
+            {activeTab === 'ads' && (
+                <div className="max-w-4xl mx-auto">
+                    <AdManager />
+                </div>
+            )}
+            {activeTab === 'settings' && (
+                <div className="max-w-2xl mx-auto space-y-6">
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-neutral-200">
+                        <h2 className="text-lg font-semibold text-neutral-900 mb-4">Website Settings</h2>
+                        <form onSubmit={handleSettingsSave} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-neutral-700 mb-1">Homepage Title (SEO)</label>
+                                <input
+                                    type="text"
+                                    value={settings.homepage_title}
+                                    onChange={(e) => setSettings({ ...settings, homepage_title: e.target.value })}
+                                    className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                                    placeholder="e.g. Find Your Perfect Home"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-neutral-700 mb-1">Homepage Description (SEO)</label>
+                                <textarea
+                                    value={settings.homepage_description}
+                                    onChange={(e) => setSettings({ ...settings, homepage_description: e.target.value })}
+                                    className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 h-24"
+                                    placeholder="e.g. Discover verified rooms and flats..."
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-neutral-700 mb-1">Global WhatsApp Number</label>
+                                <input
+                                    type="text"
+                                    value={settings.whatsapp_number}
+                                    onChange={(e) => setSettings({ ...settings, whatsapp_number: e.target.value })}
+                                    className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                                    placeholder="e.g. 917470724553"
+                                />
+                                <p className="text-xs text-neutral-500 mt-1">Used for 'Contact Us' and Application buttons. Format: CountryCode+Number (no symbols).</p>
+                            </div>
+                            <div className="pt-4">
+                                <button
+                                    type="submit"
+                                    className="w-full px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors font-medium"
+                                >
+                                    Save Changes
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

@@ -53,6 +53,16 @@ export interface Product {
   userId?: string;
   contactNumber?: string;
   ownerName?: string;
+  amenities?: string[];
+  bathroomType?: string;
+  securityDeposit?: string;
+  electricityStatus?: string;
+  tenantPreference?: string;
+  latitude?: number;
+  longitude?: number;
+  googleMapsLink?: string;
+  leadsCount?: number;
+  is_verified?: boolean;
 }
 
 export interface Collection {
@@ -78,4 +88,12 @@ export interface SelectedOptions {
 export interface NavItem {
   label: string;
   href: string;
+}
+
+export interface AdSettings {
+  media_url: string;
+  media_type: 'image' | 'video';
+  cta_text: string;
+  cta_link: string;
+  is_active: boolean;
 }

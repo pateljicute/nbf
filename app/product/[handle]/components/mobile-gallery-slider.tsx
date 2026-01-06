@@ -60,7 +60,7 @@ export function MobileGallerySlider({ product }: MobileGallerySliderProps) {
                 }}
                 src={getOptimizedImageUrl(image.url, 800, undefined, 'limit')}
                 fallbackSrc="/placeholder.jpg"
-                alt={image.altText}
+                alt={`Room for rent in ${product.tags?.[1] || 'Mandsaur'} - ${product.title} NBF Homes`}
                 width={image.width}
                 height={image.height}
                 className="w-full h-full object-cover"

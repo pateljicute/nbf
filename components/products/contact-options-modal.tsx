@@ -20,7 +20,20 @@ export function ContactOptionsModal({ isOpen, onClose, product }: ContactOptions
             alert("Contact number not available");
             return;
         }
-        const message = `Hi, I'm interested in your property: ${product.title}`;
+
+        const currentUrl = window.location.href;
+        const city = product.tags?.[1] || 'Unknown City';
+        const rent = product.priceRange?.minVariantPrice?.amount
+            ? Math.round(Number(product.priceRange.minVariantPrice.amount)).toLocaleString('en-IN')
+            : 'N/A';
+
+        const message = `Hi, I'm interested in this property of yours: 
+🏠 Property: ${product.title}
+📍 City: ${city}
+💰 Rent: ₹${rent}/month
+🔗 Link: ${currentUrl}
+Please let me know more.`;
+
         // Remove any non-digit characters for the WhatsApp link
         const cleanNumber = contactNumber.replace(/\D/g, '');
         window.open(`https://wa.me/${cleanNumber}?text=${encodeURIComponent(message)}`, '_blank');

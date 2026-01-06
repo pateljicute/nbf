@@ -6,12 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Collection } from '@/lib/types';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import { CategoryFilter } from './category-filter';
-import { ColorFilter } from './color-filter';
 import { useFilterCount } from '../hooks/use-filter-count';
 import { useProducts } from '../providers/products-provider';
 import { ResultsCount } from './results-count';
 import { SortDropdown } from './sort-dropdown';
 import Link from 'next/link';
+import { PriceFilter } from '@/components/shop/price-filter';
 
 interface MobileFiltersProps {
   collections: Collection[];
@@ -21,6 +21,13 @@ interface MobileFiltersProps {
 export function MobileFilters({ collections, className }: MobileFiltersProps) {
   const filterCount = useFilterCount();
   const { products, originalProducts } = useProducts();
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
 
   return (
     <div className="pt-top-spacing bg-background md:hidden overflow-x-clip">
@@ -63,8 +70,11 @@ export function MobileFilters({ collections, className }: MobileFiltersProps) {
             </Button>
           </DrawerHeader>
           <div className="overflow-y-auto flex-1 px-4 pb-4 space-y-6">
-            <CategoryFilter collections={collections} />
-            <ColorFilter products={originalProducts} />
+            <h3 className="text-sm font-bold uppercase tracking-wider text-neutral-500 mb-0">Filters</h3>
+            <PriceFilter />
+            <div className="border-t border-neutral-100 pt-4">
+              <CategoryFilter collections={collections} />
+            </div>
           </div>
         </DrawerContent>
       </Drawer>

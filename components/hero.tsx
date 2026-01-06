@@ -11,10 +11,17 @@ const HeroSearch = dynamic(() => import('./hero-search').then(m => m.HeroSearch)
     loading: () => <div className="h-14 w-full max-w-xl bg-white/10 rounded-full animate-pulse" />
 });
 
-export function Hero() {
+import { useState, useEffect } from 'react';
+
+// Define Prop Type to include onSearch
+interface HeroProps {
+    onSearch?: (query: string) => void;
+}
+
+export function Hero({ onSearch }: HeroProps) {
     return (
-        <div className="relative h-screen w-full overflow-hidden group">
-            <div className="size-full block">
+        <div suppressHydrationWarning className="relative min-h-[50vh] h-auto pb-10 md:min-h-[80vh] w-full overflow-hidden group">
+            <div className="absolute inset-0 size-full block">
                 <Image
                     loader={cloudinaryLoader}
                     src={HERO_SRC}
@@ -22,15 +29,16 @@ export function Hero() {
                     fill
                     priority
                     sizes="100vw"
-                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 pointer-events-none"
+                    suppressHydrationWarning
                 />
-                {/* Darker overlay for better text contrast matching the reference */}
-                <div className="absolute inset-0 bg-black/40" />
-                <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/60" />
+                {/* Darker overlay */}
+                <div className="absolute inset-0 bg-black/40 pointer-events-none" suppressHydrationWarning />
+                <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/60 pointer-events-none" suppressHydrationWarning />
             </div>
 
             {/* Centered Content Container */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-20">
+            <div className="relative min-h-[50vh] flex flex-col items-center justify-center p-6 text-center z-20 pt-24 md:pt-0">
                 <div className="flex flex-col items-center gap-6 animate-in slide-in-from-bottom-10 fade-in duration-700 delay-100 max-w-4xl">
                     {/* Glassmorphic Badge */}
                     <div className="flex items-center gap-3">
@@ -39,35 +47,19 @@ export function Hero() {
                         </span>
                     </div>
 
-                    {/* Hero Title - Large & Elegant */}
-                    <h1 className="text-5xl md:text-7xl lg:text-8xl font-medium text-white tracking-tight leading-[1.1] drop-shadow-lg">
-                        Find Your Dream Home
+                    {/* Hero Title */}
+                    <h1 className="text-2xl md:text-4xl lg:text-5xl font-medium text-white tracking-tight leading-tight drop-shadow-lg px-2">
+                        Find Your Perfect Home – Zero Brokerage, Zero Stress.
                     </h1>
 
                     {/* Description */}
-                    <p className="text-lg md:text-xl text-white/90 max-w-2xl font-light leading-relaxed drop-shadow-md">
-                        Discover verified PGs, shared flats, and premium rooms. Connect directly with owners, zero brokerage, completely free.
+                    <p className="text-sm md:text-lg text-white/80 max-w-2xl font-light leading-relaxed drop-shadow-md px-4 mb-6">
+                        Discover verified rooms, PGs, and shared flats in Mandsaur. Connect directly with owners.
                     </p>
 
                     {/* Functional Search Bar */}
-                    <HeroSearch />
-                </div>
-            </div>
-
-            {/* Bottom Stats Row */}
-            <div className="absolute bottom-0 left-0 w-full py-12 z-20 border-t border-white/10 bg-gradient-to-t from-black/80 to-transparent">
-                <div className="container mx-auto grid grid-cols-3 gap-4 text-center">
-                    <div className="flex flex-col gap-1">
-                        <span className="text-2xl md:text-3xl font-bold text-white">10k+</span>
-                        <span className="text-xs md:text-sm text-white/70 uppercase tracking-wider">Active Listings</span>
-                    </div>
-                    <div className="flex flex-col gap-1 border-l border-white/20">
-                        <span className="text-2xl md:text-3xl font-bold text-white">50+</span>
-                        <span className="text-xs md:text-sm text-white/70 uppercase tracking-wider">Cities Covered</span>
-                    </div>
-                    <div className="flex flex-col gap-1 border-l border-white/20">
-                        <span className="text-2xl md:text-3xl font-bold text-white">0%</span>
-                        <span className="text-xs md:text-sm text-white/70 uppercase tracking-wider">Brokerage Fee</span>
+                    <div className="w-[92%] md:w-full flex justify-center mt-8 md:mt-10">
+                        <HeroSearch onSearch={onSearch} />
                     </div>
                 </div>
             </div>

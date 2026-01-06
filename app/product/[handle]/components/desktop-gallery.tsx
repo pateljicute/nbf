@@ -37,7 +37,7 @@ export const DesktopGallery = ({ product }: { product: Product }) => {
               <ProductImage
                 src={getOptimizedImageUrl(image.url, 100, 100, 'fill')}
                 fallbackSrc="/placeholder.jpg"
-                alt={image.altText}
+                alt={`Room for rent in ${product.tags?.[1] || 'Mandsaur'} - ${product.title} NBF Homes`}
                 fill
                 className="object-cover"
                 sizes="80px"
@@ -53,7 +53,7 @@ export const DesktopGallery = ({ product }: { product: Product }) => {
           key={selectedImage.url}
           src={getOptimizedImageUrl(selectedImage.url, 1200, undefined, 'limit')}
           fallbackSrc="/placeholder.jpg"
-          alt={selectedImage.altText}
+          alt={`Room for rent in ${product.tags?.[1] || 'Mandsaur'} - ${product.title} NBF Homes`}
           fill
           className="object-contain p-2"
           sizes="(max-width: 1024px) 100vw, 60vw"

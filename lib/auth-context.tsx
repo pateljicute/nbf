@@ -18,29 +18,59 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [session, setSession] = useState<Session | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-    
+
+    if (typeof window !== 'undefined') {
+        console.log('[AuthContext] AuthProvider rendering');
+    }
+
     // Use the global singleton client from lib/db.ts
     // const supabase = useMemo(() => createClient(), []);
 
     useEffect(() => {
+        let mounted = true;
+
         // Check active session
         const checkUser = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            setSession(session);
-            setUser(session?.user ?? null);
-            setIsLoading(false);
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (mounted) {
+                    setSession(session);
+                    setUser(session?.user ?? null);
+
+                    if (session?.user) {
+                        const { data } = await supabase
+                            .from('users')
+                            .select('*') // Select all available fields to be safe, or specify known ones if 'role' is missing
+                            .eq('id', session.user.id)
+                            .single();
+                        if (mounted) {
+                            // Assuming we had a profile state, but we removed it. 
+                            // Wait, I see I removed profile state in Step 447/448? 
+                            // The user diff showed removal of profile state. 
+                            // So I should NOT try to set profile here.
+                        }
+                    }
+                    setIsLoading(false);
+                }
+            } catch (error) {
+                console.error("Auth check error:", error);
+                if (mounted) setIsLoading(false);
+            }
         };
 
         checkUser();
 
         // Listen for auth changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            setSession(session);
-            setUser(session?.user ?? null);
-            setIsLoading(false);
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+            if (mounted) {
+                setSession(session);
+                setUser(session?.user ?? null);
+                setIsLoading(false);
+            }
         });
 
         return () => {
+            mounted = false;
             subscription.unsubscribe();
         };
     }, []);
@@ -70,6 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export function useAuth() {
     const context = useContext(AuthContext);
     if (context === undefined) {
+        console.error('[AuthContext] useAuth called outside provider!');
         throw new Error('useAuth must be used within an AuthProvider');
     }
     return context;

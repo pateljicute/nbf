@@ -35,7 +35,7 @@ export function LatestProductCard({
     try {
       const shareData = {
         title: product.title,
-        text: `Check out this property: ${product.description}\nPrice: ₹${Number(product.priceRange.minVariantPrice.amount).toLocaleString('en-IN')}/month`,
+        text: `Check out this property: ${product.description || ''}\nPrice: ₹${product.priceRange?.minVariantPrice?.amount ? Number(product.priceRange.minVariantPrice.amount).toLocaleString('en-IN') : 'N/A'}/month`,
         url: `${window.location.origin}/product/${product.handle}`
       };
 
@@ -134,10 +134,12 @@ export function LatestProductCard({
             <ProductImage
               src={getOptimizedImageUrl(product.featuredImage?.url || '', 800, 600, 'fill')}
               fallbackSrc="/placeholder.jpg"
-              alt={product.featuredImage?.altText || 'Product Image'}
+              /* SEO Optimized Alt Text */
+              alt={`${product.title} - NBF Homes`}
               fill
               className="object-cover transition-transform duration-500 group-hover:scale-105"
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              suppressHydrationWarning
             />
           </Link>
           {/* Tag */}
@@ -156,6 +158,16 @@ export function LatestProductCard({
                 {product.title}
               </h3>
             </Link>
+
+            {/* Location Label */}
+            <div className="flex items-center gap-1 text-xs text-neutral-600 my-0.5">
+              <span className="shrink-0">📍</span>
+              <span className="line-clamp-1">
+                {product.tags?.[2] ? `${product.tags[2]}, ` : ''}
+                <span className="font-bold text-neutral-900">{product.tags?.[1] || 'India'}</span>
+              </span>
+            </div>
+
             <p className="text-sm text-neutral-500 line-clamp-1">
               {product.description || 'Premium Collection'}
             </p>
@@ -173,7 +185,10 @@ export function LatestProductCard({
 
           {/* Price */}
           <div className="text-xl font-bold text-neutral-900">
-            ₹{Number(product.priceRange.minVariantPrice.amount).toLocaleString('en-IN')}
+            ₹{product.priceRange?.minVariantPrice?.amount
+              ? Number(product.priceRange.minVariantPrice.amount).toLocaleString('en-IN')
+              : 'N/A'
+            }
             <span className="text-sm font-normal text-neutral-500 ml-1">/month</span>
           </div>
 

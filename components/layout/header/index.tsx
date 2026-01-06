@@ -8,26 +8,19 @@ import { cn } from '@/lib/utils';
 import { LogoSvg } from './logo-svg';
 import { NavItem } from '@/lib/types';
 import { Collection } from '@/lib/types';
-import { User } from 'lucide-react';
+import { User, ChevronDown, Shield } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
+import { checkAdminStatus } from '@/app/actions';
 import AuthModal from '@/components/auth/auth-modal';
 import { NotificationBadge } from '@/components/ui/notification-badge';
-import { useRealtime } from '@/lib/realtime-context';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
-export const navItems: NavItem[] = [
-  {
-    label: 'Home',
-    href: '/',
-  },
-  {
-    label: 'All Properties',
-    href: '/shop',
-  },
-  {
-    label: 'Post Property',
-    href: '/post-property',
-  },
-];
+import { navItems, categoryItems } from './nav-data';
 
 interface HeaderProps {
   collections: Collection[];
@@ -38,34 +31,39 @@ export function Header({ collections }: HeaderProps) {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const { user } = useAuth();
   const [mounted, setMounted] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-  }, []);
+    if (user) {
+      checkAdminStatus(user.id).then(setIsAdmin);
+    }
+  }, [user]);
 
   return (
     <>
-      <header className="grid fixed top-0 left-0 z-50 grid-cols-3 items-start w-full p-sides md:grid-cols-12 md:gap-sides">
+      <header className="grid fixed top-0 left-0 z-50 grid-cols-3 items-center w-full p-2 md:p-sides md:grid-cols-12 md:gap-sides bg-white/10 backdrop-blur-sm md:bg-transparent md:backdrop-blur-none border-b-0 transition-all duration-300">
         <div className="block flex-none md:hidden">
-          <MobileMenu collections={collections} />
+          <MobileMenu collections={collections} isAdmin={isAdmin} />
         </div>
-        <Link href="/" className="md:col-span-3 xl:col-span-2" prefetch>
-          <LogoSvg className="w-auto h-8 max-md:place-self-center md:w-full md:h-auto max-w-[160px]" />
+        <Link href="/" className="md:col-span-3 xl:col-span-2 flex justify-center md:block pt-0" prefetch>
+          <div className="md:hidden bg-white/20 backdrop-blur-md rounded-full px-2 py-0.5">
+            <LogoSvg className="w-auto h-5" />
+          </div>
+          <LogoSvg className="hidden md:block w-full h-auto max-w-[160px]" />
         </Link>
         <nav className="flex justify-end items-center md:col-span-9 xl:col-span-10 pointer-events-none">
-          <div className="pointer-events-auto hidden md:flex items-center gap-1 p-1.5 bg-white/80 backdrop-blur-xl border border-white/20 shadow-lg rounded-full transition-all hover:bg-white/95">
-            <ul className="flex items-center">
+          <div className="pointer-events-auto hidden md:flex items-center gap-1 p-1.5 bg-white/60 backdrop-blur-xl border border-white/20 shadow-lg rounded-full transition-all hover:bg-white/95">
+            <ul className="flex items-center gap-2">
               {navItems.map(item => (
                 <li key={item.href}>
                   <Link
                     href={item.href}
                     className={cn(
-                      'block px-5 py-2.5 text-xs font-bold tracking-widest uppercase rounded-full transition-all duration-300',
-                      item.href === '/post-property'
-                        ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg hover:shadow-xl hover:scale-105 animate-pulse'
-                        : pathname === item.href
-                          ? 'bg-black text-white shadow-md transform scale-105'
-                          : 'text-neutral-600 hover:bg-neutral-100 hover:text-black'
+                      'block px-6 py-2.5 text-xs font-bold tracking-widest uppercase rounded-full transition-all duration-300',
+                      pathname === item.href
+                        ? 'bg-neutral-100 text-neutral-900 shadow-inner'
+                        : 'text-neutral-600 hover:bg-neutral-50 hover:text-black'
                     )}
                     prefetch
                   >
@@ -73,6 +71,50 @@ export function Header({ collections }: HeaderProps) {
                   </Link>
                 </li>
               ))}
+
+              {/* Category Dropdown */}
+              <li>
+                <DropdownMenu>
+                  <DropdownMenuTrigger suppressHydrationWarning className="flex items-center gap-1 px-6 py-2.5 text-xs font-bold tracking-widest uppercase rounded-full transition-all duration-300 text-neutral-600 hover:bg-neutral-50 hover:text-black outline-none">
+                    Categories <ChevronDown className="w-3 h-3" />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48 bg-white/95 backdrop-blur-xl border-white/20 shadow-xl rounded-xl p-2 mt-2">
+                    {categoryItems.map((cat) => (
+                      <DropdownMenuItem key={cat.href} asChild>
+                        <Link
+                          href={cat.href}
+                          className="w-full cursor-pointer text-xs font-bold uppercase tracking-wider py-2.5 px-3 rounded-lg hover:bg-neutral-100 focus:bg-neutral-100 text-neutral-600 focus:text-black"
+                        >
+                          {cat.label}
+                        </Link>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </li>
+
+              {isAdmin && (
+                <li>
+                  <Link
+                    href="/admin"
+                    className="flex items-center gap-2 px-6 py-2.5 text-xs font-bold tracking-widest uppercase rounded-full transition-all duration-300 bg-neutral-800 text-white hover:bg-neutral-900 shadow-md"
+                    prefetch
+                  >
+                    <Shield className="w-3 h-3" />
+                    Admin Panel
+                  </Link>
+                </li>
+              )}
+
+              <li>
+                <Link
+                  href="/post-property"
+                  className="block px-6 py-2.5 text-xs font-bold tracking-widest uppercase rounded-full transition-all duration-300 bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg ml-4 hover:shadow-xl hover:scale-105 animate-pulse"
+                  prefetch
+                >
+                  Post Property
+                </Link>
+              </li>
             </ul>
             <div className="w-px h-6 bg-neutral-200 mx-2" />
             {mounted && user && <NotificationBadge />}
@@ -102,10 +144,10 @@ export function Header({ collections }: HeaderProps) {
             </div>
           </div>
 
-          {/* Mobile Cart - Visible only on mobile */}
-          <div className="md:hidden pointer-events-auto">
+          {/* Mobile Right Section: User */}
+          <div className="md:hidden pointer-events-auto flex items-center gap-3">
             {mounted && user ? (
-              <Link href="/profile" className="relative flex items-center justify-center w-10 h-10 rounded-full bg-neutral-100 hover:bg-neutral-200 transition-colors text-neutral-900 overflow-hidden">
+              <Link href="/profile" className="relative flex items-center justify-center w-8 h-8 rounded-full bg-white/20 backdrop-blur-md hover:bg-white/30 transition-colors text-neutral-900 overflow-hidden">
                 {user.user_metadata?.avatar_url ? (
                   <img
                     src={user.user_metadata.avatar_url}
@@ -115,15 +157,15 @@ export function Header({ collections }: HeaderProps) {
                     loading="lazy"
                   />
                 ) : (
-                  <User className="w-5 h-5" />
+                  <User className="w-4 h-4" />
                 )}
               </Link>
             ) : (
               <button
                 onClick={() => setIsAuthModalOpen(true)}
-                className="flex items-center justify-center w-10 h-10 rounded-full bg-neutral-100 hover:bg-neutral-200 transition-colors text-neutral-900"
+                className="flex items-center justify-center w-8 h-8 rounded-full bg-white/20 backdrop-blur-md hover:bg-white/30 transition-colors text-neutral-900"
               >
-                <User className="w-5 h-5" />
+                <User className="w-4 h-4" />
               </button>
             )}
           </div>

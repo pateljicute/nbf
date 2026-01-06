@@ -1,4 +1,8 @@
 const nextConfig = {
+  devIndicators: {
+    buildActivity: false,
+    appIsrStatus: false,
+  },
   experimental: {
     optimizePackageImports: [
       'lucide-react',
@@ -44,10 +48,40 @@ const nextConfig = {
           { key: 'X-XSS-Protection', value: '1; mode=block' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+          // CORS Headers for nbfhomes.in
+          { key: 'Access-Control-Allow-Origin', value: 'https://nbfhomes.in' },
+          { key: 'Access-Control-Allow-Methods', value: 'GET,DELETE,PATCH,POST,PUT' },
+          { key: 'Access-Control-Allow-Headers', value: 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version' },
         ],
+      },
+      {
+        source: '/api/:path*',
+        headers: [
+          { key: 'Access-Control-Allow-Origin', value: '*' }, // Allow API access from anywhere (or restrict to https://nbfhomes.in)
+          { key: 'Access-Control-Allow-Methods', value: 'GET,POST,PUT,DELETE,OPTIONS' },
+          { key: 'Access-Control-Allow-Headers', value: 'Content-Type, Authorization' },
+        ]
+      }
+    ];
+  },
+
+  async redirects() {
+    return [
+      {
+        source: '/shop',
+        destination: '/properties',
+        permanent: true,
+      },
+      {
+        source: '/shop/:path*',
+        destination: '/properties/:path*',
+        permanent: true,
       },
     ];
   },
 };
 
+
+
+// Trigger rebuild for hydration fix - Mobile Menu Update
 export default nextConfig;

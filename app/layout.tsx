@@ -1,15 +1,13 @@
 import type { Metadata } from 'next';
 import { Geist } from 'next/font/google';
-import { Suspense } from 'react';
 import './globals.css';
-import { Toaster } from 'sonner';
-import { NuqsAdapter } from 'nuqs/adapters/next/app';
-// CartProvider removed
 import { Collection } from '@/lib/types';
 import { getCollections } from '@/lib/api';
-import { Header } from '../components/layout/header';
-import { AuthProvider } from '@/lib/auth-context';
-import { RealtimeProvider } from '@/lib/realtime-context';
+// ProvidersWrapper imported below
+
+import { ProvidersWrapper } from '@/components/providers-wrapper';
+import { WhatsAppOnboardingModal } from '@/components/auth/whatsapp-onboarding-modal';
+import { InstallPrompt } from '@/components/pwa/install-prompt';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -26,13 +24,13 @@ export const viewport = {
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  title: 'NBFHOMES - Best PG & Room Finder in India | No Brokerage',
-  description: 'Search 10,000+ verified PGs & rooms across India. Zero brokerage, direct owner contact, student-friendly listings.',
+  title: 'NBF Homes | Best PGs, Rooms & Shared Flats in Mandsaur & Nearby Cities',
+  description: 'Find verified PGs and rooms in Mandsaur, Neemuch, Ratlam, and Indore with zero brokerage. Connect directly with owners on NBF Homes.',
   applicationName: 'NBFHOMES',
-  keywords: ['PG in India', 'rooms for rent', 'no brokerage', 'student housing', 'flats for rent India', 'owner listed properties'],
+  keywords: ['Rooms in Mandsaur', 'PG in Neemuch', 'Flat for rent in Ratlam', 'Student housing Ujjain', 'Rooms near me', 'Low budget rooms Mandsaur', 'NBF Homes rentals'],
   openGraph: {
-    title: 'NBFHOMES | No-Brokerage PG & Room Finder in India',
-    description: 'Find verified PGs, rooms, and flats with direct owner contact. Zero brokerage, nationwide coverage.',
+    title: 'NBF Homes | Best PGs, Rooms & Shared Flats in Mandsaur & Nearby Cities',
+    description: 'Find verified PGs and rooms in Mandsaur, Neemuch, Ratlam, and Indore with zero brokerage. Connect directly with owners on NBF Homes.',
     url: siteUrl,
     siteName: 'NBFHOMES',
     locale: 'en_IN',
@@ -40,8 +38,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'NBFHOMES | No-Brokerage PG & Room Finder in India',
-    description: 'Verified PGs, rooms, and flats. Zero brokerage. Direct owner contact.',
+    title: 'NBF Homes | Best PGs, Rooms & Shared Flats in Mandsaur & Nearby Cities',
+    description: 'Find verified PGs and rooms in Mandsaur, Neemuch, Ratlam, and Indore with zero brokerage. Connect directly with owners on NBF Homes.',
   },
   alternates: {
     canonical: '/',
@@ -59,28 +57,14 @@ export const metadata: Metadata = {
   },
 };
 
-// Create a separate component for the client-side layout
-function ClientLayout({ children, collections }: { children: React.ReactNode; collections: Collection[] }) {
-  return (
-    <AuthProvider>
-      <RealtimeProvider>
-        <NuqsAdapter>
-            <Header collections={collections} />
-            <Suspense>{children}</Suspense>
-            <Toaster closeButton position="bottom-right" />
-          </NuqsAdapter>
-      </RealtimeProvider>
-    </AuthProvider>
-  );
-}
-
 export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Force rebuild timestamp: 2026-01-06
   let collections: Collection[] = [];
-  
+
   try {
     // Try to fetch collections, but don't block rendering if it fails
     collections = await getCollections();
@@ -91,22 +75,44 @@ export default async function RootLayout({
 
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} antialiased min-h-screen`}>
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#000000" />
+        <link rel="apple-touch-icon" href="/icon-192x192.png" />
+      </head>
+      <body className={`${geistSans.variable} antialiased min-h-screen overflow-y-auto`}>
         <script
           type="application/ld+json"
           suppressHydrationWarning
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({
               '@context': 'https://schema.org',
-              '@type': 'Organization',
+              '@type': 'LocalBusiness',
               name: 'NBFHOMES',
               url: siteUrl,
               logo: `${siteUrl}/opengraph-image.png`,
+              image: `${siteUrl}/opengraph-image.png`,
+              description: 'Rooms in Mandsaur, PG in Neemuch, Flat for rent in Ratlam, Student housing Ujjain, Rooms near me, Low budget rooms Mandsaur, NBF Homes rentals. Find verified PGs and rooms in Mandsaur, Neemuch, Ratlam, and Indore with zero brokerage.',
+              address: {
+                '@type': 'PostalAddress',
+                addressLocality: 'Mandsaur',
+                addressRegion: 'Madhya Pradesh',
+                addressCountry: 'IN'
+              },
+              areaServed: [
+                { '@type': 'City', name: 'Mandsaur' },
+                { '@type': 'City', name: 'Neemuch' },
+                { '@type': 'City', name: 'Ratlam' },
+                { '@type': 'City', name: 'Indore' },
+                { '@type': 'City', name: 'Ujjain' },
+                { '@type': 'City', name: 'Jaora' },
+                { '@type': 'City', name: 'Pratapgarh' },
+                { '@type': 'City', name: 'Kota' },
+                { '@type': 'City', name: 'Chittorgarh' }
+              ],
               sameAs: [
                 'https://www.instagram.com/joyco.studio/',
               ],
-              areaServed: [{ '@type': 'Country', name: 'India' }],
-              description: 'No-brokerage PGs, rooms, and flats across India with direct owner contact.',
             }),
           }}
         />
@@ -121,16 +127,33 @@ export default async function RootLayout({
               url: siteUrl,
               potentialAction: {
                 '@type': 'SearchAction',
-                target: `${siteUrl}/shop?query={search_term_string}`,
+                target: `${siteUrl}/properties?query={search_term_string}`,
                 'query-input': 'required name=search_term_string',
               },
               inLanguage: 'en-IN',
             }),
           }}
         />
-        <ClientLayout collections={collections}>
+        <ProvidersWrapper collections={collections}>
           {children}
-        </ClientLayout>
+          <WhatsAppOnboardingModal />
+          <InstallPrompt />
+        </ProvidersWrapper>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+               if ('serviceWorker' in navigator) {
+                 window.addEventListener('load', function() {
+                   navigator.serviceWorker.register('/sw.js').then(function(registration) {
+                     console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                   }, function(err) {
+                     console.log('ServiceWorker registration failed: ', err);
+                   });
+                 });
+               }
+             `
+          }}
+        />
       </body>
     </html>
   );

@@ -7,41 +7,45 @@ export const CLOUDINARY_CONFIG = {
 };
 
 // File upload utility functions
+// File upload utility functions
 export const uploadImage = async (file: File, folder: string = 'nbfhomes/properties'): Promise<string> => {
+  return uploadMedia(file, folder, 'image');
+};
+
+export const uploadMedia = async (file: File, folder: string = 'nbfhomes/ads', resourceType: 'image' | 'video' = 'image'): Promise<string> => {
   if (!file) throw new Error('No file provided for upload');
 
   // Validate file type
-  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-  if (!allowedTypes.includes(file.type)) {
+  const allowedImageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+  const allowedVideoTypes = ['video/mp4', 'video/webm', 'video/quicktime'];
+
+  if (resourceType === 'image' && !allowedImageTypes.includes(file.type)) {
     throw new Error('Invalid file type. Only JPEG, PNG, and WebP images are allowed.');
   }
+  if (resourceType === 'video' && !allowedVideoTypes.includes(file.type)) {
+    throw new Error('Invalid file type. Only MP4, WebM, and MOV videos are allowed.');
+  }
 
-  // Validate file size (max 5MB)
-  if (file.size > 5 * 1024 * 1024) {
-    throw new Error('File size too large. Maximum size is 5MB.');
+  // Validate file size (max 5MB for images, 10MB for videos)
+  const maxSize = resourceType === 'video' ? 10 * 1024 * 1024 : 5 * 1024 * 1024;
+  if (file.size > maxSize) {
+    throw new Error(`File size too large. Maximum size is ${resourceType === 'video' ? '10MB' : '5MB'}.`);
   }
 
   // Validate upload preset
   if (CLOUDINARY_CONFIG.uploadPreset === 'nbfhomes_demo') {
     console.warn('Using default Cloudinary upload preset. This may fail if the preset does not exist in your Cloudinary account.');
-    console.warn('Please set NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET in your .env.local file.');
   }
-
-  // Log config for debugging (excluding secret)
-  console.log('Cloudinary Config:', {
-    cloudName: CLOUDINARY_CONFIG.cloudName,
-    uploadPreset: CLOUDINARY_CONFIG.uploadPreset,
-  });
 
   const formData = new FormData();
   formData.append('file', file);
   formData.append('upload_preset', CLOUDINARY_CONFIG.uploadPreset);
   formData.append('folder', folder);
-  formData.append('resource_type', 'image');
+  formData.append('resource_type', resourceType);
 
   try {
     const response = await fetch(
-      `https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.cloudName}/image/upload`,
+      `https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.cloudName}/${resourceType}/upload`,
       {
         method: 'POST',
         body: formData,
@@ -67,7 +71,7 @@ export const uploadImage = async (file: File, folder: string = 'nbfhomes/propert
 
     return data.secure_url;
   } catch (error) {
-    console.error('Image upload error:', error);
+    console.error(`${resourceType} upload error:`, error);
     throw error;
   }
 };

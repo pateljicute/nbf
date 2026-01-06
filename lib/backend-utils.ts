@@ -52,6 +52,16 @@ export interface Product {
     contactNumber?: string;
     categoryId?: string;
     ownerName?: string;
+    amenities?: string[];
+    bathroomType?: string;
+    securityDeposit?: string;
+    electricityStatus?: string;
+    tenantPreference?: string;
+    latitude?: number;
+    longitude?: number;
+    googleMapsLink?: string;
+    leadsCount?: number;
+    is_verified?: boolean;
 }
 
 export interface Collection {
@@ -85,7 +95,17 @@ export const mapPropertyToProduct = (prop: any): Product => ({
     userId: prop.user_id,
     contactNumber: prop.contact_number,
     categoryId: prop.category_id,
-    ownerName: prop.users?.full_name || prop.users?.name || 'Property Owner'
+    ownerName: prop.users?.full_name || prop.users?.name || 'Property Owner',
+    amenities: prop.amenities,
+    bathroomType: prop.bathroom_type,
+    securityDeposit: prop.security_deposit,
+    electricityStatus: prop.electricity_status,
+    tenantPreference: prop.tenant_preference,
+    latitude: prop.latitude,
+    longitude: prop.longitude,
+    googleMapsLink: prop.google_maps_link,
+    leadsCount: prop.properties_leads?.[0]?.count || 0,
+    is_verified: prop.is_verified
 });
 
 // --- Helper to map DB result to Collection ---
