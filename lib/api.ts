@@ -11,14 +11,6 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const API_URL = process.env.NEXT_PUBLIC_API_URL || (typeof window === 'undefined' ? (process.env.NEXT_PUBLIC_SITE_URL ? `${process.env.NEXT_PUBLIC_SITE_URL}/api` : 'http://localhost:3000/api') : '/api');
 
 
-// CSRF Token utilities - No longer needed with direct Supabase calls
-// Keeping the variable for now to avoid breaking other potential imports, but it's unused
-let csrfToken: string | null = null;
-let csrfTokenExpiry: number | null = null;
-
-const getCSRFToken = async (token?: string): Promise<string> => {
-  return 'mock-csrf-token';
-};
 
 
 // Mock data for development
@@ -448,21 +440,32 @@ export async function getCollectionProducts(params: {
 // Cart functions removed as per project requirements (Property Rental only)
 
 export async function createProduct(data: any, token?: string): Promise<Product> {
-  // Use POST /api/products/create (we need to ensure this route exists or matches /products)
-  // Actually, existing route app/api/products handles POST for *search* in strict standard,
-  // but commonly POST /products is CREATE.
-  // Let's look at `app/api/products/route.ts` - it handles SEARCH logic in POST!
-  // This is non-standard. The CREATE logic is missing or elsewhere.
-  // I need to create `app/api/properties/create` or similar if it doesn't exist.
-  // I see `app/api/products/create` in the file list earlier!
-
   try {
-    const resCandidate = await apiClient.post<any>('/products/create', data, { token });
-    return mapPropertyToProduct(resCandidate);
+    // 1. Get current user
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+
+    // 2. Prepare data with user_id
+    const insertData = {
+      ...data,
+      user_id: user.id
+    };
+
+    // 3. Insert directly into Supabase (bypassing CSRF/API)
+    const { data: insertedProperty, error } = await supabase
+      .from('properties')
+      .insert(insertData)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return mapPropertyToProduct(insertedProperty);
   } catch (e: any) {
-    // Fallback if the route doesn't exist yet but user wants it dynamic:
-    // We should throw to prompt the UI to handle it, or fix the route.
-    console.error("Create Product API failed", e);
+    console.error("Create Product failed:", e);
     throw e;
   }
 }
