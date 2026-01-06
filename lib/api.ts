@@ -2,7 +2,7 @@ import { Product, Collection, ProductSortKey, ProductCollectionSortKey } from '.
 import { apiClient } from './api-client';
 import { supabase } from './db';
 import { getAdminClient } from './supabase-admin';
-import { mapPropertyToProduct, mapDbCollectionToCollection } from './backend-utils';
+import { mapPropertyToProduct, mapDbCollectionToCollection, validateInput, sanitizeInput } from './backend-utils';
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -280,21 +280,82 @@ export async function getProducts(params?: {
   area?: string;
   type?: string;
 }): Promise<Product[]> {
-  try {
-    // Determine if we need to filter/search (POST) or just get all (GET)
-    // Actually, the GET endpoint is cached and simple, while POST handles all query logic.
-    // If we have ANY params, use POST. If empty, use GET.
+  // Client-side: use API
+  if (typeof window !== 'undefined') {
+    try {
+      return await apiClient.post<Product[]>('/products', {
+        ...params,
+        limit: params?.limit || 24
+      });
+    } catch (error) {
+      console.error('Error in getProducts (Client):', error);
+      throw error;
+    }
+  }
 
-    // Using POST for everything for consistency and simpler logic mapping to existing route
-    return await apiClient.post<Product[]>('/products', {
-      ...params,
-      limit: params?.limit || 24
-    });
+  // Server-side: Direct DB access
+  try {
+    const limit = params?.limit || 24;
+    const safeLimit = Math.max(1, Math.min(Math.floor(limit), 50));
+
+    let dbQuery = supabase
+      .from("properties")
+      .select("id,handle,title,description,price_range,currency_code,featured_image,tags,available_for_sale,category_id,contact_number,user_id,seo")
+      .limit(safeLimit);
+
+    // Apply base filter
+    dbQuery = dbQuery.eq('available_for_sale', true);
+
+    // Apply Filters (Logic mirrored from app/api/products/route.ts)
+    if (params?.query && validateInput(params.query, 'string')) {
+      const q = sanitizeInput(params.query);
+      dbQuery = dbQuery.or(`title.ilike.%${q}%,description.ilike.%${q}%`);
+    }
+
+    if (params?.minPrice !== undefined) {
+      dbQuery = dbQuery.gte('price_range->minVariantPrice->amount', parseFloat(params.minPrice).toString());
+    }
+    if (params?.maxPrice !== undefined) {
+      dbQuery = dbQuery.lte('price_range->minVariantPrice->amount', parseFloat(params.maxPrice).toString());
+    }
+
+    if (params?.location && validateInput(params.location, 'string')) {
+      dbQuery = dbQuery.ilike('tags', `%${sanitizeInput(params.location)}%`);
+    }
+
+    if (params?.propertyType && validateInput(params.propertyType, 'string')) {
+      dbQuery = dbQuery.ilike('tags', `%${sanitizeInput(params.propertyType)}%`);
+    }
+
+    if (params?.amenities && Array.isArray(params.amenities)) {
+      for (const amenity of params.amenities) {
+        if (validateInput(amenity, 'string')) {
+          dbQuery = dbQuery.ilike('tags', `%${sanitizeInput(amenity)}%`);
+        }
+      }
+    }
+
+    // Sorting
+    const sortKey = params?.sortKey;
+    const reverse = params?.reverse;
+
+    if (sortKey === 'PRICE') {
+      dbQuery = dbQuery.order('price_range->minVariantPrice->amount', { ascending: !reverse });
+    } else if (sortKey === 'CREATED_AT') {
+      dbQuery = dbQuery.order('created_at', { ascending: !reverse });
+    } else {
+      // Default sort
+      dbQuery = dbQuery.order('id', { ascending: false });
+    }
+
+    const { data, error } = await dbQuery;
+    if (error) throw error;
+
+    return data.map(mapPropertyToProduct);
+
   } catch (error) {
-    console.error('Error in getProducts:', error);
-    // Return empty array to avoid crashing, let UI handle empty state 
-    // OR rethrow if we want specific ErrorMessage component to catch it
-    throw error;
+    console.error('Error in getProducts (Server):', error);
+    return [];
   }
 }
 
