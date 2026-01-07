@@ -53,7 +53,7 @@ export interface Product {
     categoryId?: string;
     ownerName?: string;
     amenities?: string[];
-    bathroomType?: string;
+    bathroom_type?: string;
     securityDeposit?: string;
     electricityStatus?: string;
     tenantPreference?: string;
@@ -98,7 +98,7 @@ export const mapPropertyToProduct = (prop: any): Product => ({
     categoryId: prop.category_id,
     ownerName: prop.users?.full_name || prop.users?.name || 'Property Owner',
     amenities: prop.amenities,
-    bathroomType: prop.bathroom_type,
+    bathroom_type: prop.bathroom_type,
     securityDeposit: prop.security_deposit,
     electricityStatus: prop.electricity_status,
     tenantPreference: prop.tenant_preference,

@@ -54,7 +54,7 @@ export interface Product {
   contactNumber?: string;
   ownerName?: string;
   amenities?: string[];
-  bathroomType?: string;
+  bathroom_type?: string;
   securityDeposit?: string;
   electricityStatus?: string;
   tenantPreference?: string;

@@ -63,7 +63,7 @@ export default function PostPropertyPage() {
 
         // Step 2: Features
         amenities: [] as string[],
-        bathroomType: 'Common',
+        bathroom_type: 'Common',
         tenantPreference: 'Any',
         electricityStatus: 'Separate',
 
@@ -119,7 +119,7 @@ export default function PostPropertyPage() {
                     googleMapsLink: property.googleMapsLink || '',
 
                     amenities: property.amenities || [],
-                    bathroomType: property.bathroom_type || 'Common',
+                    bathroom_type: property.bathroom_type || 'Common',
                     tenantPreference: property.tenant_preference || 'Any',
                     electricityStatus: property.electricity_status || 'Separate',
 
@@ -309,7 +309,7 @@ export default function PostPropertyPage() {
             return;
         }
 
-        if (!formData.bathroomType) {
+        if (!formData.bathroom_type) {
             toast.error("Please select a bathroom type");
             return;
         }
@@ -610,8 +610,8 @@ export default function PostPropertyPage() {
                                 <div>
                                     <label className="block text-sm font-medium text-neutral-700 mb-1">Bathroom Type</label>
                                     <select
-                                        name="bathroomType"
-                                        value={formData.bathroomType}
+                                        name="bathroom_type"
+                                        value={formData.bathroom_type}
                                         onChange={handleInputChange}
                                         className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black outline-none"
                                     >

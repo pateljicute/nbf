@@ -267,7 +267,7 @@ export default async function ProductPage(props: { params: Promise<{ handle: str
                 </div>
                 <div>
                   <p className="text-[10px] text-purple-600 font-bold uppercase tracking-wider mb-1">Bathroom</p>
-                  <p className="text-sm font-bold text-neutral-900">{product.bathroomType || 'Standard'}</p>
+                  <p className="text-sm font-bold text-neutral-900">{product.bathroom_type || 'Standard'}</p>
                 </div>
               </div>
 
