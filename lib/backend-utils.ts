@@ -106,7 +106,7 @@ export const mapPropertyToProduct = (prop: any): Product => ({
     googleMapsLink: prop.google_maps_link,
     leadsCount: prop.properties_leads?.[0]?.count || 0,
     is_verified: prop.is_verified,
-    status: prop.status || 'pending'
+    status: (prop.status as Product['status']) || 'pending'
 });
 
 // --- Helper to map DB result to Collection ---
