@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Product } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { Share2 } from 'lucide-react';
+import { Share2, MapPin, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { LoginModal } from '@/components/auth/login-modal';
 import { ShareModal } from '@/components/ui/share-modal';
@@ -16,6 +16,13 @@ export const ProductCard = ({ product, className }: { product: Product; classNam
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const router = useRouter();
+
+  const city = product.tags?.[1] || '';
+  const address = product.tags?.[2] || '';
+  // Simple heuristic to get "Area": take the part after "House No..." or first two parts if simple.
+  // For now, using the full address truncated as requested, but formatted.
+  // User example: "Patel Nagar, Mandsaur".
+  // If address is "House No. 22, Patel Nagar...", we might want to just show it all truncated.
 
   const handleShare = async (product: Product) => {
     try {
@@ -75,19 +82,52 @@ export const ProductCard = ({ product, className }: { product: Product; classNam
                 {product.title}
               </h3>
             </Link>
-            <p className="text-xs md:text-sm text-neutral-500 line-clamp-1">
-              {product.description || 'Premium Collection'}
-            </p>
+
+            {/* Improved Location UI */}
+            <div className="flex items-center gap-1 text-neutral-600 mt-1">
+              <MapPin className="size-3.5 md:size-4 shrink-0" />
+              <p className="text-xs md:text-sm line-clamp-1">
+                {(() => {
+                  // Cleaning logic for Area Name
+                  let cleanAddress = address || '';
+
+                  // 1. Remove specific house/flat prefixes to get to "Area"
+                  // Matches: "House No. 123,", "Flat 4B, ", "#22 "
+                  cleanAddress = cleanAddress.replace(/^(?:House|Flat|Shop|Plot|Room)?\s*(?:No\.?|Number)?\s*[\d\w\/-]+\s*,?\s*/i, '');
+
+                  // 2. Remove City from address if present (to avoid duplication like "Patel Nagar, Mandsaur, Mandsaur")
+                  if (city && cleanAddress.toLowerCase().includes(city.toLowerCase())) {
+                    cleanAddress = cleanAddress.replace(new RegExp(city, 'gi'), '').replace(/,\s*$/, '').trim();
+                  }
+
+                  // 3. Clean leading/trailing commas
+                  cleanAddress = cleanAddress.replace(/^[\s,]+|[\s,]+$/g, '');
+
+                  return (
+                    <>
+                      {cleanAddress}
+                      {cleanAddress && city ? ', ' : ''}
+                      <span className="font-bold text-neutral-900">{city}</span>
+                    </>
+                  );
+                })()}
+              </p>
+            </div>
           </div>
 
-          {/* Amenities / Features (Mocked based on image, or use tags) */}
-          <div className="flex items-center gap-2 text-[10px] md:text-xs text-neutral-600 font-medium">
-            <div className="flex items-center gap-1">
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3 md:w-3.5 md:h-3.5"><path d="M2 4v16" /><path d="M2 8h18a2 2 0 0 1 2 2v10" /><path d="M2 17h20" /><path d="M6 8v9" /></svg>
-              <span>In Stock</span>
-            </div>
-            <span className="text-neutral-300">•</span>
-            <span>Fast Delivery</span>
+          {/* Status & Verified Owner */}
+          <div className="flex items-center gap-3 text-[10px] md:text-xs text-neutral-500 font-medium">
+            <span className="flex items-center gap-1.5 text-green-700 bg-green-50 px-2 py-0.5 rounded-full border border-green-100">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-500"></span>
+              </span>
+              Available
+            </span>
+            <span className="flex items-center gap-1 text-neutral-600">
+              <CheckCircle2 className="size-3.5 text-blue-500" />
+              Verified Owner
+            </span>
           </div>
 
           {/* Price */}

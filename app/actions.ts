@@ -108,9 +108,14 @@ export async function updateProductStatusAction(
         // Use context-aware client to leverage RLS policies
         const supabase = await getSupabaseClient();
 
+        const newStatus = availableForSale ? 'approved' : 'inactive';
+
         const { data, error } = await supabase
             .from('properties')
-            .update({ available_for_sale: availableForSale })
+            .update({
+                available_for_sale: availableForSale,
+                status: newStatus
+            })
             .eq('id', productId)
             .select()
             .maybeSingle();
@@ -141,7 +146,7 @@ export async function approveProductAction(
         // Use context-aware client
         const supabase = await getSupabaseClient();
 
-        // 1. Get current tags
+        // 1. Get current tags (legacy cleanup)
         const { data: product, error: fetchError } = await supabase
             .from('properties')
             .select('tags')
@@ -152,15 +157,16 @@ export async function approveProductAction(
             return { success: false, error: 'Property not found' };
         }
 
-        // 2. Remove 'pending_approval' tag
+        // 2. Remove 'pending_approval' tag (legacy cleanup)
         const newTags = (product.tags || []).filter((t: string) => t !== 'pending_approval');
 
-        // 3. Update property
+        // 3. Update property status
         const { error: updateError } = await supabase
             .from('properties')
             .update({
                 tags: newTags,
-                available_for_sale: true
+                available_for_sale: true,
+                status: 'approved'
             })
             .eq('id', productId);
 

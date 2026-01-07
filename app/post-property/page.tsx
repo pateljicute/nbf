@@ -309,6 +309,11 @@ export default function PostPropertyPage() {
             return;
         }
 
+        if (!formData.bathroomType) {
+            toast.error("Please select a bathroom type");
+            return;
+        }
+
         setIsLoading(true);
 
         try {
@@ -359,7 +364,7 @@ export default function PostPropertyPage() {
                         <ShieldCheck className="w-10 h-10 text-green-600" />
                     </div>
                     <h2 className="text-3xl font-serif font-medium text-neutral-900 mb-4">Submission Received</h2>
-                    <p className="text-neutral-600 text-lg mb-8">Your property has been successfully submitted for review.</p>
+                    <p className="text-neutral-600 text-lg mb-8">Your property has been successfully submitted, it will go live after admin approval.</p>
                     <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
                         <button onClick={() => router.push('/')} className="px-8 py-3 border border-neutral-200 rounded-xl hover:bg-neutral-50 transition-all font-medium text-neutral-600">
                             Return Home
@@ -689,7 +694,7 @@ export default function PostPropertyPage() {
                                         name="securityDeposit"
                                         value={formData.securityDeposit}
                                         onChange={handleInputChange}
-                                        placeholder="e.g. 50000"
+                                        placeholder="e.g. 50000 (Optional)"
                                         className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black outline-none"
                                     />
                                 </div>

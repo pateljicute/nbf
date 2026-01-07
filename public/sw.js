@@ -1,4 +1,4 @@
-const CACHE_NAME = 'infhomes-v1';
+const CACHE_NAME = 'nbfhomes-v2';
 const urlsToCache = [
     '/',
     '/icon-192x192.png'

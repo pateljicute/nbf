@@ -105,7 +105,8 @@ export const mapPropertyToProduct = (prop: any): Product => ({
     longitude: prop.longitude,
     googleMapsLink: prop.google_maps_link,
     leadsCount: prop.properties_leads?.[0]?.count || 0,
-    is_verified: prop.is_verified
+    is_verified: prop.is_verified,
+    status: prop.status || 'pending'
 });
 
 // --- Helper to map DB result to Collection ---

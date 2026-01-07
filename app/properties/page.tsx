@@ -28,21 +28,20 @@ export default async function Shop(props: {
   const searchParams = await props.searchParams;
 
   return (
-    <>
+    <div className="pt-32 pb-20 min-h-screen bg-neutral-50/30">
       <Suspense
         fallback={
-          <>
-
+          <div className="container mx-auto px-4">
             <ProductGrid>
               {Array.from({ length: 12 }).map((_, index) => (
                 <ProductCardSkeleton key={index} />
               ))}
             </ProductGrid>
-          </>
+          </div>
         }
       >
         <ProductList collection={storeCatalog.rootCategoryId} searchParams={searchParams} />
       </Suspense>
-    </>
+    </div>
   );
 }

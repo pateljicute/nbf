@@ -97,7 +97,7 @@ export function Header({ collections }: HeaderProps) {
                 <li>
                   <Link
                     href="/admin"
-                    className="flex items-center gap-2 px-6 py-2.5 text-xs font-bold tracking-widest uppercase rounded-full transition-all duration-300 bg-neutral-800 text-white hover:bg-neutral-900 shadow-md"
+                    className="flex items-center gap-2 px-6 py-2.5 text-xs font-bold tracking-widest uppercase rounded-full transition-all duration-300 border border-neutral-200 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 hover:border-neutral-300"
                     prefetch
                   >
                     <Shield className="w-3 h-3" />

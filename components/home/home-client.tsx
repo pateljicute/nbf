@@ -53,15 +53,15 @@ export function HomeClient({ initialProducts, adSettings }: HomeClientProps) {
             {/* Product Grid Section */}
             <section
                 suppressHydrationWarning
-                className="w-full max-w-[1920px] mx-auto px-6 md:px-12 relative z-20 -mt-20 bg-white rounded-t-3xl pt-8"
+                className="w-full max-w-[1920px] mx-auto px-6 md:px-12 relative z-20 -mt-20 mt-16 md:mt-28 bg-white rounded-t-3xl pt-8"
             >
                 <div
                     suppressHydrationWarning
-                    className="flex items-end justify-between mb-8"
+                    className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-8 md:mb-12"
                 >
-                    <div>
-                        <h3 className="text-2xl font-serif font-bold text-neutral-900 mb-2">Featured Properties</h3>
-                        <p className="text-neutral-500">Handpicked PGs and flats for you.</p>
+                    <div className="mt-12 md:mt-0">
+                        <h3 className="text-2xl md:text-4xl font-serif font-bold text-neutral-900 mb-2">Featured Properties</h3>
+                        <p className="text-gray-600 pt-2">Handpicked PGs and flats for you.</p>
                     </div>
                     {/* Premium View All Button */}
                     <Link
@@ -73,7 +73,7 @@ export function HomeClient({ initialProducts, adSettings }: HomeClientProps) {
                 </div>
 
                 {filteredProducts.length > 0 ? (
-                    <div className="flex flex-col gap-4 p-4 md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 md:gap-x-8 md:gap-y-12">
+                    <div className="flex flex-col gap-y-10 p-4 md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 md:gap-x-8 md:gap-y-12">
                         {filteredProducts.map((product: any, index: number) => (
                             <LatestProductCard
                                 key={product.id}

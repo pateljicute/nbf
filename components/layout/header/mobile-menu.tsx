@@ -33,7 +33,6 @@ export default function MobileMenu({ collections, isAdmin }: MobileMenuProps) {
     return () => window.removeEventListener('resize', handleResize);
   }, [isOpen]);
 
-  // Close menu when route changes
   useEffect(() => {
     closeMobileMenu();
   }, [pathname]);
@@ -54,133 +53,124 @@ export default function MobileMenu({ collections, isAdmin }: MobileMenuProps) {
 
       <AnimatePresence>
         {isOpen && (
-          <>
-            {/* Backdrop - darker for better focus */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
-              onClick={closeMobileMenu}
-              aria-hidden="true"
-            />
+          <motion.div
+            initial={{ opacity: 0, y: '100%' }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: '100%' }}
+            transition={{ duration: 0.3, ease: [0.32, 0.72, 0, 1] }}
+            className="fixed inset-0 z-[100] w-full h-full bg-white/95 backdrop-blur-xl flex flex-col"
+          >
+            {/* Header */}
+            <div className="flex justify-between items-center px-6 py-5 border-b border-neutral-100/50">
+              <p className="text-xl font-bold tracking-tight text-neutral-900">Menu</p>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="rounded-full w-10 h-10 hover:bg-neutral-100"
+                aria-label="Close menu"
+                onClick={closeMobileMenu}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+              </Button>
+            </div>
 
-            {/* Panel - Solid White, clean layout */}
-            <motion.div
-              initial={{ x: '-100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '-100%' }}
-              transition={{ duration: 0.3, ease: [0.32, 0.72, 0, 1] }}
-              className="fixed inset-y-0 left-0 z-[100] w-[85%] max-w-[320px] h-screen bg-white shadow-2xl flex flex-col"
-            >
-              {/* Header */}
-              <div className="flex justify-between items-center px-6 py-5 border-b border-neutral-100">
-                <p className="text-lg font-bold tracking-tight text-neutral-900">Menu</p>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="rounded-full w-8 h-8 hover:bg-neutral-100"
-                  aria-label="Close menu"
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto py-8 px-6">
+              <nav className="flex flex-col gap-2">
+
+                {/* Admin Button */}
+                {isAdmin && (
+                  <Link
+                    href="/admin"
+                    onClick={closeMobileMenu}
+                    className="flex items-center gap-3 px-4 py-4 mb-4 text-base font-bold text-neutral-900 bg-neutral-50 border border-neutral-200 rounded-xl shadow-sm hover:shadow-md transition-all"
+                  >
+                    <Shield className="w-5 h-5 text-neutral-900" />
+                    Admin Dashboard
+                  </Link>
+                )}
+
+                {/* Main Links */}
+                <Link
+                  href="/"
                   onClick={closeMobileMenu}
+                  className="flex items-center gap-4 px-2 py-4 text-lg font-medium text-neutral-900 border-b border-neutral-100 hover:text-neutral-600 transition-colors"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
-                </Button>
-              </div>
+                  <Home className="w-6 h-6 text-neutral-400" />
+                  Home
+                </Link>
 
-              {/* Scrollable Content */}
-              <div className="flex-1 overflow-y-auto py-6 px-4">
-                <nav className="flex flex-col gap-2">
-                  <Link
-                    href="/"
-                    onClick={closeMobileMenu}
-                    className="flex items-center gap-3 px-4 py-3 text-base font-medium text-neutral-800 rounded-xl hover:bg-neutral-50 transition-colors"
-                  >
-                    <Home className="w-5 h-5 text-neutral-500" />
-                    Home
-                  </Link>
+                <Link
+                  href="/properties"
+                  onClick={closeMobileMenu}
+                  className="flex items-center gap-4 px-2 py-4 text-lg font-medium text-neutral-900 border-b border-neutral-100 hover:text-neutral-600 transition-colors"
+                >
+                  <Building2 className="w-6 h-6 text-neutral-400" />
+                  All Properties
+                </Link>
 
-                  <Link
-                    href="/properties"
-                    onClick={closeMobileMenu}
-                    className="flex items-center gap-3 px-4 py-3 text-base font-medium text-neutral-800 rounded-xl hover:bg-neutral-50 transition-colors"
-                  >
-                    <Building2 className="w-5 h-5 text-neutral-500" />
-                    All Properties
-                  </Link>
+                <Link
+                  href="/post-property"
+                  onClick={closeMobileMenu}
+                  className="flex items-center gap-4 px-2 py-4 text-lg font-medium text-neutral-900 border-b border-neutral-100 hover:text-neutral-600 transition-colors"
+                >
+                  <Plus className="w-6 h-6 text-neutral-400" />
+                  Post Property
+                </Link>
 
-                  <Link
-                    href="/post-property"
-                    onClick={closeMobileMenu}
-                    className="flex items-center gap-3 px-4 py-3 text-base font-medium text-neutral-800 rounded-xl hover:bg-neutral-50 transition-colors"
-                  >
-                    <Plus className="w-5 h-5 text-neutral-500" />
-                    Post Property
-                  </Link>
+                <Link
+                  href="/profile"
+                  onClick={closeMobileMenu}
+                  className="flex items-center gap-4 px-2 py-4 text-lg font-medium text-neutral-900 border-b border-neutral-100 hover:text-neutral-600 transition-colors"
+                >
+                  <User className="w-6 h-6 text-neutral-400" />
+                  Profile
+                </Link>
 
-                  <Link
-                    href="/profile"
-                    onClick={closeMobileMenu}
-                    className="flex items-center gap-3 px-4 py-3 text-base font-medium text-neutral-800 rounded-xl hover:bg-neutral-50 transition-colors"
-                  >
-                    <User className="w-5 h-5 text-neutral-500" />
-                    Profile
-                  </Link>
-
-                  {isAdmin && (
-                    <Link
-                      href="/admin"
-                      onClick={closeMobileMenu}
-                      className="flex items-center gap-3 px-4 py-3 text-base font-medium text-neutral-800 rounded-xl hover:bg-neutral-50 transition-colors"
-                    >
-                      <Shield className="w-5 h-5 text-neutral-500" />
-                      Admin Dashboard
-                    </Link>
-                  )}
-                </nav>
-
-                <div className="my-6 border-t border-neutral-100" />
-
-                <div className="px-2">
-                  <h4 className="px-2 mb-3 text-xs font-bold text-neutral-400 uppercase tracking-wider">Property Types</h4>
-                  <div className="flex flex-col gap-1">
+                {/* Property Types Sub-menu */}
+                <div className="mt-8 px-2">
+                  <h4 className="mb-4 text-xs font-bold text-neutral-400 uppercase tracking-wider">Explore by Category</h4>
+                  <div className="grid grid-cols-1 gap-3">
                     <Link
                       href="/properties?type=Apartment"
                       onClick={closeMobileMenu}
-                      className="px-4 py-2.5 text-sm font-medium text-neutral-600 rounded-lg hover:text-neutral-900 hover:bg-neutral-50 transition-colors"
+                      className="flex items-center justify-between px-4 py-3 text-base font-medium text-neutral-700 bg-neutral-50 rounded-xl hover:bg-neutral-100 transition-colors"
                     >
                       Apartments
+                      <span className="text-neutral-400 text-lg">→</span>
                     </Link>
                     <Link
                       href="/properties?type=PG"
                       onClick={closeMobileMenu}
-                      className="px-4 py-2.5 text-sm font-medium text-neutral-600 rounded-lg hover:text-neutral-900 hover:bg-neutral-50 transition-colors"
+                      className="flex items-center justify-between px-4 py-3 text-base font-medium text-neutral-700 bg-neutral-50 rounded-xl hover:bg-neutral-100 transition-colors"
                     >
                       PG / Hostels
+                      <span className="text-neutral-400 text-lg">→</span>
                     </Link>
                     <Link
                       href="/properties?type=Private+Room"
                       onClick={closeMobileMenu}
-                      className="px-4 py-2.5 text-sm font-medium text-neutral-600 rounded-lg hover:text-neutral-900 hover:bg-neutral-50 transition-colors"
+                      className="flex items-center justify-between px-4 py-3 text-base font-medium text-neutral-700 bg-neutral-50 rounded-xl hover:bg-neutral-100 transition-colors"
                     >
                       Private Rooms
+                      <span className="text-neutral-400 text-lg">→</span>
                     </Link>
                   </div>
                 </div>
-              </div>
+              </nav>
+            </div>
 
-              {/* Footer CTA */}
-              <div className="p-4 border-t border-neutral-100 bg-neutral-50/50">
-                <Link
-                  href="/post-property"
-                  onClick={closeMobileMenu}
-                  className="flex items-center justify-center w-full py-3 bg-neutral-900 text-white font-bold rounded-xl text-sm uppercase tracking-wider shadow-sm active:scale-95 transition-all"
-                >
-                  List Your Property
-                </Link>
-              </div>
-            </motion.div>
-          </>
+            {/* Footer CTA */}
+            <div className="p-6 border-t border-neutral-100 bg-white/50 backdrop-blur-sm">
+              <Link
+                href="/post-property"
+                onClick={closeMobileMenu}
+                className="flex items-center justify-center w-full py-4 bg-neutral-900 text-white font-bold rounded-xl text-base shadow-lg active:scale-95 transition-all"
+              >
+                List Your Property
+              </Link>
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
     </>

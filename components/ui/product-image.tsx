@@ -43,6 +43,7 @@ export function ProductImage({
       className={cn(fill ? 'absolute inset-0 w-full h-full' : '', 'object-cover', className)}
       priority={priority}
       sizes={resolvedSizes}
+      suppressHydrationWarning={true}
       onError={(e) => {
         onError?.(e);
         if (!hasError) {

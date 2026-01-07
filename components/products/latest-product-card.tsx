@@ -5,7 +5,7 @@ import { getOptimizedImageUrl } from '@/lib/cloudinary-utils';
 import { ProductImage } from '@/components/ui/product-image';
 import { Product } from '@/lib/types';
 import Link from 'next/link';
-import { Share2 } from 'lucide-react';
+import { Share2, MapPin } from 'lucide-react';
 import { HeroSearch } from '../hero-search';
 import { useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
@@ -159,13 +159,32 @@ export function LatestProductCard({
               </h3>
             </Link>
 
-            {/* Location Label */}
-            <div className="flex items-center gap-1 text-xs text-neutral-600 my-0.5">
-              <span className="shrink-0">📍</span>
-              <span className="line-clamp-1">
-                {product.tags?.[2] ? `${product.tags[2]}, ` : ''}
-                <span className="font-bold text-neutral-900">{product.tags?.[1] || 'India'}</span>
-              </span>
+            {/* Improved Location UI */}
+            <div className="flex items-center gap-1 text-neutral-600 my-0.5">
+              <MapPin className="size-3.5 shrink-0" />
+              <p className="text-xs line-clamp-1">
+                {(() => {
+                  let cleanAddress = product.tags?.[2] || '';
+                  const city = product.tags?.[1] || '';
+
+                  // Cleaning logic
+                  cleanAddress = cleanAddress.replace(/^(?:House|Flat|Shop|Plot|Room)?\s*(?:No\.?|Number)?\s*[\d\w\/-]+\s*,?\s*/i, '');
+
+                  if (city && cleanAddress.toLowerCase().includes(city.toLowerCase())) {
+                    cleanAddress = cleanAddress.replace(new RegExp(city, 'gi'), '').replace(/,\s*$/, '').trim();
+                  }
+
+                  cleanAddress = cleanAddress.replace(/^[\s,]+|[\s,]+$/g, '');
+
+                  return (
+                    <>
+                      {cleanAddress}
+                      {cleanAddress && city ? ', ' : ''}
+                      <span className="font-bold text-neutral-900">{city}</span>
+                    </>
+                  );
+                })()}
+              </p>
             </div>
 
             <p className="text-sm text-neutral-500 line-clamp-1">

@@ -230,7 +230,7 @@ export async function getProducts(params?: {
       .limit(safeLimit);
 
     // Apply base filter
-    dbQuery = dbQuery.eq('available_for_sale', true);
+    dbQuery = dbQuery.eq('available_for_sale', true).eq('status', 'approved');
 
     // Apply Filters (Logic mirrored from app/api/products/route.ts)
     if (params?.query && validateInput(params.query, 'string')) {
@@ -448,10 +448,37 @@ export async function createProduct(data: any, token?: string): Promise<Product>
       throw new Error('User not authenticated');
     }
 
-    // 2. Prepare data with user_id
+    // 2. Prepare data with user_id & Map camelCase to snake_case
+    const tags = [
+      data.type || 'PG',
+      data.location || '',
+      data.address || '',
+      ...(data.tags || [])
+    ].filter(Boolean);
+
     const insertData = {
-      ...data,
-      user_id: user.id
+      title: data.title,
+      description: data.description,
+      price_range: {
+        minVariantPrice: { amount: data.price?.toString() || '0', currencyCode: 'INR' },
+        maxVariantPrice: { amount: data.price?.toString() || '0', currencyCode: 'INR' }
+      },
+      currency_code: 'INR',
+      images: data.images?.map((url: string) => ({ url, altText: data.title })) || [],
+      tags: tags,
+      available_for_sale: false, // Default to false (inactive) until approved
+      status: 'pending', // Default status
+      user_id: user.id,
+      contact_number: data.contactNumber,
+      amenities: data.amenities,
+      bathroom_type: data.bathroomType,
+      security_deposit: data.securityDeposit || '0', // Default to '0' if empty/optional
+      electricity_status: data.electricityStatus,
+      tenant_preference: data.tenantPreference,
+      latitude: data.latitude,
+      longitude: data.longitude,
+      google_maps_link: data.googleMapsLink,
+      featured_image: data.images?.[0] ? { url: data.images[0], altText: data.title } : null
     };
 
     // 3. Insert directly into Supabase (bypassing CSRF/API)
@@ -521,7 +548,7 @@ export async function adminDeleteProduct(id: string, adminUserId: string): Promi
 export async function getAdminStats(): Promise<{ total: number; active: number; users: number }> {
   try {
     const { count: total } = await supabase.from('properties').select('*', { count: 'exact', head: true });
-    const { count: active } = await supabase.from('properties').select('*', { count: 'exact', head: true }).eq('available_for_sale', true);
+    const { count: active } = await supabase.from('properties').select('*', { count: 'exact', head: true }).eq('status', 'approved');
     const { count: users } = await supabase.from('users').select('*', { count: 'exact', head: true });
 
     return {
@@ -551,11 +578,11 @@ export async function getAdminProducts(
     }
 
     if (status === 'active') {
-      query = query.eq('available_for_sale', true);
+      query = query.eq('status', 'approved');
     } else if (status === 'inactive') {
-      query = query.eq('available_for_sale', false);
+      query = query.eq('status', 'inactive');
     } else if (status === 'pending') {
-      query = query.contains('tags', ['pending_approval']);
+      query = query.eq('status', 'pending');
     }
 
     // Advanced Filters
@@ -575,11 +602,6 @@ export async function getAdminProducts(
     const { data, count, error } = await query.range(from, to).order('created_at', { ascending: false });
 
     if (error) return { products: [], total: 0, page, limit };
-
-    // Fetch IsVerified status for properties (if column exists, else default false)
-    // Note: TypeScript might complain if 'is_verified' isn't in Product type yet.
-    // We map it manually or update mapPropertyToProduct.
-    // For now, let's assume it's part of the data object.
 
     return {
       products: data.map(mapPropertyToProduct),
@@ -648,9 +670,17 @@ export async function updateProductStatus(id: string, availableForSale: boolean,
       return null;
     }
 
+    // Map boolean back to status string logic if needed, or just update status directly
+    // If availableForSale is true -> status = approved. 
+    // If false -> status = inactive (or pending? assume inactive for toggle)
+    const newStatus = availableForSale ? 'approved' : 'inactive';
+
     const { data, error } = await adminClient
       .from('properties')
-      .update({ available_for_sale: availableForSale })
+      .update({
+        available_for_sale: availableForSale,
+        status: newStatus
+      })
       .eq('id', id)
       .select()
       .single();
@@ -665,24 +695,12 @@ export async function updateProductStatus(id: string, availableForSale: boolean,
 
 export async function approveProduct(id: string, adminUserId: string): Promise<boolean> {
   try {
-    // 1. Get current tags
-    const { data: product, error: fetchError } = await supabase
-      .from('properties')
-      .select('tags')
-      .eq('id', id)
-      .single();
-
-    if (fetchError || !product) return false;
-
-    // 2. Remove 'pending_approval' tag
-    const newTags = (product.tags || []).filter((t: string) => t !== 'pending_approval');
-
-    // 3. Update property
+    // 1. Update property status to approved
     const { error } = await supabase
       .from('properties')
       .update({
         available_for_sale: true,
-        tags: newTags
+        status: 'approved'
       })
       .eq('id', id);
 

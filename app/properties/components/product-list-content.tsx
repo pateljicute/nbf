@@ -43,7 +43,7 @@ export function ProductListContent({ products, collections, searchQuery }: Produ
 
       {filteredProducts.length > 0 ? (
         // Enforce single column on mobile (grid-cols-1) with !important override
-        <ProductGrid className="grid-cols-1 gap-4 w-full md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <ProductGrid className="grid-cols-1 gap-4 w-full md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
           {filteredProducts.map(product => (
             <ProductCard key={product.id} product={product} />
           ))}
