@@ -62,6 +62,7 @@ export interface Product {
     googleMapsLink?: string;
     leadsCount?: number;
     is_verified?: boolean;
+    status?: 'pending' | 'approved' | 'rejected' | 'sold' | 'inactive';
 }
 
 export interface Collection {
