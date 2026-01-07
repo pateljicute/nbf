@@ -165,22 +165,23 @@ export function LatestProductCard({
               <p className="text-xs line-clamp-1">
                 {(() => {
                   let cleanAddress = product.tags?.[2] || '';
-                  const city = product.tags?.[1] || '';
+                  const city = 'Mandsaur'; // Defaulting to Mandsaur as per request, or use product.tags?.[1] if dynamic
 
-                  // Cleaning logic
-                  cleanAddress = cleanAddress.replace(/^(?:House|Flat|Shop|Plot|Room)?\s*(?:No\.?|Number)?\s*[\d\w\/-]+\s*,?\s*/i, '');
+                  // Aggressive cleaning: Remove all numbers, "House", "Ward", "No", etc. at the start
+                  cleanAddress = cleanAddress.replace(/^(?:Ward|House|Flat|Shop|Plot|Room|Street)?\s*(?:No\.?|Number)?\s*[\d\w\/-]+\s*,?\s*/i, '');
 
-                  if (city && cleanAddress.toLowerCase().includes(city.toLowerCase())) {
+                  // Remove city if repeated
+                  if (cleanAddress.toLowerCase().includes(city.toLowerCase())) {
                     cleanAddress = cleanAddress.replace(new RegExp(city, 'gi'), '').replace(/,\s*$/, '').trim();
                   }
 
+                  // Cleanup leading/trailing punctuation
                   cleanAddress = cleanAddress.replace(/^[\s,]+|[\s,]+$/g, '');
+                  cleanAddress = cleanAddress || 'City Center'; // Fallback
 
                   return (
                     <>
-                      {cleanAddress}
-                      {cleanAddress && city ? ', ' : ''}
-                      <span className="font-bold text-neutral-900">{city}</span>
+                      {cleanAddress}, <span className="font-bold text-neutral-900">{city}</span>
                     </>
                   );
                 })()}

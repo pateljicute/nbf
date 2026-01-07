@@ -226,7 +226,7 @@ export async function getProducts(params?: {
 
     let dbQuery = supabase
       .from("properties")
-      .select("id,handle,title,description,price_range,currency_code,featured_image,tags,available_for_sale,category_id,contact_number,user_id,seo")
+      .select("id,handle,title,description,price_range,currency_code,featured_image,tags,available_for_sale,category_id,contact_number,user_id,seo,bathroom_type,security_deposit,electricity_status,tenant_preference,latitude,longitude,google_maps_link,is_verified,status")
       .limit(safeLimit);
 
     // Apply base filter
@@ -343,7 +343,7 @@ export async function getUserProducts(userId: string): Promise<Product[]> {
   try {
     const { data, error } = await supabase
       .from("properties")
-      .select("id,handle,title,description,price_range,currency_code,featured_image,tags,available_for_sale,category_id,contact_number,user_id,seo")
+      .select("id,handle,title,description,price_range,currency_code,featured_image,tags,available_for_sale,category_id,contact_number,user_id,seo,bathroom_type,security_deposit,electricity_status,tenant_preference,latitude,longitude,google_maps_link,is_verified,status")
       .eq('user_id', userId);
 
     if (error) {
