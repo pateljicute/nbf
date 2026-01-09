@@ -50,6 +50,7 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const globalSupabase = createSupabaseClient(supabaseUrl, supabaseServiceKey || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 
 export async function checkAdminStatus(userId: string): Promise<boolean> {
+    // SERVER-SIDE SECURITY CHECK
     if (!userId) return false;
 
     const cacheKey = `auth:admin:${userId}`;

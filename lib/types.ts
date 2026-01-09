@@ -64,6 +64,8 @@ export interface Product {
   leadsCount?: number;
   is_verified?: boolean;
   status?: 'pending' | 'approved' | 'rejected' | 'sold' | 'inactive';
+  viewCount?: number;
+  createdAt?: string;
 }
 
 export interface Collection {

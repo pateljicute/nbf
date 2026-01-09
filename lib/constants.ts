@@ -24,8 +24,8 @@ export const TAGS = {
 
 export const CONTACT_LINKS: NavItem[] = [
   {
-    label: 'Instagram',
-    href: 'https://www.instagram.com/nbfhomes?igsh=djhqOGFxZ3B0YTdm',
+    label: 'WhatsApp Channel',
+    href: 'https://whatsapp.com/channel/0029Vb7ZqswLtOjF8AQiBL19',
   },
   {
     label: 'LinkedIn',

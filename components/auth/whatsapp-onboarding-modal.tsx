@@ -8,7 +8,7 @@ import { MessageCircle, CheckCircle2, ChevronRight, X } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { updateUserPhoneNumber } from '@/lib/api';
 
-const WHATSAPP_GROUP_LINK = 'https://chat.whatsapp.com/EU9XWi6BWilIrRGnkPB7eJ';
+const WHATSAPP_GROUP_LINK = 'https://whatsapp.com/channel/0029Vb7ZqswLtOjF8AQiBL19';
 
 export function WhatsAppOnboardingModal() {
     const { user } = useAuth();
@@ -101,7 +101,7 @@ export function WhatsAppOnboardingModal() {
                     <DialogDescription className="text-center text-base pt-2">
                         {step === 'phone'
                             ? 'Please provide your Contact Number (WhatsApp preferred) to receive instant property alerts and connect with owners directly.'
-                            : 'Thanks! Now join our exclusive WhatsApp group for instant alerts on new listings.'}
+                            : 'Thanks! Now join our exclusive WhatsApp Channel for instant alerts on new listings.'}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -147,7 +147,7 @@ export function WhatsAppOnboardingModal() {
                             onClick={handleJoinGroup}
                             className="w-full bg-[#25D366] hover:bg-[#128C7E] text-white font-bold py-6 text-lg shadow-lg hover:shadow-xl transition-all"
                         >
-                            <MessageCircle className="mr-2 h-6 w-6" /> Join WhatsApp Group
+                            <MessageCircle className="mr-2 h-6 w-6" /> Join WhatsApp Channel
                         </Button>
 
                         <Button variant="ghost" size="sm" onClick={handleClose} className="text-neutral-400 font-normal">

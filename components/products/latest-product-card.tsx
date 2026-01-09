@@ -163,25 +163,22 @@ export function LatestProductCard({
             <div className="flex items-center gap-1 text-neutral-600 my-0.5">
               <MapPin className="size-3.5 shrink-0" />
               <p className="text-xs line-clamp-1">
+                {/* Address Display Logic */}
                 {(() => {
+                  const city = 'Mandsaur';
                   let cleanAddress = product.tags?.[2] || '';
-                  const city = 'Mandsaur'; // Defaulting to Mandsaur as per request, or use product.tags?.[1] if dynamic
 
-                  // Aggressive cleaning: Remove all numbers, "House", "Ward", "No", etc. at the start
-                  cleanAddress = cleanAddress.replace(/^(?:Ward|House|Flat|Shop|Plot|Room|Street)?\s*(?:No\.?|Number)?\s*[\d\w\/-]+\s*,?\s*/i, '');
-
-                  // Remove city if repeated
-                  if (cleanAddress.toLowerCase().includes(city.toLowerCase())) {
-                    cleanAddress = cleanAddress.replace(new RegExp(city, 'gi'), '').replace(/,\s*$/, '').trim();
-                  }
-
-                  // Cleanup leading/trailing punctuation
-                  cleanAddress = cleanAddress.replace(/^[\s,]+|[\s,]+$/g, '');
-                  cleanAddress = cleanAddress || 'City Center'; // Fallback
+                  // Clean up address string
+                  cleanAddress = cleanAddress
+                    .replace(/^(?:Ward|House|Flat|Shop|Plot|Room|Street)?\s*(?:No\.?|Number)?\s*[\d\w\/-]+\s*,?\s*/i, '') // Remove prefixes
+                    .replace(new RegExp(city, 'gi'), '') // Remove city if present
+                    .replace(/,\s*$/, '') // Remove trailing comma
+                    .replace(/^[\s,]+|[\s,]+$/g, '') // Trim
+                    .trim();
 
                   return (
                     <>
-                      {cleanAddress}, <span className="font-bold text-neutral-900">{city}</span>
+                      {cleanAddress || 'City Center'}, <span className="font-bold text-neutral-900">{city}</span>
                     </>
                   );
                 })()}

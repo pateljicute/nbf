@@ -1,6 +1,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
+import { createPortal } from 'react-dom';
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Button } from '@/components/ui/button';
@@ -14,8 +15,10 @@ interface MobileMenuProps {
   isAdmin?: boolean;
 }
 
+
 export default function MobileMenu({ collections, isAdmin }: MobileMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
   const openMobileMenu = () => setIsOpen(true);
   const closeMobileMenu = () => setIsOpen(false);
@@ -24,6 +27,7 @@ export default function MobileMenu({ collections, isAdmin }: MobileMenuProps) {
   useBodyScrollLock(isOpen);
 
   useEffect(() => {
+    setMounted(true);
     const handleResize = () => {
       if (window.innerWidth > 768) {
         setIsOpen(false);
@@ -51,128 +55,144 @@ export default function MobileMenu({ collections, isAdmin }: MobileMenuProps) {
         </svg>
       </button>
 
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: '100%' }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: '100%' }}
-            transition={{ duration: 0.3, ease: [0.32, 0.72, 0, 1] }}
-            className="fixed inset-0 z-[100] w-full h-full bg-white/95 backdrop-blur-xl flex flex-col"
-          >
-            {/* Header */}
-            <div className="flex justify-between items-center px-6 py-5 border-b border-neutral-100/50">
-              <p className="text-xl font-bold tracking-tight text-neutral-900">Menu</p>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="rounded-full w-10 h-10 hover:bg-neutral-100"
-                aria-label="Close menu"
+      {mounted && createPortal(
+        <AnimatePresence>
+          {isOpen && (
+            <>
+              {/* Dark Backdrop */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
                 onClick={closeMobileMenu}
+                className="fixed inset-0 z-[1000] bg-black/50 backdrop-blur-sm"
+                aria-hidden="true"
+              />
+
+              {/* Sidebar Drawer */}
+              <motion.div
+                initial={{ x: '-100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '-100%' }}
+                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                className="fixed top-0 left-0 z-[1001] w-[85%] max-w-[320px] h-full bg-white shadow-2xl flex flex-col"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
-              </Button>
-            </div>
-
-            {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto py-8 px-6">
-              <nav className="flex flex-col gap-2">
-
-                {/* Admin Button */}
-                {isAdmin && (
-                  <Link
-                    href="/admin"
+                {/* Header */}
+                <div className="flex justify-between items-center px-6 py-4 border-b border-neutral-100">
+                  <p className="text-xl font-bold tracking-tight text-neutral-900">Menu</p>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="rounded-full w-10 h-10 hover:bg-neutral-100 -mr-2"
+                    aria-label="Close menu"
                     onClick={closeMobileMenu}
-                    className="flex items-center gap-3 px-4 py-4 mb-4 text-base font-bold text-neutral-900 bg-neutral-50 border border-neutral-200 rounded-xl shadow-sm hover:shadow-md transition-all"
                   >
-                    <Shield className="w-5 h-5 text-neutral-900" />
-                    Admin Dashboard
-                  </Link>
-                )}
-
-                {/* Main Links */}
-                <Link
-                  href="/"
-                  onClick={closeMobileMenu}
-                  className="flex items-center gap-4 px-2 py-4 text-lg font-medium text-neutral-900 border-b border-neutral-100 hover:text-neutral-600 transition-colors"
-                >
-                  <Home className="w-6 h-6 text-neutral-400" />
-                  Home
-                </Link>
-
-                <Link
-                  href="/properties"
-                  onClick={closeMobileMenu}
-                  className="flex items-center gap-4 px-2 py-4 text-lg font-medium text-neutral-900 border-b border-neutral-100 hover:text-neutral-600 transition-colors"
-                >
-                  <Building2 className="w-6 h-6 text-neutral-400" />
-                  All Properties
-                </Link>
-
-                <Link
-                  href="/post-property"
-                  onClick={closeMobileMenu}
-                  className="flex items-center gap-4 px-2 py-4 text-lg font-medium text-neutral-900 border-b border-neutral-100 hover:text-neutral-600 transition-colors"
-                >
-                  <Plus className="w-6 h-6 text-neutral-400" />
-                  Post Property
-                </Link>
-
-                <Link
-                  href="/profile"
-                  onClick={closeMobileMenu}
-                  className="flex items-center gap-4 px-2 py-4 text-lg font-medium text-neutral-900 border-b border-neutral-100 hover:text-neutral-600 transition-colors"
-                >
-                  <User className="w-6 h-6 text-neutral-400" />
-                  Profile
-                </Link>
-
-                {/* Property Types Sub-menu */}
-                <div className="mt-8 px-2">
-                  <h4 className="mb-4 text-xs font-bold text-neutral-400 uppercase tracking-wider">Explore by Category</h4>
-                  <div className="grid grid-cols-1 gap-3">
-                    <Link
-                      href="/properties?type=Apartment"
-                      onClick={closeMobileMenu}
-                      className="flex items-center justify-between px-4 py-3 text-base font-medium text-neutral-700 bg-neutral-50 rounded-xl hover:bg-neutral-100 transition-colors"
-                    >
-                      Apartments
-                      <span className="text-neutral-400 text-lg">→</span>
-                    </Link>
-                    <Link
-                      href="/properties?type=PG"
-                      onClick={closeMobileMenu}
-                      className="flex items-center justify-between px-4 py-3 text-base font-medium text-neutral-700 bg-neutral-50 rounded-xl hover:bg-neutral-100 transition-colors"
-                    >
-                      PG / Hostels
-                      <span className="text-neutral-400 text-lg">→</span>
-                    </Link>
-                    <Link
-                      href="/properties?type=Private+Room"
-                      onClick={closeMobileMenu}
-                      className="flex items-center justify-between px-4 py-3 text-base font-medium text-neutral-700 bg-neutral-50 rounded-xl hover:bg-neutral-100 transition-colors"
-                    >
-                      Private Rooms
-                      <span className="text-neutral-400 text-lg">→</span>
-                    </Link>
-                  </div>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                  </Button>
                 </div>
-              </nav>
-            </div>
 
-            {/* Footer CTA */}
-            <div className="p-6 border-t border-neutral-100 bg-white/50 backdrop-blur-sm">
-              <Link
-                href="/post-property"
-                onClick={closeMobileMenu}
-                className="flex items-center justify-center w-full py-4 bg-neutral-900 text-white font-bold rounded-xl text-base shadow-lg active:scale-95 transition-all"
-              >
-                List Your Property
-              </Link>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+                {/* Scrollable Content */}
+                <div className="flex-1 overflow-y-auto px-6 py-6">
+                  <nav className="flex flex-col gap-1">
+
+                    <Link
+                      href="/"
+                      onClick={closeMobileMenu}
+                      className="flex items-center gap-4 px-2 py-3.5 text-base font-medium text-neutral-800 hover:text-neutral-900 rounded-lg active:bg-neutral-50"
+                    >
+                      <Home className="w-5 h-5 text-neutral-500" />
+                      Home
+                    </Link>
+
+                    <Link
+                      href="/properties"
+                      onClick={closeMobileMenu}
+                      className="flex items-center gap-4 px-2 py-3.5 text-base font-medium text-neutral-800 hover:text-neutral-900 rounded-lg active:bg-neutral-50"
+                    >
+                      <Building2 className="w-5 h-5 text-neutral-500" />
+                      All Properties
+                    </Link>
+
+                    <Link
+                      href="/post-property"
+                      onClick={closeMobileMenu}
+                      className="flex items-center gap-4 px-2 py-3.5 text-base font-medium text-neutral-800 hover:text-neutral-900 rounded-lg active:bg-neutral-50"
+                    >
+                      <Plus className="w-5 h-5 text-neutral-500" />
+                      Post Property
+                    </Link>
+
+                    <Link
+                      href="/profile"
+                      onClick={closeMobileMenu}
+                      className="flex items-center gap-4 px-2 py-3.5 text-base font-medium text-neutral-800 hover:text-neutral-900 rounded-lg active:bg-neutral-50"
+                    >
+                      <User className="w-5 h-5 text-neutral-500" />
+                      Profile
+                    </Link>
+
+                    {isAdmin && (
+                      <Link
+                        href="/admin"
+                        onClick={closeMobileMenu}
+                        className="flex items-center gap-4 px-2 py-3.5 text-base font-medium text-neutral-800 hover:text-neutral-900 rounded-lg active:bg-neutral-50"
+                      >
+                        <Shield className="w-5 h-5 text-neutral-500" />
+                        Admin Dashboard
+                      </Link>
+                    )}
+
+                    {/* Divider */}
+                    <div className="h-px bg-neutral-100 my-4" />
+
+                    {/* Property Types Section */}
+                    <div>
+                      <h4 className="px-2 mb-3 text-xs font-bold text-neutral-400 uppercase tracking-wider">Property Types</h4>
+                      <div className="flex flex-col gap-1">
+                        <Link
+                          href="/properties?type=Apartment"
+                          onClick={closeMobileMenu}
+                          className="px-2 py-2.5 text-base font-medium text-neutral-600 hover:text-neutral-900 rounded-lg active:bg-neutral-50"
+                        >
+                          Apartments
+                        </Link>
+                        <Link
+                          href="/properties?type=PG"
+                          onClick={closeMobileMenu}
+                          className="px-2 py-2.5 text-base font-medium text-neutral-600 hover:text-neutral-900 rounded-lg active:bg-neutral-50"
+                        >
+                          PG / Hostels
+                        </Link>
+                        <Link
+                          href="/properties?type=Private+Room"
+                          onClick={closeMobileMenu}
+                          className="px-2 py-2.5 text-base font-medium text-neutral-600 hover:text-neutral-900 rounded-lg active:bg-neutral-50"
+                        >
+                          Private Rooms
+                        </Link>
+                      </div>
+                    </div>
+
+                  </nav>
+                </div>
+
+                {/* Footer Button */}
+                <div className="p-6 border-t border-neutral-100 bg-white">
+                  <Link
+                    href="/post-property"
+                    onClick={closeMobileMenu}
+                    className="flex items-center justify-center w-full py-4 bg-neutral-900 text-white font-bold text-sm tracking-widest uppercase rounded-xl shadow-lg active:scale-95 transition-all"
+                  >
+                    List Your Property
+                  </Link>
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
     </>
   );
 }

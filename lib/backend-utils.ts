@@ -63,6 +63,8 @@ export interface Product {
     leadsCount?: number;
     is_verified?: boolean;
     status?: 'pending' | 'approved' | 'rejected' | 'sold' | 'inactive';
+    viewCount?: number;
+    createdAt?: string;
 }
 
 export interface Collection {
@@ -107,7 +109,9 @@ export const mapPropertyToProduct = (prop: any): Product => ({
     googleMapsLink: prop.google_maps_link,
     leadsCount: prop.properties_leads?.[0]?.count || 0,
     is_verified: prop.is_verified,
-    status: (prop.status as Product['status']) || 'pending'
+    status: (prop.status as Product['status']) || 'pending',
+    viewCount: prop.view_count || 0,
+    createdAt: prop.created_at
 });
 
 // --- Helper to map DB result to Collection ---

@@ -59,8 +59,17 @@ export function HomeClient({ initialProducts, adSettings }: HomeClientProps) {
                     suppressHydrationWarning
                     className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-8 md:mb-12"
                 >
-                    <div className="mt-12 md:mt-0">
-                        <h3 className="text-2xl md:text-4xl font-serif font-bold text-neutral-900 mb-2">Featured Properties</h3>
+                    <div className="mt-12 md:mt-0" suppressHydrationWarning>
+                        {/* SEO H1 */}
+                        <h1 className="sr-only">Best PGs and Rooms in Mandsaur</h1>
+
+                        {/* Suppress hydration warning for responsive classes */}
+                        <h3
+                            suppressHydrationWarning
+                            className="text-2xl md:text-4xl font-serif font-bold text-neutral-900 mb-2"
+                        >
+                            Featured Properties
+                        </h3>
                         <p className="text-gray-600 pt-2">Handpicked PGs and flats for you.</p>
                     </div>
                     {/* Premium View All Button */}
@@ -143,12 +152,12 @@ export function HomeClient({ initialProducts, adSettings }: HomeClientProps) {
                         </p>
                         <div className="flex flex-col sm:flex-row gap-4 max-w-md">
                             <Link
-                                href="https://chat.whatsapp.com/EU9XWi6BWilIrRGnkPB7eJ"
+                                href="https://whatsapp.com/channel/0029Vb7ZqswLtOjF8AQiBL19"
                                 target="_blank"
                                 className="flex-1 bg-[#25D366] text-white px-8 py-4 rounded-full font-bold uppercase tracking-wide hover:bg-[#128C7E] transition-colors flex items-center justify-center gap-3"
                             >
                                 <MessageCircle className="w-6 h-6 fill-current" />
-                                Join WhatsApp Group
+                                Join WhatsApp Channel
                             </Link>
                         </div>
                         <p className="text-xs text-neutral-600">

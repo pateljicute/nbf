@@ -28,6 +28,7 @@ import {
   Users, Bath, Home, MapPin, ShieldCheck,
   Phone, User, CheckCircle, Smartphone, Navigation
 } from 'lucide-react';
+import { ViewTracker } from '@/components/products/view-tracker';
 
 // Generate static params for all products at build time
 export async function generateStaticParams() {
@@ -88,6 +89,18 @@ export async function generateMetadata(props: { params: Promise<{ handle: string
         ],
       }
       : null,
+    alternates: {
+      canonical: `https://nbfhomes.in/product/${product.handle}`,
+    },
+    keywords: [
+      'Room for rent',
+      'PG in Mandsaur',
+      'Flat for rent',
+      'No brokerage',
+      city,
+      area,
+      product.tags?.[0] || 'Property'
+    ].filter(Boolean),
   };
 }
 
@@ -146,6 +159,7 @@ export default async function ProductPage(props: { params: Promise<{ handle: str
   return (
     // Added padding bottom for mobile sticky footer space
     <PageLayout className="bg-neutral-50/50 pb-24 lg:pb-12">
+      <ViewTracker productId={product.id} />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{

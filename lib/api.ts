@@ -226,7 +226,7 @@ export async function getProducts(params?: {
 
     let dbQuery = supabase
       .from("properties")
-      .select("id,handle,title,description,price_range,currency_code,featured_image,tags,available_for_sale,category_id,contact_number,user_id,seo,bathroom_type,security_deposit,electricity_status,tenant_preference,latitude,longitude,google_maps_link,is_verified,status")
+      .select("id,handle,title,description,price_range,currency_code,featured_image,tags,available_for_sale,category_id,contact_number,user_id,seo,bathroom_type,security_deposit,electricity_status,tenant_preference,latitude,longitude,google_maps_link,is_verified,status,view_count,created_at")
       .limit(safeLimit);
 
     // Apply base filter
@@ -245,18 +245,22 @@ export async function getProducts(params?: {
       dbQuery = dbQuery.lte('price_range->minVariantPrice->amount', parseFloat(params.maxPrice).toString());
     }
 
+
     if (params?.location && validateInput(params.location, 'string')) {
-      dbQuery = dbQuery.ilike('tags', `%${sanitizeInput(params.location)}%`);
+      const loc = sanitizeInput(params.location);
+      // Using contains for exact tag match. For partial, we'd need text casting or separate search index.
+      dbQuery = dbQuery.contains('tags', [loc]);
     }
 
     if (params?.propertyType && validateInput(params.propertyType, 'string')) {
-      dbQuery = dbQuery.ilike('tags', `%${sanitizeInput(params.propertyType)}%`);
+      const pType = sanitizeInput(params.propertyType);
+      dbQuery = dbQuery.contains('tags', [pType]);
     }
 
     if (params?.amenities && Array.isArray(params.amenities)) {
       for (const amenity of params.amenities) {
         if (validateInput(amenity, 'string')) {
-          dbQuery = dbQuery.ilike('tags', `%${sanitizeInput(amenity)}%`);
+          dbQuery = dbQuery.contains('tags', [sanitizeInput(amenity)]);
         }
       }
     }
@@ -280,7 +284,7 @@ export async function getProducts(params?: {
     return data.map(mapPropertyToProduct);
 
   } catch (error) {
-    console.error('Error in getProducts (Server):', error);
+    console.error('Error in getProducts (Server):', JSON.stringify(error, null, 2));
     return [];
   }
 }
