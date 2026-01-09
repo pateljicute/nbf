@@ -299,7 +299,7 @@ export default function AdminPage() {
                 ...properties.map(p => [
                     p.id,
                     `"${p.title.replace(/"/g, '""')}"`,
-                    p.priceRange.minVariantPrice.amount,
+                    p.priceRange?.minVariantPrice?.amount || '0',
                     p.availableForSale ? 'Active' : 'Inactive',
                     p.contactNumber || '',
                     p.userId || ''
