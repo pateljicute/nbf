@@ -90,7 +90,10 @@ export const mapPropertyToProduct = (prop: any): Product => ({
     handle: prop.handle,
     title: prop.title,
     description: prop.description,
-    priceRange: prop.price_range,
+    priceRange: prop.price_range || {
+        minVariantPrice: { amount: prop.price ? String(prop.price) : '0', currencyCode: 'INR' },
+        maxVariantPrice: { amount: prop.price ? String(prop.price) : '0', currencyCode: 'INR' }
+    },
     currencyCode: prop.currency_code,
     seo: prop.seo,
     featuredImage: prop.featured_image,
