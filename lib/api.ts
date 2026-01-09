@@ -467,6 +467,7 @@ export async function createProduct(data: any, token?: string): Promise<Product>
         minVariantPrice: { amount: data.price?.toString() || '0', currencyCode: 'INR' },
         maxVariantPrice: { amount: data.price?.toString() || '0', currencyCode: 'INR' }
       },
+      "price": data.price,
       currency_code: 'INR',
       images: data.images?.map((url: string) => ({ url, altText: data.title })) || [],
       tags: tags,
