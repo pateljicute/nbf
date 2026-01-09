@@ -476,9 +476,12 @@ export async function createProduct(data: any, token?: string): Promise<Product>
       "contactNumber": data.contactNumber,
       amenities: data.amenities,
       "bathroomType": data.bathroom_type || data.bathroomType,
-      security_deposit: data.securityDeposit || '0', // Default to '0' if empty/optional
+      "securityDeposit": data.securityDeposit || '0', // Default to '0' if empty/optional
       "electricityStatus": data.electricityStatus,
-      tenant_preference: data.tenantPreference,
+      "tenantPreference": data.tenantPreference,
+      "location": data.location,
+      "address": data.address,
+      "type": data.type,
       latitude: data.latitude,
       longitude: data.longitude,
       "googleMapsLink": data.googleMapsLink,
