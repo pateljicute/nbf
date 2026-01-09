@@ -49,7 +49,7 @@ export function FeaturedProductLabel({
           <p className="text-sm font-medium line-clamp-3">{product.description}</p>
         </div>
         <div className="flex col-span-1 gap-3 items-center text-2xl font-semibold md:self-end">
-          ₹{Number(product.priceRange.minVariantPrice.amount).toLocaleString('en-IN')}
+          ₹{Number(product.price || product.priceRange?.minVariantPrice?.amount || 0).toLocaleString('en-IN')}
           {product.compareAtPrice && (
             <span className="line-through opacity-30">₹{Number(product.compareAtPrice.amount)}</span>
           )}
@@ -71,7 +71,7 @@ export function FeaturedProductLabel({
           {product.title}
         </Link>
         <div className="flex gap-2 items-center text-base font-semibold">
-          ₹{Number(product.priceRange.minVariantPrice.amount).toLocaleString('en-IN')}
+          ₹{Number(product.price || product.priceRange?.minVariantPrice?.amount || 0).toLocaleString('en-IN')}
           {product.compareAtPrice && (
             <span className="text-sm line-through opacity-30">₹{Number(product.compareAtPrice.amount)}</span>
           )}
