@@ -481,7 +481,7 @@ export async function createProduct(data: any, token?: string): Promise<Product>
       tenant_preference: data.tenantPreference,
       latitude: data.latitude,
       longitude: data.longitude,
-      google_maps_link: data.googleMapsLink,
+      "googleMapsLink": data.googleMapsLink,
       featured_image: data.images?.[0] ? { url: data.images[0], altText: data.title } : null
     };
 
