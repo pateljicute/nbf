@@ -123,7 +123,7 @@ export default function PostPropertyPage() {
                     tenantPreference: property.tenant_preference || 'Any',
                     electricityStatus: property.electricity_status || 'Separate',
 
-                    price: property.priceRange?.minVariantPrice?.amount || '',
+                    price: property.price || property.priceRange?.minVariantPrice?.amount || '',
                     securityDeposit: property.security_deposit || '',
                     contactNumber: property.contactNumber || '',
                     images: existingImages

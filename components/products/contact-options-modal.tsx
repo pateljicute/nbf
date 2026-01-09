@@ -23,8 +23,8 @@ export function ContactOptionsModal({ isOpen, onClose, product }: ContactOptions
 
         const currentUrl = window.location.href;
         const city = product.tags?.[1] || 'Unknown City';
-        const rent = product.priceRange?.minVariantPrice?.amount
-            ? Math.round(Number(product.priceRange.minVariantPrice.amount)).toLocaleString('en-IN')
+        const rent = (product.price || product.priceRange?.minVariantPrice?.amount)
+            ? Math.round(Number(product.price || product.priceRange?.minVariantPrice?.amount)).toLocaleString('en-IN')
             : 'N/A';
 
         const message = `Hi, I'm interested in this property of yours: 

@@ -45,8 +45,8 @@ export function ContactOwner({ product, className }: { product: Product; classNa
     // Construct rich message
     const currentUrl = window.location.href;
     const city = product.tags?.[1] || 'Unknown City';
-    const rent = product.priceRange?.minVariantPrice?.amount
-      ? Math.round(Number(product.priceRange.minVariantPrice.amount)).toLocaleString('en-IN')
+    const rent = (product.price || product.priceRange?.minVariantPrice?.amount)
+      ? Math.round(Number(product.price || product.priceRange?.minVariantPrice?.amount)).toLocaleString('en-IN')
       : 'N/A';
 
     const message = `Hello, I'm interested in your property and would like to view it:
