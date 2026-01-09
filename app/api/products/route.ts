@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
         if (error) throw error;
 
         const result = data.map(mapPropertyToProduct);
-        cacheSet(cacheKey, result, 10 * 60 * 1000); // Cache for 10 minutes
+        cacheSet(CACHE_KEY, result, 10 * 60 * 1000); // Cache for 10 minutes
 
         return NextResponse.json(result);
     } catch (error: any) {
