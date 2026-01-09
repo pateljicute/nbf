@@ -35,7 +35,7 @@ export function LatestProductCard({
     try {
       const shareData = {
         title: product.title,
-        text: `Check out this property: ${product.description || ''}\nPrice: ₹${product.priceRange?.minVariantPrice?.amount ? Number(product.priceRange.minVariantPrice.amount).toLocaleString('en-IN') : 'N/A'}/month`,
+        text: `Check out this property: ${product.description || ''}\nPrice: ₹${Number(product.price || product.priceRange?.minVariantPrice?.amount || 0).toLocaleString('en-IN')}/month`,
         url: `${window.location.origin}/product/${product.handle}`
       };
 
@@ -199,12 +199,8 @@ export function LatestProductCard({
             <span>Verified Owner</span>
           </div>
 
-          {/* Price */}
           <div className="text-xl font-bold text-neutral-900">
-            ₹{product.priceRange?.minVariantPrice?.amount
-              ? Number(product.priceRange.minVariantPrice.amount).toLocaleString('en-IN')
-              : 'N/A'
-            }
+            ₹{Number(product.price || product.priceRange?.minVariantPrice?.amount || 0).toLocaleString('en-IN')}
             <span className="text-sm font-normal text-neutral-500 ml-1">/month</span>
           </div>
 

@@ -28,7 +28,7 @@ export const ProductCard = ({ product, className }: { product: Product; classNam
     try {
       const shareData = {
         title: product.title,
-        text: `Check out this property: ${product.description}\nPrice: ₹${Number(product.priceRange.minVariantPrice.amount).toLocaleString('en-IN')}/month`,
+        text: `Check out this property: ${product.description}\nPrice: ₹${Number(product.price || product.priceRange?.minVariantPrice?.amount || 0).toLocaleString('en-IN')}/month`,
         url: `${window.location.origin}/product/${product.handle}`
       };
 
@@ -132,7 +132,7 @@ export const ProductCard = ({ product, className }: { product: Product; classNam
 
           {/* Price */}
           <div className="text-lg md:text-xl font-bold text-neutral-900">
-            ₹{Number(product.priceRange.minVariantPrice.amount).toLocaleString('en-IN')}
+            ₹{Number(product.price || product.priceRange?.minVariantPrice?.amount || 0).toLocaleString('en-IN')}
             <span className="text-xs md:text-sm font-normal text-neutral-500 ml-1">/month</span>
           </div>
 

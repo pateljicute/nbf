@@ -122,8 +122,8 @@ export default async function ProductPage(props: { params: Promise<{ handle: str
       '@type': 'AggregateOffer',
       availability: product.availableForSale ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
       priceCurrency: product.currencyCode,
-      highPrice: product.priceRange.maxVariantPrice.amount,
-      lowPrice: product.priceRange.minVariantPrice.amount,
+      highPrice: product.priceRange?.maxVariantPrice?.amount || product.price || '0',
+      lowPrice: product.priceRange?.minVariantPrice?.amount || product.price || '0',
     },
   };
 
@@ -240,7 +240,7 @@ export default async function ProductPage(props: { params: Promise<{ handle: str
                   <div>
                     <p className="text-xs text-neutral-500 font-bold uppercase tracking-wider mb-1">Monthly Rent</p>
                     <span className="text-3xl font-bold text-neutral-900">
-                      {formatPrice(product.priceRange.minVariantPrice.amount, product.priceRange.minVariantPrice.currencyCode)}
+                      {formatPrice(product.price || product.priceRange?.minVariantPrice?.amount || '0', product.priceRange?.minVariantPrice?.currencyCode || 'INR')}
                     </span>
                   </div>
                   <div className={cn(
@@ -421,7 +421,7 @@ export default async function ProductPage(props: { params: Promise<{ handle: str
                     <p className="text-sm text-neutral-500 font-medium mb-1">Monthly Rent</p>
                     <div className="flex items-baseline gap-1">
                       <span className="text-3xl font-bold text-neutral-900">
-                        {formatPrice(product.priceRange.minVariantPrice.amount, product.priceRange.minVariantPrice.currencyCode)}
+                        {formatPrice(product.price || product.priceRange?.minVariantPrice?.amount || '0', product.priceRange?.minVariantPrice?.currencyCode || 'INR')}
                       </span>
                     </div>
                   </div>
@@ -466,7 +466,7 @@ export default async function ProductPage(props: { params: Promise<{ handle: str
           <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider mb-0.5">Rent</p>
           <div className="flex items-baseline gap-1">
             <span className="text-xl font-bold text-neutral-900">
-              {formatPrice(product.priceRange.minVariantPrice.amount, product.priceRange.minVariantPrice.currencyCode)}
+              {formatPrice(product.price || product.priceRange?.minVariantPrice?.amount || '0', product.priceRange?.minVariantPrice?.currencyCode || 'INR')}
             </span>
           </div>
         </div>

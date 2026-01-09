@@ -17,7 +17,7 @@ export default function ProfilePage() {
     const [loadingProperties, setLoadingProperties] = useState(true);
     const [editingProperty, setEditingProperty] = useState<Product | null>(null);
     const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-    
+
     // Create client only once using useMemo to prevent multiple instances
     const supabase = useMemo(() => createClient(), []);
 
@@ -225,7 +225,7 @@ export default function ProfilePage() {
                                                     />
                                                 )}
                                                 <div className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded text-xs font-bold">
-                                                    ₹{Number(property.priceRange.minVariantPrice.amount).toLocaleString('en-IN')}
+                                                    ₹{Number(property.price || property.priceRange?.minVariantPrice?.amount || 0).toLocaleString('en-IN')}
                                                 </div>
                                             </div>
                                             <div className="p-4">
