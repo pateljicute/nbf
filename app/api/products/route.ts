@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
 
         const { data, error } = await supabase
             .from("properties")
-            .select("id,handle,title,description,price_range,currency_code,featured_image,tags,available_for_sale,category_id,contact_number,user_id,seo")
+            .select('id,handle,title,description,price_range,currency_code,featured_image,tags,available_for_sale,category_id,"contactNumber",user_id,seo,"bathroomType","securityDeposit","electricityStatus","tenantPreference",latitude,longitude,"googleMapsLink",is_verified,status,view_count,created_at,"price","location","address","type"')
             .eq('available_for_sale', true)
             .limit(50);
         if (error) throw error;
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
 
         let dbQuery = supabase
             .from("properties")
-            .select("id,handle,title,description,price_range,currency_code,featured_image,tags,available_for_sale,category_id,contact_number,user_id,seo")
+            .select('id,handle,title,description,price_range,currency_code,featured_image,tags,available_for_sale,category_id,"contactNumber",user_id,seo,"bathroomType","securityDeposit","electricityStatus","tenantPreference",latitude,longitude,"googleMapsLink",is_verified,status,view_count,created_at,"price","location","address","type"')
             .limit(safeLimit);
 
         // Apply base filter
