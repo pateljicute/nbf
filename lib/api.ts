@@ -473,7 +473,7 @@ export async function createProduct(data: any, token?: string): Promise<Product>
       available_for_sale: false, // Default to false (inactive) until approved
       status: 'pending', // Default status
       user_id: user.id,
-      contact_number: data.contactNumber,
+      "contactNumber": data.contactNumber,
       amenities: data.amenities,
       "bathroomType": data.bathroom_type || data.bathroomType,
       security_deposit: data.securityDeposit || '0', // Default to '0' if empty/optional
