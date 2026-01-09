@@ -475,7 +475,7 @@ export async function createProduct(data: any, token?: string): Promise<Product>
       user_id: user.id,
       contact_number: data.contactNumber,
       amenities: data.amenities,
-      bathroom_type: data.bathroom_type,
+      "bathroomType": data.bathroom_type || data.bathroomType,
       security_deposit: data.securityDeposit || '0', // Default to '0' if empty/optional
       electricity_status: data.electricityStatus,
       tenant_preference: data.tenantPreference,

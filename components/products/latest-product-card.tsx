@@ -168,17 +168,16 @@ export function LatestProductCard({
                   const city = 'Mandsaur';
                   let cleanAddress = product.tags?.[2] || '';
 
-                  // Clean up address string
-                  cleanAddress = cleanAddress
+                  // Clean up address string and take only the first part (Area)
+                  const area = cleanAddress
                     .replace(/^(?:Ward|House|Flat|Shop|Plot|Room|Street)?\s*(?:No\.?|Number)?\s*[\d\w\/-]+\s*,?\s*/i, '') // Remove prefixes
                     .replace(new RegExp(city, 'gi'), '') // Remove city if present
-                    .replace(/,\s*$/, '') // Remove trailing comma
-                    .replace(/^[\s,]+|[\s,]+$/g, '') // Trim
+                    .split(',')[0] // Take only the first part (Area)
                     .trim();
 
                   return (
                     <>
-                      {cleanAddress || 'City Center'}, <span className="font-bold text-neutral-900">{city}</span>
+                      {area || 'City Center'}, <span className="font-bold text-neutral-900">{city}</span>
                     </>
                   );
                 })()}
