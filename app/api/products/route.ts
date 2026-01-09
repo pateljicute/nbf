@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
     try {
         checkRateLimit(request.headers, 'general');
 
-        const cacheKey = 'all_properties_v2';
+        const cacheKey = 'all_properties_v3';
         const cached = cacheGet(cacheKey);
         if (cached) {
             return NextResponse.json(cached);
