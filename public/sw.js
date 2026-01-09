@@ -1,10 +1,12 @@
-const CACHE_NAME = 'nbfhomes-v2';
+const CACHE_NAME = 'nbfhomes-v3';
 const urlsToCache = [
     '/',
     '/icon-192x192.png'
 ];
 
 self.addEventListener('install', (event) => {
+    // Force the waiting service worker to become the active service worker
+    self.skipWaiting();
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then((cache) => {
@@ -36,7 +38,10 @@ self.addEventListener('activate', (event) => {
                         return caches.delete(cacheName);
                     }
                 })
-            );
+            ).then(() => {
+                // Take control of all clients immediately
+                return self.clients.claim();
+            });
         })
     );
 });
