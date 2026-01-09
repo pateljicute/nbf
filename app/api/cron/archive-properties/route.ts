@@ -19,19 +19,21 @@ export async function GET(request: NextRequest) {
         const cutoffDate = new Date();
         cutoffDate.setDate(cutoffDate.getDate() - 60);
 
-        // Update 'status' to 'inactive' for old properties that are currently 'approved'
+        // Update 'status' to 'inactive' for soft archive
         // We don't delete them, just archive them.
-        const { data, error, count } = await supabase
+        const { data, error } = await supabase
             .from('properties')
             .update({ status: 'inactive', available_for_sale: false })
             .eq('status', 'approved')
             .lt('created_at', cutoffDate.toISOString())
-            .select('id', { count: 'exact' });
+            .select('id');
 
         if (error) {
             console.error('Cron Archive Error:', error);
             return NextResponse.json({ error: error.message }, { status: 500 });
         }
+
+        const count = data?.length || 0;
 
         return NextResponse.json({
             success: true,
