@@ -226,7 +226,7 @@ export async function getProducts(params?: {
 
     let dbQuery = supabase
       .from("properties")
-      .select("id,handle,title,description,price_range,currency_code,featured_image,tags,available_for_sale,category_id,contact_number,user_id,seo,bathroom_type,security_deposit,electricity_status,tenant_preference,latitude,longitude,google_maps_link,is_verified,status,view_count,created_at")
+      .select('id,handle,title,description,price_range,currency_code,featured_image,tags,available_for_sale,category_id,"contactNumber",user_id,seo,"bathroomType","securityDeposit","electricityStatus","tenantPreference",latitude,longitude,"googleMapsLink",is_verified,status,view_count,created_at,"price","location","address","type"')
       .limit(safeLimit);
 
     // Apply base filter
@@ -347,7 +347,7 @@ export async function getUserProducts(userId: string): Promise<Product[]> {
   try {
     const { data, error } = await supabase
       .from("properties")
-      .select("id,handle,title,description,price_range,currency_code,featured_image,tags,available_for_sale,category_id,contact_number,user_id,seo,bathroom_type,security_deposit,electricity_status,tenant_preference,latitude,longitude,google_maps_link,is_verified,status")
+      .select('id,handle,title,description,price_range,currency_code,featured_image,tags,available_for_sale,category_id,"contactNumber",user_id,seo,"bathroomType","securityDeposit","electricityStatus","tenantPreference",latitude,longitude,"googleMapsLink",is_verified,status,"price","location","address","type"')
       .eq('user_id', userId);
 
     if (error) {
@@ -415,7 +415,7 @@ export async function getCollectionProducts(params: {
 
     let dbQuery = supabase
       .from("properties")
-      .select("id,handle,title,description,price_range,currency_code,featured_image,tags,available_for_sale,category_id,contact_number,user_id,seo")
+      .select('id,handle,title,description,price_range,currency_code,featured_image,tags,available_for_sale,category_id,"contactNumber",user_id,seo')
       .eq('category_id', collectionData.id)
       .eq('available_for_sale', true)
       .limit(50);
@@ -583,7 +583,7 @@ export async function getAdminProducts(
     let query = supabase.from('properties').select('*, properties_leads(count)', { count: 'exact' });
 
     if (search) {
-      query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%,id.eq.${search},contact_number.ilike.%${search}%`);
+      query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%,id.eq.${search},"contactNumber".ilike.%${search}%`);
     }
 
     if (status === 'active') {

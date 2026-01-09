@@ -66,6 +66,10 @@ export interface Product {
   status?: 'pending' | 'approved' | 'rejected' | 'sold' | 'inactive';
   viewCount?: number;
   createdAt?: string;
+  price?: string;
+  location?: string;
+  address?: string;
+  type?: string;
 }
 
 export interface Collection {

@@ -65,6 +65,10 @@ export interface Product {
     status?: 'pending' | 'approved' | 'rejected' | 'sold' | 'inactive';
     viewCount?: number;
     createdAt?: string;
+    price?: string;
+    location?: string;
+    address?: string;
+    type?: string;
 }
 
 export interface Collection {
@@ -96,22 +100,26 @@ export const mapPropertyToProduct = (prop: any): Product => ({
     tags: prop.tags,
     availableForSale: prop.available_for_sale,
     userId: prop.user_id,
-    contactNumber: prop.contact_number,
+    contactNumber: prop.contactNumber,
     categoryId: prop.category_id,
     ownerName: prop.users?.full_name || prop.users?.name || 'Property Owner',
     amenities: prop.amenities,
-    bathroom_type: prop.bathroom_type,
-    securityDeposit: prop.security_deposit,
-    electricityStatus: prop.electricity_status,
-    tenantPreference: prop.tenant_preference,
+    bathroom_type: prop.bathroomType,
+    securityDeposit: prop.securityDeposit,
+    electricityStatus: prop.electricityStatus,
+    tenantPreference: prop.tenantPreference,
     latitude: prop.latitude,
     longitude: prop.longitude,
-    googleMapsLink: prop.google_maps_link,
+    googleMapsLink: prop.googleMapsLink,
     leadsCount: prop.properties_leads?.[0]?.count || 0,
     is_verified: prop.is_verified,
     status: (prop.status as Product['status']) || 'pending',
     viewCount: prop.view_count || 0,
-    createdAt: prop.created_at
+    createdAt: prop.created_at,
+    price: prop.price,
+    location: prop.location,
+    address: prop.address,
+    type: prop.type
 });
 
 // --- Helper to map DB result to Collection ---
