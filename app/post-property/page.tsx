@@ -29,7 +29,7 @@ export default function PostPropertyPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const editId = searchParams.get('edit');
-    const { user, session } = useAuth();
+    const { user, session, isLoading: authLoading } = useAuth();
 
     // Form States
     const [step, setStep] = useState(1);
@@ -309,6 +309,11 @@ export default function PostPropertyPage() {
             return;
         }
 
+        if (!user) {
+            toast.error("You must be logged in to post a property");
+            return;
+        }
+
         if (!formData.bathroomType) {
             toast.error("Please select a bathroom type");
             return;
@@ -373,6 +378,29 @@ export default function PostPropertyPage() {
                             View My Profile <ArrowRight className="w-4 h-4" />
                         </button>
                     </div>
+                </div>
+            </div>
+        );
+    }
+
+    if (authLoading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-neutral-50">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
+            </div>
+        );
+    }
+
+    if (!user) {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center p-4 text-center bg-neutral-50">
+                <ShieldCheck className="w-16 h-16 text-neutral-300 mb-4" />
+                <h2 className="text-2xl font-serif font-medium mb-2">Authentication Required</h2>
+                <p className="text-neutral-500 mb-6 max-w-md">
+                    Please log in to list your property. This helps us maintain a verified and safe community.
+                </p>
+                <div className="px-6 py-3 bg-white rounded-lg border border-neutral-200 text-sm text-neutral-600 shadow-sm">
+                    Please click the <strong>Login</strong> button in the top menu to continue.
                 </div>
             </div>
         );
