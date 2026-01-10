@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
                 {
                     id: `var_${Date.now()}`,
                     title: "Default Title",
-                    price: { amount: price, currencyCode: "INR" },
+                    price: { amount: String(price), currencyCode: "INR" },
                     availableForSale: true,
                     selectedOptions: [],
                 }
@@ -106,8 +106,8 @@ export async function POST(request: NextRequest) {
             tags: [cleanType, cleanLocation, "New Listing"],
             available_for_sale: true,
             price_range: {
-                minVariantPrice: { amount: price, currencyCode: "INR" },
-                maxVariantPrice: { amount: price, currencyCode: "INR" },
+                minVariantPrice: { amount: String(price), currencyCode: "INR" },
+                maxVariantPrice: { amount: String(price), currencyCode: "INR" },
             },
             user_id: user.id,
             contact_number: cleanContactNumber
