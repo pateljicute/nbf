@@ -182,6 +182,39 @@ export async function approveProductAction(
     }
 }
 
+// Admin action to reject product
+export async function rejectProductAction(
+    productId: string,
+    adminUserId: string
+): Promise<{ success: boolean; error?: string }> {
+    try {
+        const isAdmin = await checkAdminStatus(adminUserId);
+        if (!isAdmin) {
+            return { success: false, error: 'Unauthorized: Admin access required' };
+        }
+
+        const supabase = await getSupabaseClient();
+
+        // Update property status to rejected and inactive
+        const { error } = await supabase
+            .from('properties')
+            .update({
+                available_for_sale: false,
+                status: 'rejected'
+            })
+            .eq('id', productId);
+
+        if (error) {
+            return { success: false, error: error.message };
+        }
+
+        return { success: true };
+    } catch (error: any) {
+        console.error('Error in rejectProductAction:', error);
+        return { success: false, error: error.message || 'Unknown error' };
+    }
+}
+
 // Admin action to delete product
 export async function adminDeleteProductAction(
     productId: string,

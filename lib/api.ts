@@ -460,8 +460,17 @@ export async function createProduct(data: any, token?: string): Promise<Product>
       ...(data.tags || [])
     ].filter(Boolean);
 
+    // Helper to generate handle
+    const generateHandle = (title: string) => {
+      return title
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)+/g, '') + '-' + Date.now().toString().slice(-4);
+    };
+
     const insertData = {
       title: data.title,
+      handle: generateHandle(data.title), // Add handle here
       description: data.description,
       price_range: {
         minVariantPrice: { amount: data.price?.toString() || '0', currencyCode: 'INR' },

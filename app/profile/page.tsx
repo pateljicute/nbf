@@ -18,10 +18,13 @@ export default function ProfilePage() {
     const [editingProperty, setEditingProperty] = useState<Product | null>(null);
     const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
+    const [isMounted, setIsMounted] = useState(false);
+
     // Create client only once using useMemo to prevent multiple instances
     const supabase = useMemo(() => createClient(), []);
 
     useEffect(() => {
+        setIsMounted(true);
         if (!isLoading && !user) {
             router.push('/');
         }
@@ -76,7 +79,8 @@ export default function ProfilePage() {
         }
     }, [user, supabase]);
 
-    if (isLoading) {
+    // Prevent hydration mismatch by showing loading state until mounted on client
+    if (!isMounted || isLoading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-neutral-50">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
