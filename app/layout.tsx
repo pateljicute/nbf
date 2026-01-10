@@ -144,8 +144,19 @@ export default async function RootLayout({
             __html: `
                if ('serviceWorker' in navigator) {
                  window.addEventListener('load', function() {
+                   // Force unregister legacy service workers to fix cache issues
+                   navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                     for(let registration of registrations) {
+                       // Optional: Only unregister if it involves the old scope or if we want to force re-install
+                       // For now, we update strictly.
+                       registration.update();
+                     }
+                   });
+
                    navigator.serviceWorker.register('/sw.js').then(function(registration) {
                      console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                     // Check for updates
+                     registration.update();
                    }, function(err) {
                      console.log('ServiceWorker registration failed: ', err);
                    });

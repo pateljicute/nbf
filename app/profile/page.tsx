@@ -25,6 +25,15 @@ export default function ProfilePage() {
         if (!isLoading && !user) {
             router.push('/');
         }
+
+        // Anti-Crash: Force reload once to clear stale JS chunks if they exist
+        if (typeof window !== 'undefined') {
+            const hasReloaded = sessionStorage.getItem('nbf_cache_fix_reloaded_v2');
+            if (!hasReloaded) {
+                sessionStorage.setItem('nbf_cache_fix_reloaded_v2', 'true');
+                window.location.reload();
+            }
+        }
     }, [user, isLoading, router]);
 
     useEffect(() => {
