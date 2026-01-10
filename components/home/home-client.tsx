@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Hero } from '@/components/hero';
 import { Product, AdSettings } from '@/lib/types';
 import { LatestProductCard } from '@/components/products/latest-product-card';
@@ -18,6 +18,17 @@ interface HomeClientProps {
 
 export function HomeClient({ initialProducts, adSettings }: HomeClientProps) {
     const [filteredProducts, setFilteredProducts] = useState(initialProducts);
+
+    // Force reload to clear stuck service worker cache
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const hasReloaded = sessionStorage.getItem('nbf_home_fix_v1');
+            if (!hasReloaded) {
+                sessionStorage.setItem('nbf_home_fix_v1', 'true');
+                window.location.reload();
+            }
+        }
+    }, []);
 
     const handleSearch = useCallback((query: string) => {
         if (!query.trim()) {
