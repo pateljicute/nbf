@@ -303,37 +303,42 @@ export async function getProduct(handle: string): Promise<Product | null> {
 
     // Manually fetch owner details to avoid JOIN issues and RLS
     if (product.userId) {
-      let userData = null;
-      const adminClient = getAdminClient();
-      const clientToUse = adminClient || supabase;
+      try {
+        let userData = null;
+        const adminClient = getAdminClient();
+        const clientToUse = adminClient || supabase;
 
-      // Try 'users' table first
-      const { data: usersData, error: usersError } = await clientToUse
-        .from("users")
-        .select("*")
-        .eq("id", product.userId)
-        .single();
-
-      if (usersData) {
-        userData = usersData;
-      } else {
-        // Fallback to 'profiles' table if 'users' fails or is empty
-        const { data: profilesData } = await clientToUse
-          .from("profiles")
+        // Try 'users' table first
+        const { data: usersData, error: usersError } = await clientToUse
+          .from("users")
           .select("*")
           .eq("id", product.userId)
           .single();
-        userData = profilesData;
-      }
 
-      if (userData) {
-        product.ownerName =
-          userData.full_name ||
-          userData.name ||
-          userData.display_name ||
-          (userData.first_name ? `${userData.first_name} ${userData.last_name || ''}`.trim() : null) ||
-          userData.username ||
-          userData.email?.split('@')[0]; // Fallback to email prefix if absolutely nothing else
+        if (usersData && !usersError) {
+          userData = usersData;
+        } else {
+          // Fallback to 'profiles' table if 'users' fails or is empty
+          const { data: profilesData } = await clientToUse
+            .from("profiles")
+            .select("*")
+            .eq("id", product.userId)
+            .single();
+          userData = profilesData;
+        }
+
+        if (userData) {
+          product.ownerName =
+            userData.full_name ||
+            userData.name ||
+            userData.display_name ||
+            (userData.first_name ? `${userData.first_name} ${userData.last_name || ''}`.trim() : null) ||
+            userData.username ||
+            userData.email?.split('@')[0]; // Fallback to email prefix if absolutely nothing else
+        }
+      } catch (err) {
+        console.warn('Failed to fetch user details for product:', err);
+        // Continue without owner details - do not crash the page
       }
     }
 
