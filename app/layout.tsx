@@ -144,7 +144,7 @@ export default async function RootLayout({
             __html: `
                if ('serviceWorker' in navigator) {
                  window.addEventListener('load', function() {
-                   // NUKE: Force unregister all service workers to clear corrupted cache
+                   // DISABLE: Force unregister all service workers and DO NOT re-register
                    navigator.serviceWorker.getRegistrations().then(function(registrations) {
                      for(let registration of registrations) {
                        registration.unregister().then(function(boolean) {
@@ -152,12 +152,7 @@ export default async function RootLayout({
                        });
                      }
                    });
-                   // Re-register after a short delay to ensure clean slate
-                   setTimeout(() => {
-                        navigator.serviceWorker.register('/sw.js').then(function(registration) {
-                            console.log('ServiceWorker re-registered with scope: ', registration.scope);
-                        });
-                   }, 1000);
+                   console.log('ServiceWorker is disabled.');
                  });
                }
              `
