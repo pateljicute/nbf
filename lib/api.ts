@@ -446,9 +446,12 @@ export async function getCollectionProducts(params: {
 export async function createProduct(data: any, token?: string): Promise<Product> {
   try {
     // 1. Get current user
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = token
+      ? await supabase.auth.getUser(token)
+      : await supabase.auth.getUser();
 
     if (!user) {
+      console.error('Authentication failed: No user found. Token provided:', !!token);
       throw new Error('User not authenticated');
     }
 
