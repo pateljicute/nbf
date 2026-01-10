@@ -144,22 +144,20 @@ export default async function RootLayout({
             __html: `
                if ('serviceWorker' in navigator) {
                  window.addEventListener('load', function() {
-                   // Force unregister legacy service workers to fix cache issues
+                   // NUKE: Force unregister all service workers to clear corrupted cache
                    navigator.serviceWorker.getRegistrations().then(function(registrations) {
                      for(let registration of registrations) {
-                       // Optional: Only unregister if it involves the old scope or if we want to force re-install
-                       // For now, we update strictly.
-                       registration.update();
+                       registration.unregister().then(function(boolean) {
+                           console.log('ServiceWorker unregistered: ', boolean);
+                       });
                      }
                    });
-
-                   navigator.serviceWorker.register('/sw.js').then(function(registration) {
-                     console.log('ServiceWorker registration successful with scope: ', registration.scope);
-                     // Check for updates
-                     registration.update();
-                   }, function(err) {
-                     console.log('ServiceWorker registration failed: ', err);
-                   });
+                   // Re-register after a short delay to ensure clean slate
+                   setTimeout(() => {
+                        navigator.serviceWorker.register('/sw.js').then(function(registration) {
+                            console.log('ServiceWorker re-registered with scope: ', registration.scope);
+                        });
+                   }, 1000);
                  });
                }
              `
