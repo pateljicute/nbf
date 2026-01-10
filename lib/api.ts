@@ -284,7 +284,7 @@ export async function getProducts(params?: {
     return data.map(mapPropertyToProduct);
 
   } catch (error) {
-    console.error('Error in getProducts (Server):', JSON.stringify(error, null, 2));
+    // Silent fail for build fault tolerance
     return [];
   }
 }
@@ -355,13 +355,9 @@ export async function getUserProducts(userId: string): Promise<Product[]> {
       .select('id,handle,title,description,price_range,currency_code,featured_image,tags,available_for_sale,category_id,"contactNumber",user_id,seo,"bathroomType","securityDeposit","electricityStatus","tenantPreference",latitude,longitude,"googleMapsLink",is_verified,status,"price","location","address","type"')
       .eq('user_id', userId);
 
-    if (error) {
-      console.error('Error fetching user products:', error);
-      return [];
-    }
-    return data.map(mapPropertyToProduct);
+    if (error) return [];
+    return (data || []).map(mapPropertyToProduct);
   } catch (error) {
-    console.error('Error in getUserProducts:', error);
     return [];
   }
 }
@@ -369,13 +365,9 @@ export async function getUserProducts(userId: string): Promise<Product[]> {
 export async function getCollections(): Promise<Collection[]> {
   try {
     const { data, error } = await supabase.from("collections").select("*");
-    if (error) {
-      console.error('Error fetching collections:', error);
-      return [];
-    }
-    return data.map(mapDbCollectionToCollection);
+    if (error) return [];
+    return (data || []).map(mapDbCollectionToCollection);
   } catch (error) {
-    console.error('Error in getCollections:', error);
     return [];
   }
 }
@@ -442,6 +434,7 @@ export async function getCollectionProducts(params: {
     return data.map(mapPropertyToProduct);
 
   } catch {
+    // Silent fail
     return [];
   }
 }
