@@ -84,19 +84,25 @@ export interface Collection {
     };
 }
 
+// --- Helper to Normalize Price Range ---
+export const normalizePriceRange = (prop: any) => {
+    if (prop.price_range && prop.price_range.minVariantPrice) {
+        return prop.price_range;
+    }
+    // Fallback default
+    return {
+        minVariantPrice: { amount: prop.price ? String(prop.price) : '0', currencyCode: 'INR' },
+        maxVariantPrice: { amount: prop.price ? String(prop.price) : '0', currencyCode: 'INR' }
+    };
+};
+
 // --- Helper to map DB result to Product ---
 export const mapPropertyToProduct = (prop: any): Product => ({
     id: prop.id,
     handle: prop.handle,
     title: prop.title,
     description: prop.description,
-    priceRange: (prop.price_range && prop.price_range.minVariantPrice)
-        ? prop.price_range
-        : {
-            // FALLBACK: Automatically converts empty data to correct format
-            minVariantPrice: { amount: prop.price ? String(prop.price) : '0', currencyCode: 'INR' },
-            maxVariantPrice: { amount: prop.price ? String(prop.price) : '0', currencyCode: 'INR' }
-        },
+    priceRange: normalizePriceRange(prop),
     currencyCode: prop.currency_code,
     seo: prop.seo,
     featuredImage: prop.featured_image,
