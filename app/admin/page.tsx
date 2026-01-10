@@ -9,55 +9,7 @@ import { Trash2, Eye, Users, Building, TrendingUp, ChevronLeft, ChevronRight, Se
 import { checkAdminStatus, updateProductStatusAction, approveProductAction, rejectProductAction, adminDeleteProductAction, updateUserRoleAction, toggleUserVerifiedAction, togglePropertyVerifiedAction, updateSiteSettingsAction } from '@/app/actions';
 // ...
 
-const handleReject = async (id: string) => {
-    if (!confirm('Reject this property? It will be marked as rejected.')) return;
-    if (!user) return;
-    try {
-        const result = await rejectProductAction(id, user.id);
-        if (result.success) {
-            // Remove from list
-            setProperties(properties.filter(p => p.id !== id));
-            fetchStats();
-            alert('Property rejected successfully');
-        } else {
-            alert(`Failed to reject property: ${result.error || 'Unknown error'}`);
-        }
-    } catch (error) {
-        console.error('Error rejecting:', error);
-        alert('Failed to reject property');
-    }
-};
 
-const handleDelete = async (id: string) => {
-    if (!confirm('Delete this property? This cannot be undone.')) return;
-    if (!user) return;
-
-    try {
-        const result = await adminDeleteProductAction(id, user.id);
-        if (result.success) {
-            // Remove from list
-            setProperties(properties.filter(p => p.id !== id)); // Optimistic UI update
-            fetchStats();
-            // Optionally re-fetch to be sure, but optimistic is fine
-            // fetchProperties(currentPage); 
-            alert('Property deleted successfully');
-        } else {
-            alert(`Failed to delete property: ${result.error || 'Unknown error'}`);
-        }
-    } catch (error) {
-        console.error('Error deleting:', error);
-        alert('Failed to delete property');
-    }
-};
-
-// ... inside render loop for approvals table ...
-<button
-    onClick={() => handleReject(property.id)}
-    className="text-red-600 hover:text-red-900"
-    title="Reject"
->
-    <XCircle className="w-4 h-4 inline" />
-</button>
 
 import { Product } from '@/lib/types';
 import { getAdminProducts, getAdminStats, getAdminUsers, getSiteSettings } from '@/lib/api';
