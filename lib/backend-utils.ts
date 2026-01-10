@@ -175,10 +175,11 @@ const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
 const RATE_LIMITS = {
     general: { maxRequests: 100, window: RATE_LIMIT_WINDOW }, // General requests
     auth: { maxRequests: 10, window: RATE_LIMIT_WINDOW },     // Auth endpoints
-    create: { maxRequests: 5, window: RATE_LIMIT_WINDOW }     // Property creation
+    create: { maxRequests: 5, window: RATE_LIMIT_WINDOW },    // Property creation
+    admin_write: { maxRequests: 20, window: RATE_LIMIT_WINDOW } // Admin write operations
 };
 
-export const checkRateLimit = (headers: Headers, endpointType: 'general' | 'auth' | 'create' = 'general') => {
+export const checkRateLimit = (headers: Headers, endpointType: 'general' | 'auth' | 'create' | 'admin_write' = 'general') => {
     // Get IP from headers
     const forwardedFor = headers.get('x-forwarded-for');
     let ip = headers.get('cf-connecting-ip') ||
