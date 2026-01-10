@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Geist } from 'next/font/google';
+import { Inter } from 'next/font/google';
 import './globals.css';
 import { Collection } from '@/lib/types';
 import { getCollections } from '@/lib/api';
@@ -9,8 +9,8 @@ import { ProvidersWrapper } from '@/components/providers-wrapper';
 import { WhatsAppOnboardingModal } from '@/components/auth/whatsapp-onboarding-modal';
 import { InstallPrompt } from '@/components/pwa/install-prompt';
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
+const inter = Inter({
+  variable: '--font-geist-sans', // Keeping same variable name to avoid refactoring CSS
   subsets: ['latin'],
   display: 'swap',
 });
@@ -80,7 +80,7 @@ export default async function RootLayout({
         <meta name="theme-color" content="#000000" />
         <link rel="apple-touch-icon" href="/icon-192x192.png" />
       </head>
-      <body className={`${geistSans.variable} antialiased min-h-screen overflow-y-auto`}>
+      <body className={`${inter.variable} antialiased min-h-screen overflow-y-auto`}>
         <script
           type="application/ld+json"
           suppressHydrationWarning
