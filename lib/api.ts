@@ -473,24 +473,25 @@ export async function createProduct(data: any, token?: string): Promise<Product>
 
     const insertData = {
       title: data.title,
-      handle: generateHandle(data.title), // Add handle here
+      handle: generateHandle(data.title),
       description: data.description,
+      // EXACT FORMAT REQUESTED BY USER
       price_range: {
-        minVariantPrice: { amount: data.price?.toString() || '0', currencyCode: 'INR' },
-        maxVariantPrice: { amount: data.price?.toString() || '0', currencyCode: 'INR' }
+        "minVariantPrice": { "amount": data.price?.toString() || '0', "currencyCode": "INR" }
       },
-      "price": data.price,
+      "price": data.price?.toString(), // Ensure text format if column is text
       currency_code: 'INR',
       images: data.images?.map((url: string) => ({ url, altText: data.title })) || [],
       tags: tags,
-      available_for_sale: false, // Default to false (inactive) until approved
-      status: 'pending', // Default status
+      available_for_sale: false,
+      status: 'pending',
       user_id: user.id,
-      "userId": user.id,
+      "userId": user.id, // Redundant but kept for safety
+
+      // Quoted keys to match specific DB columns as requested
       "contactNumber": data.contactNumber,
-      amenities: data.amenities,
       "bathroomType": data.bathroom_type || data.bathroomType,
-      "securityDeposit": data.securityDeposit || '0', // Default to '0' if empty/optional
+      "securityDeposit": data.securityDeposit?.toString() || '0',
       "electricityStatus": data.electricityStatus,
       "tenantPreference": data.tenantPreference,
       "location": data.location,
@@ -499,6 +500,7 @@ export async function createProduct(data: any, token?: string): Promise<Product>
       latitude: data.latitude,
       longitude: data.longitude,
       "googleMapsLink": data.googleMapsLink,
+      amenities: data.amenities,
       featured_image: data.images?.[0] ? { url: data.images[0], altText: data.title } : null
     };
 
