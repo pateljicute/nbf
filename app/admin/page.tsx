@@ -530,7 +530,9 @@ export default function AdminPage() {
                                                         </button>
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900 font-medium">
-                                                        ₹{Number(property.price || property.priceRange?.minVariantPrice?.amount || 0).toLocaleString('en-IN')}
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900 font-medium">
+                                                            ₹{Number(property.priceRange?.minVariantPrice?.amount || property.price || 0).toLocaleString('en-IN')}
+                                                        </td>
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
                                                         {property.contactNumber || 'N/A'}
@@ -619,6 +621,8 @@ export default function AdminPage() {
                                         <thead className="bg-neutral-50">
                                             <tr>
                                                 <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">User ID</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Name</th>
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Email</th>
                                                 <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Contact</th>
                                                 <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Total Properties</th>
                                                 <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Active Properties</th>
@@ -628,7 +632,13 @@ export default function AdminPage() {
                                             {usersList.map((userItem) => (
                                                 <tr key={userItem.userId} className="hover:bg-neutral-50">
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-900">
-                                                        {userItem.userId}
+                                                        {userItem.userId.substring(0, 8)}...
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900">
+                                                        {userItem.name}
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
+                                                        {userItem.email}
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
                                                         <div className="flex items-center gap-2">

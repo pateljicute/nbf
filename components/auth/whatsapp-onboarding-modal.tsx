@@ -19,14 +19,39 @@ export function WhatsAppOnboardingModal() {
     const [error, setError] = useState('');
 
     useEffect(() => {
-        // Check if user is logged in
-        if (user) {
-            // Check if modal has been seen/completed
-            const hasSeen = localStorage.getItem('nbf_whatsapp_modal_seen');
-            if (!hasSeen) {
-                setIsOpen(true);
+        const checkProfile = async () => {
+            if (user) {
+                // 1. Check if we have already seen/dismissed (only for 'join' step logic if needed, 
+                // but for phone number, we MUST enforce it if it's missing)
+
+                try {
+                    // Fetch fresh profile data to check contact_number
+                    const { data: profile, error } = await import('@/lib/db').then(m => m.supabase
+                        .from('users')
+                        .select('contact_number')
+                        .eq('id', user.id)
+                        .single()
+                    );
+
+                    if (user && !error && (!profile?.contact_number || profile.contact_number.trim() === '')) {
+                        // FORCE OPEN if no number
+                        setIsOpen(true);
+                        setStep('phone');
+                    } else {
+                        // If number exists, check if they saw the 'join group' modal
+                        const hasSeen = localStorage.getItem('nbf_whatsapp_modal_seen');
+                        if (!hasSeen) {
+                            setIsOpen(true);
+                            setStep('join');
+                        }
+                    }
+                } catch (err) {
+                    console.error('Error checking profile:', err);
+                }
             }
-        }
+        };
+
+        checkProfile();
     }, [user]);
 
     const handlePhoneSubmit = async (e: React.FormEvent) => {

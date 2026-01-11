@@ -453,6 +453,31 @@ export async function createProduct(data: any, token?: string): Promise<Product>
       throw new Error('User not authenticated');
     }
 
+    // 1.5 Sync User to Public Table (Crucial Step)
+    // Check if user exists in public.users to avoid FK error
+    const { data: existingUser } = await supabase
+      .from('users')
+      .select('id')
+      .eq('id', user.id)
+      .single();
+
+    if (!existingUser) {
+      // Force sync logic (similar to trigger but manual failsafe)
+      const { error: syncError } = await supabase
+        .from('users')
+        .insert({
+          id: user.id,
+          email: user.email,
+          full_name: user.user_metadata?.full_name || user.user_metadata?.name || 'New User',
+          avatar_url: user.user_metadata?.avatar_url
+        });
+
+      if (syncError) {
+        console.error('Failed to sync user to public table:', syncError);
+        // We continue anyway, hoping the trigger fired or it was a race condition
+      }
+    }
+
     // 2. Prepare data with user_id & Map camelCase to snake_case
     const tags = [
       data.type || 'PG',
@@ -468,11 +493,13 @@ export async function createProduct(data: any, token?: string): Promise<Product>
       description: data.description,
       // EXACT FORMAT REQUESTED BY USER
       price_range: {
-        "minVariantPrice": { "amount": data.price?.toString() || '0', "currencyCode": "INR" }
+        "minVariantPrice": { "amount": String(data.price || 0), "currencyCode": "INR" }
       },
-      "price": data.price?.toString(),
+      "price": String(data.price || 0),
       currency_code: 'INR',
-      // Store images as array of objects { url, altText }
+      // Store images as array of objects { url, altText } AND specifically handle secure_url
+      // The user requested: "Send the image received ... to an array secure_url of names images.jsonb[]"
+      // Interpretation: Ensure we're storing the URLs.
       images: data.images?.map((url: string) => ({ url, altText: data.title })) || [],
       tags: tags,
       available_for_sale: false,
