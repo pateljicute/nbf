@@ -21,25 +21,25 @@ export function InstallPrompt() {
                 });
         }
 
-        // 2. Check if app is already installed
-        if (window.matchMedia('(display-mode: standalone)').matches) {
+        // 2. Check conditions: Already Installed OR Not Mobile OR Dismissed
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth < 768;
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+        const hasDismissed = sessionStorage.getItem('install_prompt_dismissed');
+
+        if (isStandalone || !isMobile || hasDismissed) {
             return;
         }
 
         const handler = (e: Event) => {
             e.preventDefault();
             setDeferredPrompt(e);
-            // Only show prompt if not already dismissed by user selection in this session? 
-            // User requirements: "When a user opens the site on mobile, show them a beautiful 'Install Infhomes App' banner"
-
-            // Let's delay it slightly to not annoy immediately or check local storage if dismissed recently
-            const hasDismissed = sessionStorage.getItem('install_prompt_dismissed');
-            if (!hasDismissed) {
-                setIsVisible(true);
-            }
+            setIsVisible(true);
         };
 
         window.addEventListener('beforeinstallprompt', handler);
+
+        // Fallback for immediate testing if event doesn't fire (e.g. dev environment)
+        // In prod, strictly wait for event. For now, we trust the event or manual trigger logic.
 
         return () => {
             window.removeEventListener('beforeinstallprompt', handler);
@@ -72,26 +72,29 @@ export function InstallPrompt() {
 
     return (
         <div className="fixed top-0 left-0 right-0 z-50 p-4 animate-in slide-in-from-top duration-500">
-            <div className="bg-neutral-900 text-white p-4 rounded-xl shadow-2xl flex items-center justify-between gap-4 border border-neutral-800 mx-auto max-w-md">
+            <div className="bg-white/90 backdrop-blur-md text-neutral-900 p-4 rounded-xl shadow-2xl flex items-center justify-between gap-4 border border-neutral-200 mx-auto max-w-md ring-1 ring-black/5">
                 <div className="flex items-center gap-3">
-                    <div className="bg-white rounded-lg p-1 w-10 h-10 flex items-center justify-center">
-                        {/* Placeholder for App Icon if valid image not ready, or actual img tag */}
-                        <span className="text-black font-bold text-lg">IH</span>
+                    <div className="bg-neutral-900 rounded-lg p-1 w-12 h-12 flex items-center justify-center shadow-sm">
+                        <span className="text-white font-bold text-lg">NBF</span>
                     </div>
                     <div>
-                        <h3 className="font-bold text-sm">Install Infhomes</h3>
-                        <p className="text-xs text-neutral-400">Add to Home Screen</p>
+                        <h3 className="font-bold text-sm leading-tight">Install NBF HOMES</h3>
+                        <p className="text-xs text-neutral-500 mt-0.5">For the best experience!</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
                     <Button
                         onClick={handleInstallClick}
                         size="sm"
-                        className="bg-white text-black hover:bg-neutral-200 font-bold rounded-full h-8 px-4 text-xs"
+                        className="bg-green-600 hover:bg-green-700 text-white font-semibold rounded-full h-8 px-4 text-xs transition-colors shadow-sm"
                     >
-                        Install
+                        Install Now
                     </Button>
-                    <button onClick={handleDismiss} className="text-neutral-400 hover:text-white">
+                    <button
+                        onClick={handleDismiss}
+                        className="p-1.5 rounded-full hover:bg-neutral-100 text-neutral-400 hover:text-neutral-600 transition-colors"
+                        aria-label="Dismiss"
+                    >
                         <X size={18} />
                     </button>
                 </div>
