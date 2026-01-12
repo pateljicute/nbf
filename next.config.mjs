@@ -49,7 +49,7 @@ const nextConfig = {
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
           // CORS Headers for nbfhomes.in
-          { key: 'Access-Control-Allow-Origin', value: 'https://nbfhomes.in' },
+          { key: 'Access-Control-Allow-Origin', value: 'https://www.nbfhomes.in' },
           { key: 'Access-Control-Allow-Methods', value: 'GET,DELETE,PATCH,POST,PUT' },
           { key: 'Access-Control-Allow-Headers', value: 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version' },
         ],
