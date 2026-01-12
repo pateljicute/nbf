@@ -97,44 +97,6 @@ export const normalizePriceRange = (prop: any) => {
 };
 
 // --- Helper to map DB result to Product ---
-<<<<<<< HEAD
-export const mapPropertyToProduct = (prop: any): Product => ({
-    id: prop.id,
-    handle: prop.handle,
-    title: prop.title,
-    description: prop.description,
-    priceRange: normalizePriceRange(prop),
-    currencyCode: prop.currency_code || 'INR',
-    seo: prop.seo || { title: prop.title, description: prop.description },
-    featuredImage: prop.featured_image || { url: '', altText: 'Placeholder' },
-    images: prop.images || [],
-    options: prop.options || [],
-    variants: prop.variants || [],
-    tags: prop.tags || [],
-    availableForSale: prop.available_for_sale || false,
-    userId: prop.user_id,
-    contactNumber: prop.contactNumber,
-    categoryId: prop.category_id,
-    ownerName: prop.users?.full_name || prop.users?.name || 'Property Owner',
-    amenities: prop.amenities,
-    bathroom_type: prop.bathroomType,
-    securityDeposit: prop.securityDeposit,
-    electricityStatus: prop.electricityStatus,
-    tenantPreference: prop.tenantPreference,
-    latitude: prop.latitude,
-    longitude: prop.longitude,
-    googleMapsLink: prop.googleMapsLink,
-    leadsCount: (typeof prop.leads_count === 'number' ? prop.leads_count : Number(prop.leads_count)) || 0,
-    is_verified: prop.is_verified,
-    status: (prop.status as Product['status']) || 'pending',
-    viewCount: prop.view_count || 0,
-    createdAt: prop.created_at,
-    price: prop.price,
-    location: prop.location,
-    address: prop.address,
-    type: prop.type
-});
-=======
 export const mapPropertyToProduct = (prop: any): Product => {
     // Robust Image Handling (Handle both string[] and object[])
     const rawImages = Array.isArray(prop.images) ? prop.images : [];
@@ -194,7 +156,6 @@ export const mapPropertyToProduct = (prop: any): Product => {
         type: prop.type
     };
 };
->>>>>>> d1bc99035969bbabeac36ef726b7bfc516e78101
 
 // --- Helper to map DB result to Collection ---
 export const mapDbCollectionToCollection = (col: any): Collection => ({

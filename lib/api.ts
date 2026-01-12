@@ -387,19 +387,9 @@ export async function getUserProducts(userId: string): Promise<Product[]> {
 export async function getCollections(): Promise<Collection[]> {
   try {
     const { data, error } = await supabase.from("collections").select("*");
-<<<<<<< HEAD
-    if (error) {
-      console.error('Error fetching collections:', JSON.stringify(error, null, 2));
-      return [];
-    }
-    return data.map(mapDbCollectionToCollection);
-  } catch (error) {
-    console.error('Error in getCollections:', JSON.stringify(error, null, 2));
-=======
     if (error) return [];
     return (data || []).map(mapDbCollectionToCollection);
   } catch (error) {
->>>>>>> d1bc99035969bbabeac36ef726b7bfc516e78101
     return [];
   }
 }
@@ -527,16 +517,11 @@ export async function createProduct(data: any, token?: string): Promise<Product>
       price_range: {
         "minVariantPrice": { "amount": String(data.price || 0), "currencyCode": "INR" }
       },
-<<<<<<< HEAD
-      "price": data.price?.toString(),
-      // Store images as array of objects { url, altText }
-=======
       "price": String(data.price || 0),
       currency_code: 'INR',
       // Store images as array of objects { url, altText } AND specifically handle secure_url
       // The user requested: "Send the image received ... to an array secure_url of names images.jsonb[]"
       // Interpretation: Ensure we're storing the URLs.
->>>>>>> d1bc99035969bbabeac36ef726b7bfc516e78101
       images: data.images?.map((url: string) => ({ url, altText: data.title })) || [],
       tags: tags,
       available_for_sale: false,
