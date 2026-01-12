@@ -97,6 +97,7 @@ export const normalizePriceRange = (prop: any) => {
 };
 
 // --- Helper to map DB result to Product ---
+<<<<<<< HEAD
 export const mapPropertyToProduct = (prop: any): Product => ({
     id: prop.id,
     handle: prop.handle,
@@ -133,6 +134,67 @@ export const mapPropertyToProduct = (prop: any): Product => ({
     address: prop.address,
     type: prop.type
 });
+=======
+export const mapPropertyToProduct = (prop: any): Product => {
+    // Robust Image Handling (Handle both string[] and object[])
+    const rawImages = Array.isArray(prop.images) ? prop.images : [];
+    const images: Image[] = rawImages.map((img: any) => {
+        if (typeof img === 'string') {
+            return { url: img, altText: prop.title || 'Property Image' };
+        }
+        return img;
+    });
+
+    // Robust Featured Image Parsing
+    let featuredImage = { url: '', altText: 'Placeholder' };
+    if (prop.featured_image) {
+        if (typeof prop.featured_image === 'string') {
+            featuredImage = { url: prop.featured_image, altText: prop.title || 'Featured Image' };
+        } else {
+            featuredImage = prop.featured_image;
+        }
+    } else if (images.length > 0) {
+        featuredImage = images[0];
+    }
+
+    return {
+        id: prop.id,
+        handle: prop.handle,
+        title: prop.title || 'Untitled Property',
+        description: prop.description || '',
+        priceRange: normalizePriceRange(prop),
+        currencyCode: prop.currency_code || 'INR',
+        seo: prop.seo || { title: prop.title, description: prop.description },
+        featuredImage: featuredImage,
+        images: images,
+        options: prop.options || [],
+        variants: prop.variants || [],
+        tags: prop.tags || [],
+        availableForSale: prop.available_for_sale || false,
+        userId: prop.user_id,
+        contactNumber: prop.contactNumber,
+        categoryId: prop.category_id,
+        ownerName: prop.users?.full_name || prop.users?.name || 'Property Owner',
+        amenities: prop.amenities,
+        bathroom_type: prop.bathroomType || prop.bathroom_type, // Handle both cases
+        securityDeposit: prop.securityDeposit,
+        electricityStatus: prop.electricityStatus,
+        tenantPreference: prop.tenantPreference,
+        latitude: prop.latitude,
+        longitude: prop.longitude,
+        googleMapsLink: prop.googleMapsLink,
+        leadsCount: prop.properties_leads?.[0]?.count || 0,
+        is_verified: prop.is_verified,
+        status: (prop.status as Product['status']) || 'pending',
+        viewCount: prop.view_count || 0,
+        createdAt: prop.created_at,
+        price: prop.price,
+        location: prop.location,
+        address: prop.address,
+        type: prop.type
+    };
+};
+>>>>>>> d1bc99035969bbabeac36ef726b7bfc516e78101
 
 // --- Helper to map DB result to Collection ---
 export const mapDbCollectionToCollection = (col: any): Collection => ({

@@ -530,7 +530,9 @@ export default function AdminPage() {
                                                         </button>
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900 font-medium">
-                                                        ₹{Number(property.price || property.priceRange?.minVariantPrice?.amount || 0).toLocaleString('en-IN')}
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900 font-medium">
+                                                            ₹{Number(property.priceRange?.minVariantPrice?.amount || property.price || 0).toLocaleString('en-IN')}
+                                                        </td>
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
                                                         {property.contactNumber || 'N/A'}
@@ -619,268 +621,285 @@ export default function AdminPage() {
                                         <thead className="bg-neutral-50">
                                             <tr>
                                                 <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">User ID</th>
+<<<<<<< HEAD
+=======
+                                                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Name</th>
+>>>>>>> d1bc99035969bbabeac36ef726b7bfc516e78101
                                                 <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Email</th>
                                                 <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Contact</th>
                                                 <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Total Properties</th>
                                                 <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Active Properties</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="bg-white divide-y divide-neutral-200">
-                                            {usersList.map((userItem) => (
-                                                <tr key={userItem.userId} className="hover:bg-neutral-50">
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-900">
-                                                        {userItem.userId}
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
-                                                        {userItem.email}
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
-                                                        <div className="flex items-center gap-2">
-                                                            {userItem.contactNumber}
-                                                            {userItem.contactNumber !== 'N/A' && (
-                                                                <a
-                                                                    href={`https://wa.me/${userItem.contactNumber.replace(/\D/g, '')}`}
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
-                                                                    className="text-green-600 hover:text-green-700 hover:bg-green-50 p-1 rounded-full transition-colors"
-                                                                    title="Chat on WhatsApp"
-                                                                >
-                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>
-                                                                </a>
+                                            </tr >
+                                        </thead >
+        <tbody className="bg-white divide-y divide-neutral-200">
+            {usersList.map((userItem) => (
+                <tr key={userItem.userId} className="hover:bg-neutral-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-900">
+                        {userItem.userId.substring(0, 8)}...
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900">
+                        {userItem.name}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
+                        {userItem.email}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
+                        {userItem.email}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
+                        <div className="flex items-center gap-2">
+                            {userItem.contactNumber}
+                            {userItem.contactNumber !== 'N/A' && (
+                                <a
+                                    href={`https://wa.me/${userItem.contactNumber.replace(/\D/g, '')}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-green-600 hover:text-green-700 hover:bg-green-50 p-1 rounded-full transition-colors"
+                                    title="Chat on WhatsApp"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>
+                                </a>
+                            )}
+                        </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900">
+                        {userItem.totalProperties}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                            {userItem.activeProperties} Active
+                        </span>
+                    </td>
+                </tr>
+            ))}
+        </tbody>
+                                    </table >
+                                </div >
+
+        {/* Pagination Controls */ }
+        < div className = "px-6 py-4 border-t border-neutral-200 flex items-center justify-between" >
+                                    <button
+                                        onClick={() => handlePageChange(currentPage - 1)}
+                                        disabled={currentPage === 1}
+                                        className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${currentPage === 1
+                                            ? 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
+                                            : 'text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50'
+                                            }`}
+                                    >
+                                        <ChevronLeft className="w-4 h-4 mr-2" />
+                                        Previous
+                                    </button>
+                                    <div className="hidden sm:flex">
+                                        <p className="text-sm text-neutral-700">
+                                            Showing page <span className="font-medium">{currentPage}</span> of <span className="font-medium">{totalPages}</span>
+                                        </p>
+                                    </div>
+                                    <button
+                                        onClick={() => handlePageChange(currentPage + 1)}
+                                        disabled={currentPage === totalPages}
+                                        className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${currentPage === totalPages
+                                            ? 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
+                                            : 'text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50'
+                                            }`}
+                                    >
+                                        Next
+                                        <ChevronRight className="w-4 h-4 ml-2" />
+                                    </button>
+                                </div >
+                            </>
+                        )
+}
+                    </div >
+                </div >
+            )}
+{
+    activeTab === 'approvals' && (
+        /* Approvals View */
+        <div className="space-y-6">
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-neutral-200">
+                <h2 className="text-lg font-semibold text-neutral-900 mb-2">Pending Approvals</h2>
+                <p className="text-sm text-neutral-500">Review and approve new property listings.</p>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden">
+                <div className="px-6 py-4 border-b border-neutral-200 flex justify-between items-center">
+                    <h2 className="text-lg font-semibold text-neutral-900">Pending Listings</h2>
+                    <span className="text-sm text-neutral-500">Page {currentPage} of {totalPages}</span>
+                </div>
+
+                {loading ? (
+                    <div className="p-12 flex justify-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
+                    </div>
+                ) : (
+                    <>
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-neutral-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Property</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Price</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Contact</th>
+                                        <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 uppercase tracking-wider">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-neutral-200">
+                                    {properties.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={4} className="px-6 py-12 text-center text-neutral-500">
+                                                No pending approvals found.
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        properties.map((property) => (
+                                            <tr key={property.id} className="hover:bg-neutral-50">
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <div className="flex items-center">
+                                                        <div className="h-10 w-10 flex-shrink-0">
+                                                            {property.featuredImage && property.featuredImage.url ? (
+                                                                <img
+                                                                    className="h-10 w-10 rounded object-cover"
+                                                                    src={getOptimizedImageUrl(property.featuredImage.url, 160, 160, 'fill')}
+                                                                    alt=""
+                                                                    loading="lazy"
+                                                                />
+                                                            ) : (<div className="h-10 w-10 rounded bg-neutral-200" />
                                                             )}
                                                         </div>
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900">
-                                                        {userItem.totalProperties}
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                                            {userItem.activeProperties} Active
-                                                        </span>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-
-                                {/* Pagination Controls */}
-                                <div className="px-6 py-4 border-t border-neutral-200 flex items-center justify-between">
-                                    <button
-                                        onClick={() => handlePageChange(currentPage - 1)}
-                                        disabled={currentPage === 1}
-                                        className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${currentPage === 1
-                                            ? 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
-                                            : 'text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50'
-                                            }`}
-                                    >
-                                        <ChevronLeft className="w-4 h-4 mr-2" />
-                                        Previous
-                                    </button>
-                                    <div className="hidden sm:flex">
-                                        <p className="text-sm text-neutral-700">
-                                            Showing page <span className="font-medium">{currentPage}</span> of <span className="font-medium">{totalPages}</span>
-                                        </p>
-                                    </div>
-                                    <button
-                                        onClick={() => handlePageChange(currentPage + 1)}
-                                        disabled={currentPage === totalPages}
-                                        className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${currentPage === totalPages
-                                            ? 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
-                                            : 'text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50'
-                                            }`}
-                                    >
-                                        Next
-                                        <ChevronRight className="w-4 h-4 ml-2" />
-                                    </button>
-                                </div>
-                            </>
-                        )}
-                    </div>
-                </div>
-            )}
-            {activeTab === 'approvals' && (
-                /* Approvals View */
-                <div className="space-y-6">
-                    <div className="bg-white p-4 rounded-xl shadow-sm border border-neutral-200">
-                        <h2 className="text-lg font-semibold text-neutral-900 mb-2">Pending Approvals</h2>
-                        <p className="text-sm text-neutral-500">Review and approve new property listings.</p>
-                    </div>
-
-                    <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden">
-                        <div className="px-6 py-4 border-b border-neutral-200 flex justify-between items-center">
-                            <h2 className="text-lg font-semibold text-neutral-900">Pending Listings</h2>
-                            <span className="text-sm text-neutral-500">Page {currentPage} of {totalPages}</span>
+                                                        <div className="ml-4">
+                                                            <div className="text-sm font-medium text-neutral-900 max-w-[200px] truncate">{property.title}</div>
+                                                            <div className="text-xs text-neutral-500">{property.tags?.[0]}</div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900 font-medium">
+                                                    ₹{Number(property.priceRange?.minVariantPrice?.amount || property.price || 0).toLocaleString('en-IN')}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
+                                                    {property.contactNumber || 'N/A'}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                    <button
+                                                        onClick={() => router.push(`/product/${property.handle}`)}
+                                                        className="text-blue-600 hover:text-blue-900 mr-4"
+                                                        title="View"
+                                                    >
+                                                        <Eye className="w-4 h-4 inline" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleApprove(property.id)}
+                                                        className="text-green-600 hover:text-green-900 mr-4"
+                                                        title="Approve"
+                                                    >
+                                                        <CheckCircle className="w-4 h-4 inline" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleReject(property.id)}
+                                                        className="text-red-600 hover:text-red-900"
+                                                        title="Reject"
+                                                    >
+                                                        <XCircle className="w-4 h-4 inline" />
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
                         </div>
 
-                        {loading ? (
-                            <div className="p-12 flex justify-center">
-                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
+                        {/* Pagination Controls */}
+                        <div className="px-6 py-4 border-t border-neutral-200 flex items-center justify-between">
+                            <button
+                                onClick={() => handlePageChange(currentPage - 1)}
+                                disabled={currentPage === 1}
+                                className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${currentPage === 1
+                                    ? 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
+                                    : 'text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50'
+                                    }`}
+                            >
+                                <ChevronLeft className="w-4 h-4 mr-2" />
+                                Previous
+                            </button>
+                            <div className="hidden sm:flex">
+                                <p className="text-sm text-neutral-700">
+                                    Showing page <span className="font-medium">{currentPage}</span> of <span className="font-medium">{totalPages}</span>
+                                </p>
                             </div>
-                        ) : (
-                            <>
-                                <div className="overflow-x-auto">
-                                    <table className="w-full">
-                                        <thead className="bg-neutral-50">
-                                            <tr>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Property</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Price</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Contact</th>
-                                                <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 uppercase tracking-wider">Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="bg-white divide-y divide-neutral-200">
-                                            {properties.length === 0 ? (
-                                                <tr>
-                                                    <td colSpan={4} className="px-6 py-12 text-center text-neutral-500">
-                                                        No pending approvals found.
-                                                    </td>
-                                                </tr>
-                                            ) : (
-                                                properties.map((property) => (
-                                                    <tr key={property.id} className="hover:bg-neutral-50">
-                                                        <td className="px-6 py-4 whitespace-nowrap">
-                                                            <div className="flex items-center">
-                                                                <div className="h-10 w-10 flex-shrink-0">
-                                                                    {property.featuredImage && property.featuredImage.url ? (
-                                                                        <img
-                                                                            className="h-10 w-10 rounded object-cover"
-                                                                            src={getOptimizedImageUrl(property.featuredImage.url, 160, 160, 'fill')}
-                                                                            alt=""
-                                                                            loading="lazy"
-                                                                        />
-                                                                    ) : (<div className="h-10 w-10 rounded bg-neutral-200" />
-                                                                    )}
-                                                                </div>
-                                                                <div className="ml-4">
-                                                                    <div className="text-sm font-medium text-neutral-900 max-w-[200px] truncate">{property.title}</div>
-                                                                    <div className="text-xs text-neutral-500">{property.tags?.[0]}</div>
-                                                                </div>
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900 font-medium">
-                                                            ₹{Number(property.priceRange?.minVariantPrice?.amount || property.price || 0).toLocaleString('en-IN')}
-                                                        </td>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
-                                                            {property.contactNumber || 'N/A'}
-                                                        </td>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                            <button
-                                                                onClick={() => router.push(`/product/${property.handle}`)}
-                                                                className="text-blue-600 hover:text-blue-900 mr-4"
-                                                                title="View"
-                                                            >
-                                                                <Eye className="w-4 h-4 inline" />
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleApprove(property.id)}
-                                                                className="text-green-600 hover:text-green-900 mr-4"
-                                                                title="Approve"
-                                                            >
-                                                                <CheckCircle className="w-4 h-4 inline" />
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleReject(property.id)}
-                                                                className="text-red-600 hover:text-red-900"
-                                                                title="Reject"
-                                                            >
-                                                                <XCircle className="w-4 h-4 inline" />
-                                                            </button>
-                                                        </td>
-                                                    </tr>
-                                                ))
-                                            )}
-                                        </tbody>
-                                    </table>
-                                </div>
-
-                                {/* Pagination Controls */}
-                                <div className="px-6 py-4 border-t border-neutral-200 flex items-center justify-between">
-                                    <button
-                                        onClick={() => handlePageChange(currentPage - 1)}
-                                        disabled={currentPage === 1}
-                                        className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${currentPage === 1
-                                            ? 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
-                                            : 'text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50'
-                                            }`}
-                                    >
-                                        <ChevronLeft className="w-4 h-4 mr-2" />
-                                        Previous
-                                    </button>
-                                    <div className="hidden sm:flex">
-                                        <p className="text-sm text-neutral-700">
-                                            Showing page <span className="font-medium">{currentPage}</span> of <span className="font-medium">{totalPages}</span>
-                                        </p>
-                                    </div>
-                                    <button
-                                        onClick={() => handlePageChange(currentPage + 1)}
-                                        disabled={currentPage === totalPages}
-                                        className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${currentPage === totalPages
-                                            ? 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
-                                            : 'text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50'
-                                            }`}
-                                    >
-                                        Next
-                                        <ChevronRight className="w-4 h-4 ml-2" />
-                                    </button>
-                                </div>
-                            </>
-                        )}
-                    </div>
-                </div>
-            )}
-            {activeTab === 'ads' && (
-                <div className="max-w-4xl mx-auto">
-                    <AdManager />
-                </div>
-            )}
-            {activeTab === 'settings' && (
-                <div className="max-w-2xl mx-auto space-y-6">
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-neutral-200">
-                        <h2 className="text-lg font-semibold text-neutral-900 mb-4">Website Settings</h2>
-                        <form onSubmit={handleSettingsSave} className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-neutral-700 mb-1">Homepage Title (SEO)</label>
-                                <input
-                                    type="text"
-                                    value={settings.homepage_title}
-                                    onChange={(e) => setSettings({ ...settings, homepage_title: e.target.value })}
-                                    className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                                    placeholder="e.g. Find Your Perfect Home"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-neutral-700 mb-1">Homepage Description (SEO)</label>
-                                <textarea
-                                    value={settings.homepage_description}
-                                    onChange={(e) => setSettings({ ...settings, homepage_description: e.target.value })}
-                                    className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 h-24"
-                                    placeholder="e.g. Discover verified rooms and flats..."
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-neutral-700 mb-1">Global WhatsApp Number</label>
-                                <input
-                                    type="text"
-                                    value={settings.whatsapp_number}
-                                    onChange={(e) => setSettings({ ...settings, whatsapp_number: e.target.value })}
-                                    className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                                    placeholder="e.g. 917470724553"
-                                />
-                                <p className="text-xs text-neutral-500 mt-1">Used for 'Contact Us' and Application buttons. Format: CountryCode+Number (no symbols).</p>
-                            </div>
-                            <div className="pt-4">
-                                <button
-                                    type="submit"
-                                    className="w-full px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors font-medium"
-                                >
-                                    Save Changes
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
+                            <button
+                                onClick={() => handlePageChange(currentPage + 1)}
+                                disabled={currentPage === totalPages}
+                                className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${currentPage === totalPages
+                                    ? 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
+                                    : 'text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50'
+                                    }`}
+                            >
+                                Next
+                                <ChevronRight className="w-4 h-4 ml-2" />
+                            </button>
+                        </div>
+                    </>
+                )}
+            </div>
         </div>
+    )
+}
+{
+    activeTab === 'ads' && (
+        <div className="max-w-4xl mx-auto">
+            <AdManager />
+        </div>
+    )
+}
+{
+    activeTab === 'settings' && (
+        <div className="max-w-2xl mx-auto space-y-6">
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-neutral-200">
+                <h2 className="text-lg font-semibold text-neutral-900 mb-4">Website Settings</h2>
+                <form onSubmit={handleSettingsSave} className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-neutral-700 mb-1">Homepage Title (SEO)</label>
+                        <input
+                            type="text"
+                            value={settings.homepage_title}
+                            onChange={(e) => setSettings({ ...settings, homepage_title: e.target.value })}
+                            className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                            placeholder="e.g. Find Your Perfect Home"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-neutral-700 mb-1">Homepage Description (SEO)</label>
+                        <textarea
+                            value={settings.homepage_description}
+                            onChange={(e) => setSettings({ ...settings, homepage_description: e.target.value })}
+                            className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 h-24"
+                            placeholder="e.g. Discover verified rooms and flats..."
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-neutral-700 mb-1">Global WhatsApp Number</label>
+                        <input
+                            type="text"
+                            value={settings.whatsapp_number}
+                            onChange={(e) => setSettings({ ...settings, whatsapp_number: e.target.value })}
+                            className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                            placeholder="e.g. 917470724553"
+                        />
+                        <p className="text-xs text-neutral-500 mt-1">Used for 'Contact Us' and Application buttons. Format: CountryCode+Number (no symbols).</p>
+                    </div>
+                    <div className="pt-4">
+                        <button
+                            type="submit"
+                            className="w-full px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors font-medium"
+                        >
+                            Save Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    )
+}
+        </div >
     );
 }
