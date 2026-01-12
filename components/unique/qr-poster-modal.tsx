@@ -43,7 +43,7 @@ export function QRPosterModal({ isOpen, onClose, property, user }: QRPosterModal
     if (!isOpen || !property) return null;
 
     // Determine QR URL based on mode
-    const siteUrl = 'https://nbfhomes.in';
+    const siteUrl = 'https://nbf-x-39dd7c53.vercel.app';
     const finalQrUrl = mode === 'single'
         ? `${siteUrl}/product/${property.handle}`
         : `${siteUrl}/catalog/${property.userId}`;
@@ -365,7 +365,7 @@ export function QRPosterModal({ isOpen, onClose, property, user }: QRPosterModal
                                     POWERED BY <span className="text-white font-bold ml-1">NBF</span>
                                 </div>
                                 <div className="text-white text-sm font-bold tracking-widest uppercase">
-                                    www.nbfhomes.in
+                                    nbf-x-39dd7c53.vercel.app
                                 </div>
                             </div>
                         </div>
