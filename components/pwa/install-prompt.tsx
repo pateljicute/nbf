@@ -9,7 +9,19 @@ export function InstallPrompt() {
     const [isVisible, setIsVisible] = useState(false);
 
     useEffect(() => {
-        // Check if app is already installed
+        // 1. Register Service Worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker
+                .register('/sw.js')
+                .then((registration) => {
+                    console.log('Service Worker registered with scope:', registration.scope);
+                })
+                .catch((error) => {
+                    console.error('Service Worker registration failed:', error);
+                });
+        }
+
+        // 2. Check if app is already installed
         if (window.matchMedia('(display-mode: standalone)').matches) {
             return;
         }

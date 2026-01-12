@@ -530,9 +530,7 @@ export default function AdminPage() {
                                                         </button>
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900 font-medium">
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900 font-medium">
-                                                            ₹{Number(property.priceRange?.minVariantPrice?.amount || property.price || 0).toLocaleString('en-IN')}
-                                                        </td>
+                                                        ₹{Number(property.priceRange?.minVariantPrice?.amount || property.price || 0).toLocaleString('en-IN')}
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
                                                         {property.contactNumber || 'N/A'}
