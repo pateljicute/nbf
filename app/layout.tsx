@@ -139,25 +139,7 @@ export default async function RootLayout({
           <UserOnboardingManager />
           <InstallPrompt />
         </ProvidersWrapper>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-               if ('serviceWorker' in navigator) {
-                 window.addEventListener('load', function() {
-                   // DISABLE: Force unregister all service workers and DO NOT re-register
-                   navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                     for(let registration of registrations) {
-                       registration.unregister().then(function(boolean) {
-                           console.log('ServiceWorker unregistered: ', boolean);
-                       });
-                     }
-                   });
-                   console.log('ServiceWorker is disabled.');
-                 });
-               }
-             `
-          }}
-        />
+
       </body>
     </html>
   );
