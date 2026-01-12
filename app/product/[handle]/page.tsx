@@ -23,10 +23,9 @@ import { VariantSelectorSlots } from './components/variant-selector-slots';
 import { MobileGallerySlider } from './components/mobile-gallery-slider';
 import { DesktopGallery } from './components/desktop-gallery';
 import {
-  Wifi, Wind, Car, Droplets, Zap, Video,
-  WashingMachine, ChefHat, ArrowUpFromDot,
-  Users, Bath, Home, MapPin, ShieldCheck,
-  Phone, User, CheckCircle, Smartphone, Navigation
+  Wifi, Car, Shield, Waves, Zap, Utensils, Shirt, PersonStanding, MapPin, Navigation, ExternalLink, AlertTriangle,
+  Droplets, Bath, Armchair, Monitor, BookOpen, Warehouse, Trees, CheckCircle, Video, ArrowUpFromDot, Users, Home,
+  Smartphone, ShieldCheck
 } from 'lucide-react';
 import { ViewTracker } from '@/components/products/view-tracker';
 
@@ -134,23 +133,32 @@ export default async function ProductPage(props: { params: Promise<{ handle: str
   const hasVariants = (product.variants?.length || 0) > 1;
   const hasEvenOptions = (product.options?.length || 0) % 2 === 0;
 
-  // Helper to check amenity availability
-  const hasAmenity = (name: string) => product.amenities?.includes(name);
-
+  // Sync with PostPropertyPage - Full Amenities List
   const ALL_AMENITIES = [
     { id: 'wifi', label: 'WiFi', icon: Wifi },
-    { id: 'ac', label: 'AC', icon: Wind },
+    { id: 'ac', label: 'AC', icon: Waves },
     { id: 'parking', label: 'Parking', icon: Car },
     { id: 'water', label: '24/7 Water', icon: Droplets },
     { id: 'power', label: 'Power Backup', icon: Zap },
-    { id: 'cctv', label: 'CCTV / Security', icon: Video },
-    { id: 'laundry', label: 'Laundry', icon: WashingMachine },
-    { id: 'kitchen', label: 'Kitchen', icon: ChefHat },
-    { id: 'lift', label: 'Lift', icon: ArrowUpFromDot },
+    { id: 'cctv', label: 'CCTV / Security', icon: Shield },
+    { id: 'laundry', label: 'Laundry', icon: Shirt },
+    { id: 'kitchen', label: 'Kitchen', icon: Utensils },
+    { id: 'lift', label: 'Lift', icon: PersonStanding },
+    { id: 'ro_water', label: 'RO Water', icon: Droplets },
+    { id: 'attached_washroom', label: 'Attach Washroom', icon: Bath },
+    { id: 'geyser', label: 'Geyser', icon: Waves },
+    { id: 'study_table', label: 'Study Table', icon: BookOpen },
+    { id: 'wardrobe', label: 'Wardrobe', icon: Warehouse },
+    { id: 'balcony', label: 'Balcony', icon: Trees },
   ];
 
+  // Helper to check amenity availability
+  const hasAmenity = (name: string) => product.amenities?.includes(name);
+
+  // Filter Active Amenities for display
+  const activeAmenities = ALL_AMENITIES.filter(item => hasAmenity(item.id));
+
   // Map Generation
-  // Using simple iframe embed for demo purposes. In production, use Google Maps API Key or Mapbox.
   // Address is roughly taken from Tags (Area, City)
   const addressQuery = encodeURIComponent(`${product.tags?.[2] || ''}, ${product.tags?.[1] || ''}`);
   const mapEmbedUrl = `https://maps.google.com/maps?q=${addressQuery}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
@@ -314,33 +322,34 @@ export default async function ProductPage(props: { params: Promise<{ handle: str
               </div>
             </div>
 
-            {/* Amenities Section (Solid Color Icons) */}
+            {/* Amenities Section (Refined UI: Active Only Grid) */}
             <div className="bg-white p-6 md:p-8 rounded-2xl border border-neutral-200 shadow-sm">
               <h2 className="text-xl font-bold text-neutral-900 mb-6 flex items-center">
                 <CheckCircle className="w-5 h-5 mr-2 text-neutral-900" />
                 Amenities & Features
               </h2>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-y-6 gap-x-4">
-                {ALL_AMENITIES.map((item) => {
-                  const isAvailable = hasAmenity(item.id);
-                  const Icon = item.icon;
-                  return (
-                    // Low opacity for unavailable ones
-                    <div key={item.id} className={cn("flex items-center gap-3 transition-opacity", !isAvailable && "opacity-30 grayscale")}>
-                      <div className={cn(
-                        "w-10 h-10 rounded-lg flex items-center justify-center shrink-0 shadow-sm",
-                        // Solid black for active, lighter gray for inactive
-                        isAvailable ? "bg-neutral-900 text-white" : "bg-neutral-100 text-neutral-400"
-                      )}>
-                        <Icon className="w-5 h-5" />
+
+              {activeAmenities.length > 0 ? (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {activeAmenities.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <div key={item.id} className="flex flex-col items-center justify-center p-4 rounded-xl border border-neutral-100 bg-neutral-50/50 hover:bg-neutral-100 transition-all text-center gap-3 group">
+                        <div className="w-10 h-10 rounded-full bg-white border border-neutral-200 flex items-center justify-center text-neutral-900 shadow-sm group-hover:scale-110 transition-transform">
+                          <Icon className="w-5 h-5" />
+                        </div>
+                        <span className="text-xs font-bold uppercase tracking-wide text-neutral-700">
+                          {item.label}
+                        </span>
                       </div>
-                      <span className={cn("text-sm font-medium", isAvailable ? "text-neutral-900" : "text-neutral-400")}>
-                        {item.label}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-neutral-500 text-sm italic py-4">
+                  No specific amenities listed for this property.
+                </p>
+              )}
             </div>
 
             {/* Location & Map Section (Expanded) */}

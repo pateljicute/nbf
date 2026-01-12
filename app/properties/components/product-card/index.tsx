@@ -24,25 +24,10 @@ export const ProductCard = ({ product, className }: { product: Product; classNam
   // User example: "Patel Nagar, Mandsaur".
   // If address is "House No. 22, Patel Nagar...", we might want to just show it all truncated.
 
-  const handleShare = async (product: Product) => {
-    try {
-      const shareData = {
-        title: product.title,
-        text: `Check out this property: ${product.description}\nPrice: ₹${Number(product.price || product.priceRange?.minVariantPrice?.amount || 0).toLocaleString('en-IN')}/month`,
-        url: `${window.location.origin}/product/${product.handle}`
-      };
-
-      if (navigator.share) {
-        await navigator.share(shareData);
-      } else {
-        // Show custom share modal instead of browser alert
-        setShowShareModal(true);
-      }
-    } catch (error) {
-      console.error('Error sharing:', error);
-      // Show custom share modal on error as well
-      setShowShareModal(true);
-    }
+  const handleShare = (e: React.MouseEvent, product: Product) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setShowShareModal(true);
   };
 
   const handleProductClick = (e: React.MouseEvent) => {
@@ -54,7 +39,7 @@ export const ProductCard = ({ product, className }: { product: Product; classNam
 
   return (
     <>
-      <div className={cn('group flex flex-col bg-white border border-neutral-200 rounded-xl overflow-hidden hover:shadow-lg transition-all duration-300', className)}>
+      <div className={cn('group flex flex-col bg-white border border-neutral-200 rounded-3xl overflow-hidden hover:shadow-lg transition-all duration-300', className)}>
         {/* Image Section */}
         <div className="relative aspect-[3/2] md:aspect-[4/3] overflow-hidden bg-neutral-100">
           <Link href={`/product/${product.handle}`} className="block size-full" onClick={handleProductClick}>
@@ -146,8 +131,7 @@ export const ProductCard = ({ product, className }: { product: Product; classNam
             <button
               className="p-2 md:p-2.5 border border-neutral-200 rounded-lg hover:bg-neutral-50 hover:border-neutral-300 transition-all text-neutral-400 hover:text-blue-500 cursor-pointer"
               onClick={(e) => {
-                e.stopPropagation();
-                handleShare(product);
+                handleShare(e, product);
               }}
               title="Share this property"
             >
@@ -161,8 +145,7 @@ export const ProductCard = ({ product, className }: { product: Product; classNam
       <ShareModal
         isOpen={showShareModal}
         onClose={() => setShowShareModal(false)}
-        propertyTitle={product.title}
-        propertyUrl={`/product/${product.handle}`}
+        product={product}
       />
     </>
   );

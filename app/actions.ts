@@ -331,7 +331,7 @@ export async function getAdSettingsAction() {
         if (error.code === 'PGRST116') {
             return { success: true, data: null };
         }
-        console.error('Error fetching ad settings:', error);
+        console.error('Error fetching ad settings:', JSON.stringify(error, null, 2));
         return { success: false, error: error.message };
     }
     return { success: true, data };

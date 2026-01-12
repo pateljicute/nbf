@@ -84,27 +84,27 @@ export function PriceFilter() {
                     )}
                 </div>
 
-                <div className="flex overflow-x-auto pb-4 -mx-5 px-5 sm:mx-0 sm:px-0 sm:pb-0 sm:grid sm:grid-cols-3 gap-3 scrollbar-hide">
+                <div className="grid grid-cols-3 gap-2 md:gap-4">
                     {filters.map((f) => (
                         <button
                             key={f.label}
                             onClick={() => handleFilter(f.min, f.max)}
                             className={cn(
-                                "flex-shrink-0 flex flex-col items-center justify-center p-4 min-w-[140px] rounded-2xl border transition-all duration-300 group",
+                                "flex flex-col items-center justify-center p-3 md:p-4 rounded-xl border transition-all duration-300 group relative overflow-hidden",
                                 f.active
-                                    ? "bg-neutral-900 border-neutral-900 shadow-xl shadow-neutral-900/10 transform scale-[1.02]"
-                                    : "bg-white border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50 hover:shadow-md"
+                                    ? "bg-neutral-900 border-neutral-900 shadow-lg"
+                                    : "bg-white border-neutral-200 hover:border-neutral-300 hover:bg-neutral-50"
                             )}
                         >
                             <span className={cn(
-                                "text-xs font-bold uppercase tracking-wider text-center mb-1.5 transition-colors",
+                                "text-[10px] md:text-xs font-bold uppercase tracking-wider text-center mb-1 transition-colors relative z-10",
                                 f.active ? "text-white" : "text-neutral-900"
                             )}>
                                 {f.label}
                             </span>
                             <span className={cn(
-                                "text-xs font-medium transition-colors",
-                                f.active ? "text-neutral-400" : "text-neutral-500 group-hover:text-neutral-700"
+                                "text-[9px] md:text-[10px] font-medium transition-colors relative z-10",
+                                f.active ? "text-neutral-300" : "text-neutral-500"
                             )}>
                                 {f.desc}
                             </span>

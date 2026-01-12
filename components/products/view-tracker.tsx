@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { incrementViewCount } from '@/app/actions/view-actions';
+import { incrementViewCount } from '@/lib/api';
 
 export function ViewTracker({ productId }: { productId: string }) {
     const initialized = useRef(false);

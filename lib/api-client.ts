@@ -1,6 +1,6 @@
 import { toast } from 'sonner';
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? '/api' : 'http://localhost:3000/api');
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? '/api' : 'https://nbf-x-39dd7c53.vercel.app/api');
 
 class ApiError extends Error {
     status: number;

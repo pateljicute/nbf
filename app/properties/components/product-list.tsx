@@ -75,10 +75,10 @@ export default async function ProductList({ collection, searchParams }: ProductL
   const heroDescription = collectionData?.description || 'Find the perfect accommodation with no brokerage. Search among thousands of verified properties.';
 
   return (
-    <div className="flex flex-col gap-8 pb-24">
+    <div className="container mx-auto px-4 flex flex-col gap-4 pb-24">
       {/* Shop Hero Section */}
-      <div className="flex flex-col gap-6 pt-4 pb-4 md:pb-6 border-b border-neutral-100">
-        <h1 className="text-4xl md:text-6xl font-serif font-medium tracking-tight text-neutral-900 text-center lg:text-left">
+      <div className="flex flex-col gap-6 pt-4 pb-2 md:pb-4 border-b border-neutral-100">
+        <h1 className="text-3xl md:text-5xl font-serif font-medium tracking-tight text-neutral-900 text-center lg:text-left">
           {heroTitle}
         </h1>
       </div>

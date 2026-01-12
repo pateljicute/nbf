@@ -6,7 +6,7 @@ import { getCollections } from '@/lib/api';
 // ProvidersWrapper imported below
 
 import { ProvidersWrapper } from '@/components/providers-wrapper';
-import { WhatsAppOnboardingModal } from '@/components/auth/whatsapp-onboarding-modal';
+import { UserOnboardingManager } from '@/components/auth/user-onboarding-manager';
 import { InstallPrompt } from '@/components/pwa/install-prompt';
 
 const inter = Inter({
@@ -136,7 +136,7 @@ export default async function RootLayout({
         />
         <ProvidersWrapper collections={collections}>
           {children}
-          <WhatsAppOnboardingModal />
+          <UserOnboardingManager />
           <InstallPrompt />
         </ProvidersWrapper>
         <script

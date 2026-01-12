@@ -103,8 +103,8 @@ export const mapPropertyToProduct = (prop: any): Product => ({
     title: prop.title,
     description: prop.description,
     priceRange: normalizePriceRange(prop),
-    currencyCode: prop.currency_code,
-    seo: prop.seo,
+    currencyCode: prop.currency_code || 'INR',
+    seo: prop.seo || { title: prop.title, description: prop.description },
     featuredImage: prop.featured_image || { url: '', altText: 'Placeholder' },
     images: prop.images || [],
     options: prop.options || [],
@@ -123,7 +123,7 @@ export const mapPropertyToProduct = (prop: any): Product => ({
     latitude: prop.latitude,
     longitude: prop.longitude,
     googleMapsLink: prop.googleMapsLink,
-    leadsCount: prop.properties_leads?.[0]?.count || 0,
+    leadsCount: (typeof prop.leads_count === 'number' ? prop.leads_count : Number(prop.leads_count)) || 0,
     is_verified: prop.is_verified,
     status: (prop.status as Product['status']) || 'pending',
     viewCount: prop.view_count || 0,
@@ -248,12 +248,14 @@ export const sanitizeInput = (input: any): any => {
                 }
                 return ''; // Remove dangerous HTML tags
             })
-            .replace(/[<>'"]/g, (char: string) => {
+            .replace(/[<>'%_"]/g, (char: string) => {
                 const chars: Record<string, string> = {
                     '<': '&lt;',
                     '>': '&gt;',
                     "'": '&#39;',
-                    '"': '&quot;'
+                    '"': '&quot;',
+                    '%': '',  // Remove wildcards
+                    '_': ''   // Remove wildcards
                 };
                 return chars[char] || char;
             });

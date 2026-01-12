@@ -10,7 +10,7 @@ export function cn(...inputs: ClassValue[]) {
 export function getBaseUrl() {
   if (typeof window !== 'undefined') return window.location.origin;
   if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
-  return 'http://localhost:3000';
+  return 'https://nbf-x-39dd7c53.vercel.app';
 }
 
 export function formatPrice(amount: string | number | Money, currencyCode?: string) {

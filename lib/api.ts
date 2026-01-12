@@ -8,7 +8,7 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || (typeof window === 'undefined' ? (process.env.NEXT_PUBLIC_SITE_URL ? `${process.env.NEXT_PUBLIC_SITE_URL}/api` : 'http://localhost:3000/api') : '/api');
+const API_URL = process.env.NEXT_PUBLIC_API_URL || (typeof window === 'undefined' ? (process.env.NEXT_PUBLIC_SITE_URL ? `${process.env.NEXT_PUBLIC_SITE_URL}/api` : 'https://nbf-x-39dd7c53.vercel.app/api') : '/api');
 
 
 
@@ -226,7 +226,7 @@ export async function getProducts(params?: {
 
     let dbQuery = supabase
       .from("properties")
-      .select('id,handle,title,description,price_range,currency_code,featured_image,tags,available_for_sale,category_id,"contactNumber",user_id,seo,"bathroomType","securityDeposit","electricityStatus","tenantPreference",latitude,longitude,"googleMapsLink",is_verified,status,view_count,created_at,"price","location","address","type"')
+      .select('id,handle,title,description,price_range,featured_image,tags,available_for_sale,category_id,"contactNumber",user_id,"bathroomType","securityDeposit","electricityStatus","tenantPreference",latitude,longitude,"googleMapsLink",is_verified,status,view_count,created_at,"price","location","address","type"')
       .limit(safeLimit);
 
     // Apply base filter
@@ -234,23 +234,26 @@ export async function getProducts(params?: {
 
     // Apply Filters (Logic mirrored from app/api/products/route.ts)
     if (params?.query && validateInput(params.query, 'string')) {
-      const q = sanitizeInput(params.query);
-      dbQuery = dbQuery.or(`title.ilike.%${q}%,description.ilike.%${q}%`);
-    }
+      // Smart Filtering: Split query into words and search each word independently
+      // This creates an implicit "AND" between words (e.g. "Red House" -> must have "Red" AND "House" in any column)
+      const excludeStopWords = (word: string) => word.length > 0;
+      const searchTerms = params.query.trim().split(/\s+/).filter(excludeStopWords);
 
-    if (params?.minPrice !== undefined) {
-      dbQuery = dbQuery.gte('price_range->minVariantPrice->amount', parseFloat(params.minPrice).toString());
+      searchTerms.forEach(term => {
+        const q = sanitizeInput(term);
+        // Multi-Column Search with Partial Match (ILIKE) across Title and Description
+        // Restricting to Title/Description to ensure stability (prevent SQL errors on missing columns)
+        dbQuery = dbQuery.or(`title.ilike.%${q}%,description.ilike.%${q}%`);
+      });
     }
-    if (params?.maxPrice !== undefined) {
-      dbQuery = dbQuery.lte('price_range->minVariantPrice->amount', parseFloat(params.maxPrice).toString());
-    }
-
 
     if (params?.location && validateInput(params.location, 'string')) {
       const loc = sanitizeInput(params.location);
       // Using contains for exact tag match. For partial, we'd need text casting or separate search index.
       dbQuery = dbQuery.contains('tags', [loc]);
     }
+
+
 
     if (params?.propertyType && validateInput(params.propertyType, 'string')) {
       const pType = sanitizeInput(params.propertyType);
@@ -281,7 +284,26 @@ export async function getProducts(params?: {
     const { data, error } = await dbQuery;
     if (error) throw error;
 
-    return data.map(mapPropertyToProduct);
+    let results = data.map(mapPropertyToProduct);
+
+    // In-Memory Numeric Price Filtering
+    // This is required because 'price' in DB is text, causing "10000" < "3000" errors in standard SQL
+    if (params?.minPrice) {
+      const min = parseFloat(params.minPrice);
+      results = results.filter(p => {
+        const priceVal = p.price?.toString() || p.priceRange?.minVariantPrice?.amount || '0';
+        return parseFloat(priceVal) >= min;
+      });
+    }
+    if (params?.maxPrice) {
+      const max = parseFloat(params.maxPrice);
+      results = results.filter(p => {
+        const priceVal = p.price?.toString() || p.priceRange?.minVariantPrice?.amount || '0';
+        return parseFloat(priceVal) <= max;
+      });
+    }
+
+    return results;
 
   } catch (error) {
     console.error('Error in getProducts (Server):', JSON.stringify(error, null, 2));
@@ -352,7 +374,7 @@ export async function getUserProducts(userId: string): Promise<Product[]> {
   try {
     const { data, error } = await supabase
       .from("properties")
-      .select('id,handle,title,description,price_range,currency_code,featured_image,tags,available_for_sale,category_id,"contactNumber",user_id,seo,"bathroomType","securityDeposit","electricityStatus","tenantPreference",latitude,longitude,"googleMapsLink",is_verified,status,"price","location","address","type"')
+      .select('id,handle,title,description,price_range,featured_image,tags,available_for_sale,category_id,"contactNumber",user_id,"bathroomType","securityDeposit","electricityStatus","tenantPreference",latitude,longitude,"googleMapsLink",is_verified,status,"price","location","address","type"')
       .eq('user_id', userId);
 
     if (error) {
@@ -370,12 +392,12 @@ export async function getCollections(): Promise<Collection[]> {
   try {
     const { data, error } = await supabase.from("collections").select("*");
     if (error) {
-      console.error('Error fetching collections:', error);
+      console.error('Error fetching collections:', JSON.stringify(error, null, 2));
       return [];
     }
     return data.map(mapDbCollectionToCollection);
   } catch (error) {
-    console.error('Error in getCollections:', error);
+    console.error('Error in getCollections:', JSON.stringify(error, null, 2));
     return [];
   }
 }
@@ -420,7 +442,7 @@ export async function getCollectionProducts(params: {
 
     let dbQuery = supabase
       .from("properties")
-      .select('id,handle,title,description,price_range,currency_code,featured_image,tags,available_for_sale,category_id,"contactNumber",user_id,seo')
+      .select('id,handle,title,description,price_range,featured_image,tags,available_for_sale,category_id,"contactNumber",user_id')
       .eq('category_id', collectionData.id)
       .eq('available_for_sale', true)
       .limit(50);
@@ -478,7 +500,6 @@ export async function createProduct(data: any, token?: string): Promise<Product>
         "minVariantPrice": { "amount": data.price?.toString() || '0', "currencyCode": "INR" }
       },
       "price": data.price?.toString(),
-      currency_code: 'INR',
       // Store images as array of objects { url, altText }
       images: data.images?.map((url: string) => ({ url, altText: data.title })) || [],
       tags: tags,
@@ -529,7 +550,6 @@ export async function updateProduct(id: string, data: any, token?: string): Prom
         "minVariantPrice": { "amount": data.price?.toString() || '0', "currencyCode": "INR" }
       },
       "price": data.price?.toString(),
-      currency_code: 'INR',
       // Store images as array of objects { url, altText }
       images: data.images?.map((url: string) => ({ url, altText: data.title })) || [],
 
@@ -631,7 +651,7 @@ export async function getAdminProducts(
   maxPrice?: number
 ): Promise<{ products: Product[]; total: number; page: number; limit: number }> {
   try {
-    let query = supabase.from('properties').select('*, properties_leads(count)', { count: 'exact' });
+    let query = supabase.from('properties').select('*', { count: 'exact' });
 
     if (search) {
       query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%,id.eq.${search},"contactNumber".ilike.%${search}%`);
@@ -704,9 +724,13 @@ export async function updatePropertyVerified(propertyId: string, isVerified: boo
 export async function getSiteSettings(): Promise<Record<string, string>> {
   try {
     const { data, error } = await supabase.from('site_settings').select('*');
-    if (error) return {};
+    if (error) {
+      console.error('Error fetching site settings:', JSON.stringify(error, null, 2));
+      return {};
+    }
     return data.reduce((acc, curr) => ({ ...acc, [curr.key]: curr.value }), {});
-  } catch {
+  } catch (error) {
+    console.error('Error in getSiteSettings:', JSON.stringify(error, null, 2));
     return {};
   }
 }
@@ -781,7 +805,7 @@ export async function updateUserPhoneNumber(userId: string, phoneNumber: string)
     if (error) throw error;
     return true;
   } catch (error) {
-    console.error('Error updating phone number:', error);
+    console.error('Error updating phone number:', JSON.stringify(error, null, 2));
     throw error;
   }
 }
@@ -853,5 +877,40 @@ export async function getAdminUsers(page: number = 1, limit: number = 10, search
   } catch (error) {
     console.error('Error in getAdminUsers:', error);
     return { users: [], total: 0, page, limit };
+  }
+}
+
+export async function incrementViewCount(id: string): Promise<void> {
+  try {
+    const { error } = await supabase.rpc('increment_view_count', { row_id: id });
+    if (error) {
+      // Fallback for when RPC is not created yet (user hasn't run SQL)
+      // We can try a simple update, though it's not atomic for concurrent users
+      // but better than nothing for single user testing.
+      // actually, standard update:
+      const { data } = await supabase.from('properties').select('view_count').eq('id', id).single();
+      if (data) {
+        const newCount = (Number(data.view_count) || 0) + 1;
+        await supabase.from('properties').update({ view_count: newCount }).eq('id', id);
+      }
+    }
+  } catch (error) {
+    console.error('Error incrementing view count:', error);
+  }
+}
+
+export async function incrementLeadsCount(id: string): Promise<void> {
+  try {
+    const { error } = await supabase.rpc('increment_leads_count', { row_id: id });
+    if (error) {
+      // Fallback
+      const { data } = await supabase.from('properties').select('leads_count').eq('id', id).single();
+      if (data) {
+        const newCount = (Number(data.leads_count) || 0) + 1;
+        await supabase.from('properties').update({ leads_count: newCount }).eq('id', id);
+      }
+    }
+  } catch (error) {
+    console.error('Error incrementing leads count:', error);
   }
 }

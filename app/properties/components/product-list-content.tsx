@@ -10,6 +10,7 @@ import { useQueryState, parseAsArrayOf, parseAsString } from 'nuqs';
 import { ProductGrid } from './product-grid';
 import { Card } from '../../../components/ui/card';
 import { PriceFilter } from '@/components/shop/price-filter';
+import { SearchBar } from '@/components/shop/search-bar';
 
 interface ProductListContentProps {
   products: Product[];
@@ -38,6 +39,9 @@ export function ProductListContent({ products, collections, searchQuery }: Produ
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Search Bar - New */}
+      <SearchBar />
+
       {/* Price Filter - Moved to Top */}
       <PriceFilter />
 
