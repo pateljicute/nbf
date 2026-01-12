@@ -1,16 +1,21 @@
--- Secure Users Table Policy
--- Use this script to restrict access to user profiles.
+-- Secure Users Table Policy (Fixed)
 
--- 1. Drop existing "viewable by everyone" policy
-drop policy if exists "Public profiles are viewable by everyone." on public.users;
+-- 1. Drop conflicting policies if they exist (to fix 42710 error)
+DROP POLICY IF EXISTS "Public profiles are viewable by everyone." ON public.users;
+DROP POLICY IF EXISTS "Users can view their own profile." ON public.users;
 
 -- 2. Create strict policy: Only the user themselves can view their own profile
-create policy "Users can view their own profile."
-  on public.users for select
-  using ( auth.uid() = id );
+CREATE POLICY "Users can view their own profile."
+  ON public.users FOR SELECT
+  USING ( auth.uid() = id );
 
--- 3. Ensure other policies exist (Idempotent check)
--- (Users can already insert/update their own profile from previous setup)
--- If they don't exist, here they are:
--- create policy "Users can insert their own profile." on public.users for insert with check ( auth.uid() = id );
--- create policy "Users can update own profile." on public.users for update using ( auth.uid() = id );
+-- 3. Ensure other policies exist (Idempotent check/creation)
+-- We use a DO block to check existence before creating to avoid errors for other policies if needed.
+-- However, for simple setups, DROP IF EXISTS is cleanest if you want to enforce the definition.
+
+-- Optional: If you need to re-define insert/update policies, uncomment below:
+-- DROP POLICY IF EXISTS "Users can insert their own profile." ON public.users;
+-- CREATE POLICY "Users can insert their own profile." ON public.users FOR INSERT WITH CHECK ( auth.uid() = id );
+
+-- DROP POLICY IF EXISTS "Users can update own profile." ON public.users;
+-- CREATE POLICY "Users can update own profile." ON public.users FOR UPDATE USING ( auth.uid() = id );

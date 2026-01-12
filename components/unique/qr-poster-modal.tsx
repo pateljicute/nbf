@@ -188,11 +188,11 @@ export function QRPosterModal({ isOpen, onClose, property, user }: QRPosterModal
 
     // RENDER: Preview/Edit Step
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm">
-            <div className="bg-white rounded-xl shadow-2xl max-w-7xl w-full h-[95vh] overflow-hidden flex flex-col md:flex-row">
+        <div className="fixed inset-0 z-[100] flex md:items-center justify-center p-0 md:p-4 bg-black/90 backdrop-blur-sm overflow-y-auto md:overflow-hidden">
+            <div className="bg-white md:rounded-xl shadow-2xl max-w-7xl w-full min-h-full md:min-h-0 md:h-[95vh] flex flex-col md:flex-row overflow-x-hidden">
 
                 {/* Left Side: Controls */}
-                <div className="w-full md:w-[350px] p-6 border-r border-neutral-200 bg-neutral-50 overflow-y-auto flex flex-col">
+                <div className="w-full md:w-[350px] p-6 border-b md:border-b-0 md:border-r border-neutral-200 bg-neutral-50 flex flex-col shrink-0">
                     <div className="flex items-center gap-2 mb-6">
                         <button
                             onClick={() => setStep('selection')}
@@ -273,11 +273,11 @@ export function QRPosterModal({ isOpen, onClose, property, user }: QRPosterModal
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="pt-4 border-t border-neutral-200 flex flex-col gap-3 mt-6">
+                    <div className="pt-4 border-t border-neutral-200 flex flex-col gap-4 mt-6">
                         <button
                             onClick={handleDownloadImage}
                             disabled={isGenerating}
-                            className="w-full flex items-center justify-center gap-2 py-3 bg-black text-white rounded-lg font-bold hover:bg-neutral-800 transition-colors disabled:opacity-50 shadow-lg shadow-black/10"
+                            className="w-full flex items-center justify-center gap-2 py-4 bg-black text-white rounded-lg font-bold hover:bg-neutral-800 transition-colors disabled:opacity-50 shadow-lg shadow-black/10"
                         >
                             {isGenerating ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Download className="w-4 h-4" />}
                             Download HD Image
@@ -285,7 +285,7 @@ export function QRPosterModal({ isOpen, onClose, property, user }: QRPosterModal
                         <button
                             onClick={handleDownloadPDF}
                             disabled={isGenerating}
-                            className="w-full flex items-center justify-center gap-2 py-3 bg-white text-black border-2 border-neutral-200 rounded-lg font-bold hover:bg-neutral-50 transition-colors disabled:opacity-50"
+                            className="w-full flex items-center justify-center gap-2 py-4 bg-white text-black border-2 border-neutral-200 rounded-lg font-bold hover:bg-neutral-50 transition-colors disabled:opacity-50"
                         >
                             {isGenerating ? <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" /> : <Download className="w-4 h-4" />}
                             Download PDF
@@ -294,12 +294,12 @@ export function QRPosterModal({ isOpen, onClose, property, user }: QRPosterModal
                 </div>
 
                 {/* Right Side: Visual Preview */}
-                <div className="flex-1 bg-neutral-100 p-8 flex items-center justify-center overflow-auto relative">
+                <div className="flex-1 bg-neutral-100 p-8 flex items-center justify-center overflow-hidden relative min-h-[600px] md:min-h-0">
                     {/* Background Pattern */}
                     <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, black 1px, transparent 0)', backgroundSize: '24px 24px' }}></div>
 
                     {/* Scale container to fit screen, but keep A4 aspect ratio */}
-                    <div className="relative shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] scale-[0.6] md:scale-[0.65] lg:scale-[0.75] xl:scale-[0.8] transition-transform origin-center">
+                    <div className="relative shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] scale-[0.45] md:scale-[0.65] lg:scale-[0.75] xl:scale-[0.8] transition-transform origin-center my-8 md:my-0">
                         {/* POSTER CANVAS */}
                         <div
                             ref={posterRef}

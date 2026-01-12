@@ -1,19 +1,18 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+// import { Inter } from 'next/font/google';
+
+// const inter = Inter({
+//   variable: '--font-geist-sans', // Keeping same variable name to avoid refactoring CSS
+//   subsets: ['latin'],
+//   display: 'swap',
+// });
+
 import './globals.css';
 import { Collection } from '@/lib/types';
 import { getCollections } from '@/lib/api';
-// ProvidersWrapper imported below
 
 import { ProvidersWrapper } from '@/components/providers-wrapper';
 import { UserOnboardingManager } from '@/components/auth/user-onboarding-manager';
-import { InstallPrompt } from '@/components/pwa/install-prompt';
-
-const inter = Inter({
-  variable: '--font-geist-sans', // Keeping same variable name to avoid refactoring CSS
-  subsets: ['latin'],
-  display: 'swap',
-});
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://nbfhomes.in';
 
@@ -76,11 +75,14 @@ export default async function RootLayout({
   return (
     <html lang="en">
       <head>
-        <link rel="manifest" href="/manifest.json" />
+
         <meta name="theme-color" content="#000000" />
-        <link rel="apple-touch-icon" href="/icon-192x192.png" />
+
       </head>
-      <body className={`${inter.variable} antialiased min-h-screen overflow-y-auto`}>
+      <body
+        style={{ '--font-geist-sans': 'sans-serif' } as React.CSSProperties}
+        className={`antialiased min-h-screen overflow-y-auto`}
+      >
         <script
           type="application/ld+json"
           suppressHydrationWarning
@@ -137,7 +139,7 @@ export default async function RootLayout({
         <ProvidersWrapper collections={collections}>
           {children}
           <UserOnboardingManager />
-          <InstallPrompt />
+
         </ProvidersWrapper>
 
       </body>

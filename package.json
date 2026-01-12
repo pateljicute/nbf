@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build": "next build",
-    "dev": "next dev",
+    "dev": "next dev --webpack",
     "lint": "eslint .",
     "start": "next start"
   },
@@ -65,6 +65,7 @@
     "motion": "latest",
     "next": "^16.0.7",
     "next-cloudinary": "^6.17.5",
+    "next-pwa": "^5.6.0",
     "next-themes": "latest",
     "nuqs": "latest",
     "path": "latest",
