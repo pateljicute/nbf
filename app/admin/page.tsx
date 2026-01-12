@@ -14,7 +14,8 @@ import { checkAdminStatus, updateProductStatusAction, approveProductAction, reje
 import { Product } from '@/lib/types';
 import { getAdminProducts, getAdminStats, getAdminUsers, getSiteSettings } from '@/lib/api';
 import { getOptimizedImageUrl } from '@/lib/cloudinary-utils';
-import { AdManager } from '@/components/admin/ad-manager'; // New Import
+import { AdManager } from '@/components/admin/ad-manager';
+import { QRPosterModal } from '@/components/unique/qr-poster-modal'; // New Import
 
 // ... existing code ...
 
@@ -66,6 +67,7 @@ export default function AdminPage() {
     const [isAdmin, setIsAdmin] = useState(false);
     const [adminChecked, setAdminChecked] = useState(false);
     const [stats, setStats] = useState({ total: 0, users: 0, active: 0 });
+    const [qrPosterProperty, setQrPosterProperty] = useState<Product | null>(null); // New State
 
     // New Filter States
     const [cityFilter, setCityFilter] = useState('');
@@ -369,6 +371,14 @@ export default function AdminPage() {
     return (
         <div className="min-h-screen bg-neutral-50 pt-24 pb-12 px-4 sm:px-6 lg:px-8">
             <div className="max-w-7xl mx-auto">
+                {qrPosterProperty && (
+                    <QRPosterModal
+                        isOpen={!!qrPosterProperty}
+                        onClose={() => setQrPosterProperty(null)}
+                        property={qrPosterProperty}
+                        user={user}
+                    />
+                )}
                 {/* Header */}
                 <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between">
                     <div>
@@ -542,6 +552,13 @@ export default function AdminPage() {
                                                             title="View"
                                                         >
                                                             <Eye className="w-4 h-4 inline" />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => setQrPosterProperty(property)}
+                                                            className="text-purple-600 hover:text-purple-900 mr-4"
+                                                            title="Generate QR Poster"
+                                                        >
+                                                            <Download className="w-4 h-4 inline" />
                                                         </button>
                                                         <button
                                                             onClick={() => handleStatusToggle(property.id, property.availableForSale)}

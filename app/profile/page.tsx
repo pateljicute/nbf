@@ -3,12 +3,13 @@
 import { useAuth } from '@/lib/auth-context';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useMemo } from 'react';
-import { User, LogOut, MapPin, Phone, Mail, Building, Edit, Trash2 } from 'lucide-react';
+import { User, LogOut, MapPin, Phone, Mail, Building, Edit, Trash2, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'motion/react';
 import { getUserProducts, deleteProduct, updateProduct } from '@/lib/api';
 import { Product } from '@/lib/types';
 import { createClient } from '@/lib/supabase/client';
+import { QRPosterModal } from '@/components/unique/qr-poster-modal'; // New Import
 
 export default function ProfilePage() {
     const { user, logout, isLoading, session } = useAuth();
@@ -16,6 +17,7 @@ export default function ProfilePage() {
     const [properties, setProperties] = useState<Product[]>([]);
     const [loadingProperties, setLoadingProperties] = useState(true);
     const [editingProperty, setEditingProperty] = useState<Product | null>(null);
+    const [qrPosterProperty, setQrPosterProperty] = useState<Product | null>(null); // New State
     const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
     const [isMounted, setIsMounted] = useState(false);
@@ -114,6 +116,14 @@ export default function ProfilePage() {
             transition={{ duration: 0.4, ease: "easeOut" }}
             className="min-h-screen bg-neutral-50 pt-24 pb-12 px-4 sm:px-6 lg:px-8"
         >
+            {qrPosterProperty && (
+                <QRPosterModal
+                    isOpen={!!qrPosterProperty}
+                    onClose={() => setQrPosterProperty(null)}
+                    property={qrPosterProperty}
+                    user={user}
+                />
+            )}
             <div className="max-w-5xl mx-auto space-y-8">
 
                 {/* Profile Header */}
@@ -266,6 +276,16 @@ export default function ProfilePage() {
                                                     >
                                                         <Edit className="w-3 h-3" />
                                                         Edit
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            setQrPosterProperty(property);
+                                                        }}
+                                                        className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 rounded transition-colors"
+                                                    >
+                                                        <Download className="w-3 h-3" />
+                                                        Poster
                                                     </button>
                                                     <button
                                                         onClick={(e) => {
