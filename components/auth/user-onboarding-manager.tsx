@@ -18,16 +18,21 @@ export function UserOnboardingManager() {
                 // Double check database for latest status (User object might be stale on session)
                 const { data, error } = await supabase
                     .from('users')
-                    .select('contact_number')
+                    .select('profession')
                     .eq('id', user.id)
                     .single();
 
                 if (error) {
-                    console.error('Error checking user contact:', error);
+                    // PGRST116: JSON object requested, but no row found (New User).
+                    if (error.code === 'PGRST116') {
+                        setShowModal(true);
+                        return;
+                    }
+                    console.error('Error checking user contact:', JSON.stringify(error, null, 2));
                     return;
                 }
 
-                if (!data.contact_number) {
+                if (!data.profession) {
                     setShowModal(true);
                 }
             } catch (err) {

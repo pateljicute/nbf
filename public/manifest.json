@@ -2,7 +2,7 @@
     "name": "Infhomes",
     "short_name": "Infhomes",
     "description": "Find your perfect room or PG on India's largest property marketplace.",
-    "start_url": "/",
+    "start_url": "https://www.nbfhomes.in/",
     "display": "standalone",
     "background_color": "#ffffff",
     "theme_color": "#000000",

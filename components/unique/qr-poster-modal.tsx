@@ -5,6 +5,7 @@ import { QRCodeCanvas } from 'qrcode.react';
 // html-to-image and jspdf are dynamically imported to ensure client-side safety
 import { X, Download, Type, Lock, Palette, LayoutTemplate, Store, Building2, ChevronRight, ArrowLeft } from 'lucide-react';
 import { Product } from '@/lib/types';
+import { useToast } from "@/components/ui/use-toast";
 
 interface QRPosterModalProps {
     isOpen: boolean;
@@ -19,6 +20,7 @@ type Step = 'selection' | 'preview';
 
 export function QRPosterModal({ isOpen, onClose, property, user }: QRPosterModalProps) {
     // defaults
+    const { toast } = useToast();
     const [step, setStep] = useState<Step>('selection');
     const [mode, setMode] = useState<PosterMode>('single');
 
@@ -64,7 +66,13 @@ export function QRPosterModal({ isOpen, onClose, property, user }: QRPosterModal
             link.click();
         } catch (error) {
             console.error('Error generating image:', error);
-            alert('Failed to generate image. Please try again.');
+            console.error('Error generating image:', error);
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: "Failed to generate image. Please try again.",
+            });
+            // alert('Failed to generate image. Please try again.');
         } finally {
             setIsGenerating(false);
         }
@@ -94,7 +102,13 @@ export function QRPosterModal({ isOpen, onClose, property, user }: QRPosterModal
             pdf.save(`poster-${property.handle}-${mode}.pdf`);
         } catch (error) {
             console.error('Error generating PDF:', error);
-            alert('Failed to generate PDF. Please try again.');
+            console.error('Error generating PDF:', error);
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: "Failed to generate PDF. Please try again.",
+            });
+            // alert('Failed to generate PDF. Please try again.');
         } finally {
             setIsGenerating(false);
         }

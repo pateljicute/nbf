@@ -3,7 +3,7 @@
 import { useAuth } from '@/lib/auth-context';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
-import { Trash2, Eye, Users, Building, TrendingUp, ChevronLeft, ChevronRight, Search, Filter, CheckCircle, XCircle, Download } from 'lucide-react';
+import { Trash2, Eye, Users, Building, TrendingUp, ChevronLeft, ChevronRight, Search, Filter, CheckCircle, XCircle, Download, Info } from 'lucide-react';
 // ... imports
 // ... imports
 import { checkAdminStatus, updateProductStatusAction, approveProductAction, rejectProductAction, adminDeleteProductAction, updateUserRoleAction, toggleUserVerifiedAction, togglePropertyVerifiedAction, updateSiteSettingsAction } from '@/app/actions';
@@ -12,10 +12,12 @@ import { checkAdminStatus, updateProductStatusAction, approveProductAction, reje
 
 
 import { Product } from '@/lib/types';
-import { getAdminProducts, getAdminStats, getAdminUsers, getSiteSettings } from '@/lib/api';
+import { QRPosterModal } from '@/components/unique/qr-poster-modal';
+import { UserPropertiesModal } from '@/components/admin/UserPropertiesModal';
+import UserInfoModal from '@/components/admin/UserInfoModal';
+import { getAdminProducts, getAdminStats, getAdminUsers, getSiteSettings, getUserPropertiesForAdmin, banUser } from '@/lib/api';
 import { getOptimizedImageUrl } from '@/lib/cloudinary-utils';
 import { AdManager } from '@/components/admin/ad-manager';
-import { QRPosterModal } from '@/components/unique/qr-poster-modal'; // New Import
 
 // ... existing code ...
 
@@ -28,6 +30,8 @@ interface AdminUser {
     isVerified: boolean;
     totalProperties: number;
     activeProperties: number;
+    profession: string;
+    status: string;
 }
 
 function timeAgo(dateString?: string) {
@@ -67,7 +71,15 @@ export default function AdminPage() {
     const [isAdmin, setIsAdmin] = useState(false);
     const [adminChecked, setAdminChecked] = useState(false);
     const [stats, setStats] = useState({ total: 0, users: 0, active: 0 });
-    const [qrPosterProperty, setQrPosterProperty] = useState<Product | null>(null); // New State
+    const [qrPosterProperty, setQrPosterProperty] = useState<Product | null>(null);
+
+    // User Properties Modal State
+    const [selectedUserForProperties, setSelectedUserForProperties] = useState<{ id: string, name: string } | null>(null);
+    const [userProperties, setUserProperties] = useState<Product[]>([]);
+    const [userPropertiesLoading, setUserPropertiesLoading] = useState(false);
+
+    // User Info Modal State
+    const [selectedUserForInfo, setSelectedUserForInfo] = useState<AdminUser | null>(null);
 
     // New Filter States
     const [cityFilter, setCityFilter] = useState('');
@@ -165,6 +177,38 @@ export default function AdminPage() {
         const res = await updateSiteSettingsAction(settings, user.id);
         if (res.success) alert('Settings saved successfully');
         else alert('Failed to save settings');
+    };
+
+    const handleUserPropertiesClick = async (userId: string, userName: string) => {
+        setSelectedUserForProperties({ id: userId, name: userName });
+        setUserPropertiesLoading(true);
+        try {
+            const props = await getUserPropertiesForAdmin(userId);
+            setUserProperties(props);
+        } catch (err) {
+            console.error(err);
+            alert('Failed to load user properties');
+        } finally {
+            setUserPropertiesLoading(false);
+        }
+    };
+
+    const handleBanUser = async (userId: string) => {
+        if (!confirm('Are you sure you want to ban this user? They will not be able to login.')) return;
+
+        try {
+            const res = await banUser(userId);
+            if (res.success) {
+                // Update local state
+                setUsersList(usersList.map(u => u.userId === userId ? { ...u, status: 'banned' } : u));
+                alert('User banned successfully');
+            } else {
+                alert('Failed to ban user');
+            }
+        } catch (error) {
+            console.error(error);
+            alert('Error banning user');
+        }
     };
 
     // ... Render ...
@@ -377,6 +421,28 @@ export default function AdminPage() {
                         onClose={() => setQrPosterProperty(null)}
                         property={qrPosterProperty}
                         user={user}
+                    />
+                )}
+
+                <UserPropertiesModal
+                    isOpen={!!selectedUserForProperties}
+                    onClose={() => { setSelectedUserForProperties(null); setUserProperties([]); }}
+                    userName={selectedUserForProperties?.name || 'User'}
+                    properties={userProperties}
+                    loading={userPropertiesLoading}
+                />
+                {selectedUserForInfo && (
+                    <UserInfoModal
+                        isOpen={!!selectedUserForInfo}
+                        onClose={() => setSelectedUserForInfo(null)}
+                        user={selectedUserForInfo}
+                    />
+                )}
+                {selectedUserForInfo && (
+                    <UserInfoModal
+                        isOpen={!!selectedUserForInfo}
+                        onClose={() => setSelectedUserForInfo(null)}
+                        user={selectedUserForInfo}
                     />
                 )}
                 {/* Header */}
@@ -640,20 +706,16 @@ export default function AdminPage() {
                                                 <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Email</th>
                                                 <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Contact</th>
                                                 <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Total Properties</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Active Properties</th>
                                             </tr >
                                         </thead >
                                         <tbody className="bg-white divide-y divide-neutral-200">
                                             {usersList.map((userItem) => (
                                                 <tr key={userItem.userId} className="hover:bg-neutral-50">
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-900">
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-900" title={userItem.userId}>
                                                         {userItem.userId.substring(0, 8)}...
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900">
                                                         {userItem.name}
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
-                                                        {userItem.email}
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
                                                         {userItem.email}
@@ -675,12 +737,34 @@ export default function AdminPage() {
                                                         </div>
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900">
-                                                        {userItem.totalProperties}
+                                                        <button
+                                                            onClick={() => handleUserPropertiesClick(userItem.userId, userItem.name)}
+                                                            className="text-blue-600 hover:text-blue-800 hover:underline font-medium flex items-center gap-1"
+                                                        >
+                                                            {userItem.totalProperties} Properties
+                                                            <Eye className="w-3 h-3" />
+                                                        </button>
                                                     </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                                            {userItem.activeProperties} Active
-                                                        </span>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900">
+                                                        <div className="flex items-center gap-3">
+                                                            <button
+                                                                onClick={() => setSelectedUserForInfo(userItem)}
+                                                                className="text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 p-1.5 rounded-lg transition-colors"
+                                                                title="User Info"
+                                                            >
+                                                                <Info className="w-4 h-4" />
+                                                            </button>
+                                                            {userItem.status !== 'banned' ? (
+                                                                <button
+                                                                    onClick={() => handleBanUser(userItem.userId)}
+                                                                    className="px-3 py-1 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg text-sm font-medium transition-colors"
+                                                                >
+                                                                    Ban
+                                                                </button>
+                                                            ) : (
+                                                                <span className="text-neutral-400 text-sm font-medium">Banned</span>
+                                                            )}
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             ))}
@@ -723,7 +807,8 @@ export default function AdminPage() {
                         }
                     </div >
                 </div >
-            )}
+            )
+            }
             {
                 activeTab === 'approvals' && (
                     /* Approvals View */

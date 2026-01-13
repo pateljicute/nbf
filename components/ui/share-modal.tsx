@@ -7,6 +7,7 @@ import { Check, Copy, Share2, MessageCircle, MoreHorizontal } from 'lucide-react
 import { useState, useEffect } from 'react';
 import { Product } from '@/lib/types';
 import { incrementLeadsCountAction } from '@/app/actions/lead-actions';
+import { useToast } from "@/components/ui/use-toast";
 
 interface ShareModalProps {
   isOpen: boolean;
@@ -17,11 +18,10 @@ interface ShareModalProps {
 export function ShareModal({ isOpen, onClose, product }: ShareModalProps) {
   const [copied, setCopied] = useState(false);
   const [fullUrl, setFullUrl] = useState('');
+  const { toast } = useToast();
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setFullUrl(`${window.location.origin}/product/${product.handle}`);
-    }
+    setFullUrl(`${process.env.NEXT_PUBLIC_SITE_URL || 'https://www.nbfhomes.in'}/product/${product.handle}`);
   }, [product.handle]);
 
   const handleCopy = async () => {
@@ -32,9 +32,17 @@ export function ShareModal({ isOpen, onClose, product }: ShareModalProps) {
       await navigator.clipboard.writeText(fullUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+      toast({
+        title: "Link Copied!",
+        description: "The property link has been copied to your clipboard.",
+      });
     } catch (error) {
       console.error('Failed to copy URL:', error);
-      alert('Failed to copy URL. Please try again.');
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to copy URL. Please try again.",
+      });
     }
   };
 
@@ -94,7 +102,11 @@ export function ShareModal({ isOpen, onClose, product }: ShareModalProps) {
         await navigator.share(shareData);
         onClose();
       } else {
-        alert('Sharing is not supported on this browser/device.');
+        toast({
+          variant: "destructive",
+          title: "Not Supported",
+          description: "Sharing is not supported on this browser/device.",
+        });
       }
     } catch (error) {
       console.error('Error sharing:', error);

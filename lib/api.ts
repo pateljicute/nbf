@@ -475,11 +475,11 @@ export async function createProduct(data: any, token?: string): Promise<Product>
       throw new Error('User not authenticated');
     }
 
-    // 1.5 Sync User to Public Table (Crucial Step)
+    // 1.5 Sync User to Public Table (Crucial Step) and Check Rate Limit
     // Check if user exists in public.users to avoid FK error
     const { data: existingUser } = await supabase
       .from('users')
-      .select('id')
+      .select('id, last_posted_at')
       .eq('id', user.id)
       .single();
 
@@ -497,6 +497,18 @@ export async function createProduct(data: any, token?: string): Promise<Product>
       if (syncError) {
         console.error('Failed to sync user to public table:', syncError);
         // We continue anyway, hoping the trigger fired or it was a race condition
+      }
+    } else {
+      // RATE LIMIT CHECK
+      if (existingUser.last_posted_at) {
+        const lastPosted = new Date(existingUser.last_posted_at).getTime();
+        const now = new Date().getTime();
+        const diffMinutes = (now - lastPosted) / 1000 / 60;
+
+        // Limit: 1 post every 5 minutes
+        if (diffMinutes < 5) {
+          throw new Error(`Please wait ${Math.ceil(5 - diffMinutes)} minutes before posting another property.`);
+        }
       }
     }
 
@@ -553,6 +565,11 @@ export async function createProduct(data: any, token?: string): Promise<Product>
       .single();
 
     if (error) throw error;
+
+    if (error) throw error;
+
+    // UPDATE RATE LIMIT TIMESTAMP
+    await supabase.from('users').update({ last_posted_at: new Date().toISOString() }).eq('id', user.id);
 
     return mapPropertyToProduct(insertedProperty);
   } catch (e: any) {
@@ -650,6 +667,9 @@ export async function getAdminStats(): Promise<{ total: number; active: number; 
   try {
     const { count: total } = await supabase.from('properties').select('*', { count: 'exact', head: true });
     const { count: active } = await supabase.from('properties').select('*', { count: 'exact', head: true }).eq('status', 'approved');
+
+    // User requested explicitly to fetch from 'public.profiles', but schema shows 'users'.
+    // Reverting to 'users' to ensure stability.
     const { count: users } = await supabase.from('users').select('*', { count: 'exact', head: true });
 
     return {
@@ -657,8 +677,26 @@ export async function getAdminStats(): Promise<{ total: number; active: number; 
       active: active || 0,
       users: users || 0
     };
-  } catch {
+  } catch (error) {
+    console.error('Error fetching admin stats:', error);
     return { total: 0, active: 0, users: 0 };
+  }
+}
+
+export async function getUserPropertiesForAdmin(userId: string): Promise<Product[]> {
+  try {
+    // Fetch all properties for a user without status filtering
+    const { data, error } = await supabase
+      .from("properties")
+      .select('id,handle,title,description,price_range,featured_image,tags,available_for_sale,category_id,"contactNumber",user_id,"bathroomType","securityDeposit","electricityStatus","tenantPreference",latitude,longitude,"googleMapsLink",is_verified,status,"price","location","address","type"')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return (data || []).map(mapPropertyToProduct);
+  } catch (error) {
+    console.error('Error fetching user properties:', error);
+    return [];
   }
 }
 
@@ -844,7 +882,7 @@ export async function trackLead(propertyId: string, type: 'contact' | 'whatsapp'
   }
 }
 
-export async function getAdminUsers(page: number = 1, limit: number = 10, search: string = ''): Promise<{ users: { userId: string; name: string; email: string; contactNumber: string; role: string; isVerified: boolean; totalProperties: number; activeProperties: number }[]; total: number; page: number; limit: number }> {
+export async function getAdminUsers(page: number = 1, limit: number = 10, search: string = ''): Promise<{ users: { userId: string; name: string; email: string; contactNumber: string; role: string; isVerified: boolean; totalProperties: number; activeProperties: number; profession: string; status: string }[]; total: number; page: number; limit: number }> {
   try {
     const from = (page - 1) * limit;
     const to = from + limit - 1;
@@ -852,40 +890,44 @@ export async function getAdminUsers(page: number = 1, limit: number = 10, search
     let query = supabase.from('users').select('*', { count: 'exact' });
 
     if (search) {
-      query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%,contact_number.ilike.%${search}%`);
+      query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%,profession.ilike.%${search}%`);
     }
 
-    const { data: users, count, error } = await query.range(from, to).order('created_at', { ascending: false });
+    const { data: profiles, count, error } = await query.range(from, to).order('created_at', { ascending: false });
 
     if (error) {
       console.error('Error fetching admin users:', error);
       return { users: [], total: 0, page, limit };
     }
 
-    if (!users) return { users: [], total: 0, page, limit };
+    if (!profiles) return { users: [], total: 0, page, limit };
 
-    // Fetch stats for each user
-    const usersWithStats = await Promise.all(users.map(async (user) => {
+    // Optimized: Use simpler counts or separate queries if needed.
+    // Ideally we would use a View or RPC for performance, but Promise.all with 'head: true' is better than full select.
+    const usersWithStats = await Promise.all(profiles.map(async (profile) => {
+
       const { count: totalProperties } = await supabase
         .from('properties')
         .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id);
+        .eq('user_id', profile.id);
 
       const { count: activeProperties } = await supabase
         .from('properties')
         .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
+        .eq('user_id', profile.id)
         .eq('available_for_sale', true);
 
       return {
-        userId: user.id,
-        name: user.full_name || 'N/A',
-        email: user.email || 'N/A',
-        contactNumber: user.phone_number || user.contact_number || 'N/A',
-        role: user.role || 'user',
-        isVerified: user.is_verified || false,
+        userId: profile.id,
+        name: profile.full_name || profile.name || profile.email?.split('@')[0] || 'N/A',
+        email: profile.email || 'N/A',
+        contactNumber: profile.contact_number || profile.phone_number || 'N/A',
+        role: profile.role || 'user',
+        isVerified: profile.is_verified || false,
         totalProperties: totalProperties || 0,
-        activeProperties: activeProperties || 0
+        activeProperties: activeProperties || 0,
+        profession: profile.profession || '',
+        status: profile.status || 'active'
       };
     }));
 
@@ -896,8 +938,42 @@ export async function getAdminUsers(page: number = 1, limit: number = 10, search
       limit
     };
   } catch (error) {
-    console.error('Error in getAdminUsers:', error);
+    console.error('Error in getAdminUsers:', JSON.stringify(error, null, 2));
     return { users: [], total: 0, page, limit };
+  }
+}
+
+export async function updateUserProfile(userId: string, profession: string, contactNumber: string): Promise<{ success: boolean; error?: any }> {
+  try {
+    const { error } = await supabase
+      .from('users')
+      .update({
+        profession,
+        contact_number: contactNumber,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', userId);
+
+    if (error) throw error;
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating profile:', JSON.stringify(error, null, 2));
+    return { success: false, error };
+  }
+}
+
+export async function banUser(userId: string): Promise<{ success: boolean; error?: any }> {
+  try {
+    const { error } = await supabase
+      .from('users')
+      .update({ status: 'banned' })
+      .eq('id', userId);
+
+    if (error) throw error;
+    return { success: true };
+  } catch (error) {
+    console.error('Error banning user:', error);
+    return { success: false, error };
   }
 }
 

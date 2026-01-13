@@ -802,9 +802,20 @@ export default function PostPropertyPage() {
                                 <label className="block text-sm font-medium text-neutral-700 mb-2">Property Images</label>
                                 <MultiImageUpload
                                     images={formData.images}
-                                    onImagesChange={(images) => setFormData(prev => ({ ...prev, images }))}
-                                    maxImages={8}
+                                    onImagesChange={(images) => {
+                                        if (images.length > 5) {
+                                            toast.error("You can only upload a maximum of 5 photos.");
+                                            setFormData(prev => ({ ...prev, images: images.slice(0, 5) }));
+                                        } else {
+                                            setFormData(prev => ({ ...prev, images }));
+                                        }
+                                    }}
+                                    maxImages={5}
                                 />
+                                <p className="text-xs text-neutral-500 mt-2 flex items-center gap-1">
+                                    <span role="img" aria-label="info">ℹ️</span>
+                                    For a better experience, please upload clear photos of your property.
+                                </p>
                                 {formData.images.length === 0 && (
                                     <p className="text-red-500 text-xs mt-2 font-medium">
                                         * Photo upload is mandatory. Please upload at least one image.

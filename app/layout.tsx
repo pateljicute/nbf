@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 // import { Inter } from 'next/font/google';
 
 // const inter = Inter({
@@ -11,12 +11,14 @@ import './globals.css';
 import { Collection } from '@/lib/types';
 import { getCollections } from '@/lib/api';
 
+import { WhatsappPopup } from '@/components/layout/whatsapp-popup';
 import { ProvidersWrapper } from '@/components/providers-wrapper';
 import { UserOnboardingManager } from '@/components/auth/user-onboarding-manager';
+import { SmartInstallBanner } from '@/components/layout/smart-install-banner';
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://nbfhomes.in';
 
-export const viewport = {
+export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
 };
@@ -137,9 +139,10 @@ export default async function RootLayout({
           }}
         />
         <ProvidersWrapper collections={collections}>
+          <SmartInstallBanner />
           {children}
           <UserOnboardingManager />
-
+          <WhatsappPopup />
         </ProvidersWrapper>
 
       </body>

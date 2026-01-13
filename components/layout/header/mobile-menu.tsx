@@ -13,10 +13,13 @@ import { Plus, User, Shield, Home, Building2 } from 'lucide-react';
 interface MobileMenuProps {
   collections: Collection[];
   isAdmin?: boolean;
+  installPrompt?: any;
+  onInstallClick?: () => void;
+  isInstalled?: boolean;
 }
 
 
-export default function MobileMenu({ collections, isAdmin }: MobileMenuProps) {
+export default function MobileMenu({ collections, isAdmin, installPrompt, onInstallClick, isInstalled = false }: MobileMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
@@ -146,9 +149,23 @@ export default function MobileMenu({ collections, isAdmin }: MobileMenuProps) {
                     {/* Divider */}
                     <div className="h-px bg-neutral-100 my-4" />
 
+                    {/* App Install Button - Show if not installed */}
+                    {!isInstalled && (
+                      <button
+                        onClick={() => {
+                          onInstallClick?.();
+                          closeMobileMenu();
+                        }}
+                        className="flex items-center gap-4 px-2 py-3.5 text-base font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg w-full text-left"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-600"><rect width="14" height="20" x="5" y="2" rx="2" ry="2" /><path d="M12 18h.01" /></svg>
+                        Install NBF App
+                      </button>
+                    )}
+
                     {/* Property Types Section */}
                     <div>
-                      <h4 className="px-2 mb-3 text-xs font-bold text-neutral-400 uppercase tracking-wider">Property Types</h4>
+                      <h4 className="px-2 mb-3 mt-4 text-xs font-bold text-neutral-400 uppercase tracking-wider">Property Types</h4>
                       <div className="flex flex-col gap-1">
                         <Link
                           href="/properties?type=Apartment"

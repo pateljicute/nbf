@@ -32,19 +32,66 @@ export function Header({ collections }: HeaderProps) {
   const { user } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [installPrompt, setInstallPrompt] = useState<any>(null);
+
+  const [isInstalled, setIsInstalled] = useState(false);
 
   useEffect(() => {
     setMounted(true);
     if (user) {
       checkAdminStatus(user.id).then(setIsAdmin);
     }
+
+    // Check if app is installed
+    if (typeof window !== 'undefined') {
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+      setIsInstalled(isStandalone);
+    }
   }, [user]);
+
+  useEffect(() => {
+    const handler = (e: any) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+    };
+
+    window.addEventListener('beforeinstallprompt', handler);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handler);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    // Logic: Strictly follow user request for PWA Overhaul
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+    if (isIOS) {
+      alert('To install: Tap "Share" -> "Add to Home Screen"');
+    } else if (installPrompt) {
+      // PC & Android: Native Prompt only
+      installPrompt.prompt();
+      const { outcome } = await installPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setInstallPrompt(null);
+      }
+    } else {
+      // Logic for PC/Android when prompt is not ready: Do NOTHING (remove alert as requested)
+      console.log("App is already installed or prompt not ready");
+    }
+  };
 
   return (
     <>
       <header className="grid fixed top-0 left-0 z-50 grid-cols-3 items-center w-full p-2 md:p-sides md:grid-cols-12 md:gap-sides bg-white/10 backdrop-blur-sm md:bg-transparent md:backdrop-blur-none border-b-0 transition-all duration-300">
         <div className="block flex-none md:hidden">
-          <MobileMenu collections={collections} isAdmin={isAdmin} />
+          <MobileMenu
+            collections={collections}
+            isAdmin={isAdmin}
+            installPrompt={installPrompt}
+            onInstallClick={handleInstallClick}
+            isInstalled={isInstalled}
+          />
         </div>
         <Link href="/" className="md:col-span-3 xl:col-span-2 flex justify-center md:block pt-0" prefetch>
           <div className="md:hidden bg-white/20 backdrop-blur-md rounded-full px-2 py-0.5">
