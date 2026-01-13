@@ -1,8 +1,8 @@
 {
-    "name": "Infhomes",
-    "short_name": "Infhomes",
+    "name": "NBF Homes",
+    "short_name": "NBF",
     "description": "Find your perfect room or PG on India's largest property marketplace.",
-    "start_url": "https://www.nbfhomes.in/",
+    "start_url": "/",
     "display": "standalone",
     "background_color": "#ffffff",
     "theme_color": "#000000",

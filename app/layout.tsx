@@ -14,7 +14,7 @@ import { getCollections } from '@/lib/api';
 import { WhatsappPopup } from '@/components/layout/whatsapp-popup';
 import { ProvidersWrapper } from '@/components/providers-wrapper';
 import { UserOnboardingManager } from '@/components/auth/user-onboarding-manager';
-import { SmartInstallBanner } from '@/components/layout/smart-install-banner';
+import { FloatingInstallPrompt } from '@/components/pwa/floating-install-prompt';
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://nbfhomes.in';
 
@@ -77,9 +77,8 @@ export default async function RootLayout({
   return (
     <html lang="en">
       <head>
-
+        <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#000000" />
-
       </head>
       <body
         style={{ '--font-geist-sans': 'sans-serif' } as React.CSSProperties}
@@ -139,7 +138,7 @@ export default async function RootLayout({
           }}
         />
         <ProvidersWrapper collections={collections}>
-          <SmartInstallBanner />
+          <FloatingInstallPrompt />
           {children}
           <UserOnboardingManager />
           <WhatsappPopup />
