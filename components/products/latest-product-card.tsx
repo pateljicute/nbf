@@ -50,7 +50,7 @@ export function LatestProductCard({
         <Link href={`/product/${product.handle}`} className="size-full block" onClick={handleProductClick}>
           <Image
             loader={cloudinaryLoader}
-            src="https://res.cloudinary.com/dla8a0y7n/image/upload/v1764658021/hero-background_jdgiur.jpg"
+            src="https://res.cloudinary.com/dilccqhro/image/upload/v1764658021/hero-background_jdgiur.jpg"
             alt="Hero Background"
             fill
             priority
@@ -145,26 +145,38 @@ export function LatestProductCard({
             </Link>
 
             {/* Improved Location UI */}
-            <div className="flex items-center gap-1 text-neutral-600 my-0.5">
-              <MapPin className="size-3.5 shrink-0" />
+            <div className="flex items-center gap-1 text-black my-0.5 font-bold">
+              <MapPin className="size-3.5 shrink-0 stroke-[2.5]" />
               <p className="text-xs line-clamp-1">
                 {/* Address Display Logic */}
                 {(() => {
-                  const city = 'Mandsaur';
-                  let cleanAddress = product.tags?.[2] || '';
+                  const city = product.city;
+                  let area = product.locality;
+                  let rawAddress = product.address || '';
 
-                  // Clean up address string and take only the first part (Area)
-                  const area = cleanAddress
-                    .replace(/^(?:Ward|House|Flat|Shop|Plot|Room|Street)?\s*(?:No\.?|Number)?\s*[\d\w\/-]+\s*,?\s*/i, '') // Remove prefixes
-                    .replace(new RegExp(city, 'gi'), '') // Remove city if present
-                    .split(',')[0] // Take only the first part (Area)
-                    .trim();
+                  // Fallback to parsing tags if locality is missing
+                  if (!area && product.tags?.[2]) {
+                    area = product.tags[2]
+                      .replace(/^(?:Ward|House|Flat|Shop|Plot|Room|Street)?\s*(?:No\.?|Number)?\s*[\d\w\/-]+\s*,?\s*/i, '')
+                      .replace(new RegExp(city || '', 'gi'), '')
+                      .split(',')[0]
+                      .trim();
+                  }
 
-                  return (
-                    <>
-                      {area || 'City Center'}, <span className="font-bold text-neutral-900">{city}</span>
-                    </>
-                  );
+                  // Fallback to address parsing if still empty
+                  if (!area && rawAddress) {
+                    // Remove house no etc from raw address first
+                    rawAddress = rawAddress.replace(/^(?:House|Flat|Shop|Plot|Room)?\s*(?:No\.?|Number)?\s*[\d\w\/-]+\s*,?\s*/i, '');
+                    area = rawAddress.split(',')[0].trim();
+                  }
+
+                  const parts = [area, city].filter(Boolean);
+                  // Dedupe if area contains city
+                  if (parts.length > 1 && parts[0]?.toLowerCase().includes((parts[1] || '').toLowerCase())) {
+                    return parts[0];
+                  }
+
+                  return parts.join(', ');
                 })()}
               </p>
             </div>

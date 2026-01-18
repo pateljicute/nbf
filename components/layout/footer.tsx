@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { LogoSvg } from './header/logo-svg';
 import { getCollections } from '@/lib/api';
-import { Globe } from 'lucide-react';
+import { Globe, Twitter, Linkedin, Facebook, Instagram, MessageCircle } from 'lucide-react';
 import { CONTACT_LINKS } from '@/lib/constants';
 
 const getSocialLink = (label: string) => CONTACT_LINKS.find(l => l.label === label)?.href || '#';
@@ -21,6 +21,28 @@ export async function Footer() {
             <p className="text-neutral-400 text-lg leading-relaxed max-w-sm">
               NBF Homes is India's growing property marketplace for Tier 1-4 cities. We help you find the best rental options in Mandsaur, Neemuch, Ratlam, and Indore with 0% brokerage fees.
             </p>
+            <div className="flex items-center gap-5">
+              <a href="https://x.com/nbfhomes" target="_blank" rel="noopener noreferrer" className="text-neutral-400 hover:text-white transition-colors">
+                <Twitter className="w-5 h-5" />
+                <span className="sr-only">X (Twitter)</span>
+              </a>
+              <a href="https://www.linkedin.com/in/nbf-homes-2689b4381?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app" target="_blank" rel="noopener noreferrer" className="text-neutral-400 hover:text-white transition-colors">
+                <Linkedin className="w-5 h-5" />
+                <span className="sr-only">LinkedIn</span>
+              </a>
+              <a href="https://www.facebook.com/share/17qdRqXzeN/" target="_blank" rel="noopener noreferrer" className="text-neutral-400 hover:text-white transition-colors">
+                <Facebook className="w-5 h-5" />
+                <span className="sr-only">Facebook</span>
+              </a>
+              <a href="https://www.instagram.com/nbfhomes?igsh=djhqOGFxZ3B0YTdm" target="_blank" rel="noopener noreferrer" className="text-neutral-400 hover:text-white transition-colors">
+                <Instagram className="w-5 h-5" />
+                <span className="sr-only">Instagram</span>
+              </a>
+              <a href="https://whatsapp.com/channel/0029Vb74TGqFnSzA8mE6wE0Y" target="_blank" rel="noopener noreferrer" className="text-neutral-400 hover:text-white transition-colors">
+                <MessageCircle className="w-5 h-5" />
+                <span className="sr-only">WhatsApp Channel</span>
+              </a>
+            </div>
           </div>
 
           {/* Links Columns */}

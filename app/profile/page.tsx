@@ -124,81 +124,99 @@ export default function ProfilePage() {
                     user={user}
                 />
             )}
-            <div className="max-w-5xl mx-auto space-y-8">
+            <div className="max-w-5xl mx-auto space-y-4 md:space-y-8">
 
-                {/* Profile Header */}
-                <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 overflow-hidden">
-                    <div className="h-32 bg-neutral-900"></div>
-                    <div className="px-4 md:px-8 pb-8">
-                        <div className="relative flex justify-between items-end -mt-12 mb-6">
-                            <div className="flex items-end gap-4 md:gap-6">
-                                <div className="relative w-24 h-24 rounded-full border-4 border-white bg-neutral-100 overflow-hidden shadow-md shrink-0">
-                                    {user.user_metadata?.avatar_url ? (
-                                        <img
-                                            src={user.user_metadata.avatar_url}
-                                            alt={user.user_metadata?.full_name || 'User'}
-                                            className="w-full h-full object-cover"
-                                        />
-                                    ) : (
-                                        <div className="w-full h-full flex items-center justify-center text-neutral-400">
-                                            <User className="w-10 h-10" />
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="mb-1">
-                                    <h1 className="text-xl md:text-2xl font-serif font-medium text-neutral-900 line-clamp-1">
-                                        {user.user_metadata?.full_name || user.user_metadata?.name || 'NBFHOMES User'}
-                                    </h1>
-                                    <p className="text-sm text-neutral-500 flex items-center gap-2">
-                                        <Mail className="w-3 h-3 shrink-0" />
-                                        <span className="truncate max-w-[150px] md:max-w-none">{user.email}</span>
-                                    </p>
+                {/* Profile Header - Compact Mobile */}
+                <div className="bg-white rounded-xl md:rounded-2xl shadow-sm border border-neutral-200 overflow-hidden relative group">
+                    <div className="h-20 md:h-32 bg-gradient-to-r from-neutral-200 to-neutral-100"></div>
+
+                    {/* Mobile Sign Out (Absolute Top Right) */}
+                    <button
+                        onClick={handleLogout}
+                        className="md:hidden absolute top-2 right-2 p-2 bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-white/30 transition-colors z-10"
+                    >
+                        <LogOut className="w-4 h-4" />
+                    </button>
+
+                    <div className="px-4 md:px-8 pb-4 md:pb-8">
+                        <div className="relative flex flex-row items-end -mt-8 md:-mt-12 mb-4 md:mb-6 gap-3 md:gap-6">
+                            <div className="relative w-16 h-16 md:w-32 md:h-32 rounded-full border-[3px] md:border-4 border-white bg-neutral-100 overflow-hidden shadow-md shrink-0">
+                                {user.user_metadata?.avatar_url ? (
+                                    <img
+                                        src={user.user_metadata.avatar_url}
+                                        alt={user.user_metadata?.full_name || 'User'}
+                                        className="w-full h-full object-cover"
+                                    />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-neutral-400">
+                                        <User className="w-8 h-8 md:w-16 md:h-16" />
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="flex-1 mb-1 md:mb-2">
+                                <h1 className="text-lg md:text-2xl font-semibold text-neutral-700 line-clamp-1">
+                                    {user.user_metadata?.full_name || user.user_metadata?.name || 'NBFHOMES User'}
+                                </h1>
+                                <div className="flex items-center gap-2 text-xs text-neutral-500 mt-0.5">
+                                    <span className="bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-100">
+                                        Personal
+                                    </span>
+                                    <span className="bg-green-50 text-green-700 px-1.5 py-0.5 rounded border border-green-100">
+                                        Active
+                                    </span>
                                 </div>
                             </div>
+
+                            {/* Desktop Sign Out */}
                             <button
                                 onClick={handleLogout}
-                                className="hidden md:flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
+                                className="hidden md:flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors mb-2"
                             >
                                 <LogOut className="w-4 h-4" />
                                 Sign Out
                             </button>
                         </div>
 
-                        {/* Mobile Logout Button */}
-                        <button
-                            onClick={handleLogout}
-                            className="md:hidden w-full flex items-center justify-center gap-2 px-4 py-3 mb-6 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
-                        >
-                            <LogOut className="w-4 h-4" />
-                            Sign Out
-                        </button>
+                        {/* Mobile Stats Grid (Re-added & Compact) */}
+                        <div className="grid grid-cols-2 gap-3 pt-4 border-t border-neutral-100 md:hidden">
+                            <div className="bg-neutral-50 rounded-lg p-3 border border-neutral-100">
+                                <p className="text-[10px] font-bold uppercase text-neutral-500 tracking-wider">Listings</p>
+                                <p className="text-lg font-black text-neutral-900 leading-none mt-1">{properties.length}</p>
+                            </div>
+                            <div className="bg-neutral-50 rounded-lg p-3 border border-neutral-100">
+                                <p className="text-[10px] font-bold uppercase text-neutral-500 tracking-wider">Total Views</p>
+                                <p className="text-lg font-black text-neutral-900 leading-none mt-1">
+                                    {properties.reduce((acc, curr) => acc + (curr.viewCount || 0), 0)}
+                                </p>
+                            </div>
+                        </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6 border-t border-neutral-100">
+                        {/* Desktop Stats (Hidden on Mobile) */}
+                        <div className="hidden md:grid grid-cols-3 gap-6 pt-6 border-t border-neutral-100">
                             <div className="space-y-1">
-                                <span className="text-xs font-medium text-neutral-500 uppercase tracking-wider">Account Type</span>
-                                <p className="text-sm font-medium text-neutral-900">Personal Account</p>
+                                <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider">Total Listings</p>
+                                <p className="text-2xl font-bold text-neutral-900">{properties.length}</p>
                             </div>
                             <div className="space-y-1">
-                                <span className="text-xs font-medium text-neutral-500 uppercase tracking-wider">Member Since</span>
+                                <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider">Total Views</p>
+                                <p className="text-2xl font-bold text-neutral-900">{properties.reduce((acc, curr) => acc + (curr.viewCount || 0), 0)}</p>
+                            </div>
+                            <div className="space-y-1">
+                                <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider">Member Since</p>
                                 <p className="text-sm font-medium text-neutral-900">
                                     {new Date(user.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
                                 </p>
-                            </div>
-                            <div className="space-y-1">
-                                <span className="text-xs font-medium text-neutral-500 uppercase tracking-wider">Status</span>
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                    Active
-                                </span>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 {/* Content Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
                     {/* Left Sidebar - Navigation/Stats */}
-                    <div className="space-y-6">
+                    <div className="space-y-6 hidden lg:block">
                         <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-6">
                             <h3 className="font-medium text-neutral-900 mb-4">Dashboard</h3>
                             <nav className="space-y-1">
@@ -219,15 +237,15 @@ export default function ProfilePage() {
                     </div>
 
                     {/* Main Content - My Properties */}
-                    <div className="lg:col-span-2 space-y-6">
-                        <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-6">
-                            <div className="flex items-center justify-between mb-6">
-                                <h2 className="text-lg font-medium text-neutral-900">My Properties</h2>
+                    <div className="lg:col-span-2 space-y-4">
+                        <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-4 md:p-6">
+                            <div className="flex items-center justify-between mb-4 md:mb-6">
+                                <h2 className="text-base md:text-lg font-bold text-neutral-900">My Properties</h2>
                                 <button
                                     onClick={() => router.push('/post-property')}
-                                    className="text-sm font-medium text-black hover:underline"
+                                    className="text-xs md:text-sm font-medium text-black hover:underline bg-neutral-100 px-3 py-1.5 rounded-full"
                                 >
-                                    + Post New Property
+                                    + Post New
                                 </button>
                             </div>
 
@@ -236,67 +254,77 @@ export default function ProfilePage() {
                                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
                                 </div>
                             ) : properties.length > 0 ? (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     {properties.map((property) => (
                                         <div key={property.id} className="group relative border border-neutral-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
-                                            <div className="aspect-square w-full overflow-hidden bg-neutral-200 relative">
-                                                {property.featuredImage && (
-                                                    <img
-                                                        src={property.featuredImage.url}
-                                                        alt={property.featuredImage.altText}
-                                                        className="h-full w-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
-                                                    />
-                                                )}
-                                                <div className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded text-xs font-bold">
-                                                    ₹{Number(property.price || property.priceRange?.minVariantPrice?.amount || 0).toLocaleString('en-IN')}
-                                                </div>
-                                            </div>
-                                            <div className="p-4">
-                                                <h3 className="text-sm font-medium text-neutral-900">
-                                                    <a href={`/product/${property.handle}`}>
-                                                        <span aria-hidden="true" className="absolute inset-0" />
-                                                        {property.title}
-                                                    </a>
-                                                </h3>
-                                                <p className="mt-1 text-sm text-neutral-500 line-clamp-2">{property.description}</p>
-                                                <div className="mt-2 flex flex-wrap gap-1">
-                                                    {property.tags?.slice(0, 2).map(tag => (
-                                                        <span key={tag} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-neutral-100 text-neutral-800">
-                                                            {tag}
+                                            <div className="flex sm:block h-28 sm:h-auto">
+                                                {/* Image (Left on Mobile, Top on Desktop) */}
+                                                <div className="w-28 sm:w-full sm:aspect-square shrink-0 bg-neutral-200 relative">
+                                                    {property.featuredImage && (
+                                                        <img
+                                                            src={property.featuredImage.url}
+                                                            alt={property.featuredImage.altText}
+                                                            className="h-full w-full object-cover object-center"
+                                                        />
+                                                    )}
+                                                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2 hidden sm:block">
+                                                        <span className="text-white text-xs font-bold">
+                                                            ₹{Number(property.price || property.priceRange?.minVariantPrice?.amount || 0).toLocaleString('en-IN')}
                                                         </span>
-                                                    ))}
+                                                    </div>
                                                 </div>
-                                                <div className="mt-3 flex gap-2 relative z-10">
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.preventDefault();
-                                                            router.push(`/post-property?edit=${property.id}`);
-                                                        }}
-                                                        className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-xs font-medium text-neutral-700 bg-neutral-100 hover:bg-neutral-200 rounded transition-colors"
-                                                    >
-                                                        <Edit className="w-3 h-3" />
-                                                        Edit
-                                                    </button>
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.preventDefault();
-                                                            setQrPosterProperty(property);
-                                                        }}
-                                                        className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 rounded transition-colors"
-                                                    >
-                                                        <Download className="w-3 h-3" />
-                                                        Poster
-                                                    </button>
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.preventDefault();
-                                                            setDeleteConfirm(property.id);
-                                                        }}
-                                                        className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded transition-colors"
-                                                    >
-                                                        <Trash2 className="w-3 h-3" />
-                                                        Delete
-                                                    </button>
+
+                                                {/* Details (Right on Mobile, Bottom on Desktop) */}
+                                                <div className="p-3 flex flex-col justify-between flex-1 min-w-0">
+                                                    <div>
+                                                        <h3 className="text-xs sm:text-sm font-bold text-neutral-900 line-clamp-1">
+                                                            <a href={`/product/${property.handle}`}>
+                                                                <span aria-hidden="true" className="absolute inset-0 sm:hidden" />
+                                                                {property.title}
+                                                            </a>
+                                                        </h3>
+                                                        <p className="mt-0.5 text-[10px] sm:text-xs text-neutral-500 line-clamp-1">
+                                                            {property.address || property.location || 'Mandsaur, MP'}
+                                                        </p>
+                                                        <div className="mt-1 flex items-center gap-2 sm:hidden">
+                                                            <span className="text-xs font-bold text-black">
+                                                                ₹{Number(property.price || property.priceRange?.minVariantPrice?.amount || 0).toLocaleString('en-IN')}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Actions */}
+                                                    <div className="mt-2 flex gap-2 relative z-10 w-full">
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.preventDefault();
+                                                                router.push(`/post-property?edit=${property.id}`);
+                                                            }}
+                                                            className="flex-1 flex items-center justify-center gap-1 py-1.5 text-[10px] font-bold uppercase text-blue-700 bg-blue-50 hover:bg-blue-100 rounded transition-colors"
+                                                        >
+                                                            <Edit className="w-3 h-3" />
+                                                            Edit
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.preventDefault();
+                                                                setQrPosterProperty(property);
+                                                            }}
+                                                            className="flex-1 flex items-center justify-center gap-1 py-1.5 text-[10px] font-bold uppercase text-purple-700 bg-purple-50 hover:bg-purple-100 rounded transition-colors"
+                                                        >
+                                                            <Download className="w-3 h-3" />
+                                                            Poster
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.preventDefault();
+                                                                setDeleteConfirm(property.id);
+                                                            }}
+                                                            className="flex items-center justify-center px-2 py-1.5 text-red-700 bg-red-50 hover:bg-red-100 rounded transition-colors"
+                                                        >
+                                                            <Trash2 className="w-3 h-3" />
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>

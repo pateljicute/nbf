@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
     CheckCircle2, ArrowRight, ShieldCheck, ChevronLeft, ChevronRight,
@@ -12,6 +12,7 @@ import { useAuth } from '@/lib/auth-context';
 import { getProducts, updateProduct, createProduct } from '@/lib/api';
 import { toast } from 'sonner';
 import { MultiImageUpload } from '@/components/ui/multi-image-upload';
+import dynamic from 'next/dynamic';
 
 // Amenities with icons
 const AMENITIES_LIST = [
@@ -32,6 +33,31 @@ const AMENITIES_LIST = [
     { id: 'balcony', label: 'Balcony', icon: Trees },
 ];
 
+const INDIAN_STATES = [
+    "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat",
+    "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh",
+    "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab",
+    "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh",
+    "Uttarakhand", "West Bengal", "Andaman and Nicobar Islands", "Chandigarh",
+    "Dadra and Nagar Haveli and Daman and Diu", "Lakshadweep", "Delhi", "Puducherry",
+    "Ladakh", "Jammu and Kashmir"
+];
+
+const POPULAR_LOCATIONS = [
+    // Mandsaur District
+    'Mandsaur', 'Piplia Mandi', 'Daloda', 'Sita Mau', 'Bhanpura', 'Garoth', 'Shamgarh', 'Suwasra', 'Malhargarh',
+    // Ratlam District
+    'Ratlam', 'Jora', 'Alot', 'Sailana', 'Bajna', 'Piploda', 'Tal', 'Rawoti',
+    // Neemuch District
+    'Neemuch', 'Manasa', 'Singoli', 'Jeeran', 'Diken', 'Jawad',
+    // Ujjain District
+    'Ujjain', 'Nagda', 'Barnagar', 'Mahidpur', 'Tarana', 'Khachrod', 'Ghatiya', 'Unhel',
+    // Nagda Specific Areas
+    'Grasim Staff Colony', 'Jawahar Marg', 'MG Road', 'Mehatwas', 'Padaliya', 'Durgapura',
+    // Kota District
+    'Kota', 'Ladpura', 'Sangod', 'Ramganj Mandi', 'Pipalda', 'Digod'
+];
+
 export default function PostPropertyPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -50,19 +76,38 @@ export default function PostPropertyPage() {
     const [showLocationDialog, setShowLocationDialog] = useState(false);
     const [useManualLink, setUseManualLink] = useState(false);
     const [detectedCoords, setDetectedCoords] = useState<{ lat: number; lng: number } | null>(null);
+    const [detectedAddress, setDetectedAddress] = useState<string>('');
+    const [isMapVerified, setIsMapVerified] = useState<boolean | null>(null);
 
     // Data States
     const [cities, setCities] = useState<string[]>([]);
     const [citySearch, setCitySearch] = useState('');
     const [showCityDropdown, setShowCityDropdown] = useState(false);
 
+    // Interactive Map State
+    const [showMapPicker, setShowMapPicker] = useState(false);
+
+    const LocationPicker = useMemo(() => dynamic(() => import('@/components/ui/location-picker'), {
+        ssr: false,
+        loading: () => <div className="h-[400px] w-full bg-neutral-100 animate-pulse rounded-xl flex items-center justify-center">Loading Map...</div>
+    }), []);
+
     const [formData, setFormData] = useState({
         // Step 1: Essentials
         title: '',
         description: '',
         type: 'PG',
+        state: '',
+        city: '',
+        locality: '',
         address: '',
-        location: '',
+        pincode: '',
+        location: '', // Deprecated but kept for backward compatibility if needed, sync with city
+
+        builtUpArea: '',
+        floorNumber: '',
+        totalFloors: '',
+        furnishingStatus: 'Semi-Furnished',
 
         // Location Data
         latitude: null as number | null,
@@ -119,8 +164,17 @@ export default function PostPropertyPage() {
                     title: property.title,
                     description: property.description,
                     type: property.tags?.[0] || 'PG',
-                    address: property.tags?.[2] || '',
-                    location: location,
+                    address: property.address || property.tags?.[2] || '',
+                    location: property.location || location,
+
+                    state: property.state || '',
+                    city: property.city || property.location || '',
+                    locality: property.locality || '',
+                    pincode: property.pincode || '',
+                    builtUpArea: property.builtUpArea || property.built_up_area || '',
+                    floorNumber: property.floorNumber || property.floor_number || '',
+                    totalFloors: property.totalFloors || property.total_floors || '',
+                    furnishingStatus: property.furnishingStatus || property.furnishing_status || 'Semi-Furnished',
 
                     latitude: property.latitude || null,
                     longitude: property.longitude || null,
@@ -128,15 +182,15 @@ export default function PostPropertyPage() {
 
                     amenities: property.amenities || [],
                     bathroomType: property.bathroomType || property.bathroom_type || 'Common',
-                    tenantPreference: property.tenant_preference || 'Any',
-                    electricityStatus: property.electricity_status || 'Separate',
+                    tenantPreference: property.tenant_preference || 'tenantPreference' in property ? property.tenantPreference : 'Any',
+                    electricityStatus: property.electricity_status || 'electricityStatus' in property ? property.electricityStatus : 'Separate',
 
                     price: property.price || property.priceRange?.minVariantPrice?.amount || '',
-                    securityDeposit: property.security_deposit || '',
+                    securityDeposit: property.security_deposit || property.securityDeposit || '',
                     contactNumber: property.contactNumber || '',
                     images: existingImages
                 });
-                setCitySearch(location);
+                setCitySearch(property.city || property.location || '');
 
                 if (property.latitude && property.longitude) {
                     setDetectedCoords({ lat: property.latitude, lng: property.longitude });
@@ -152,6 +206,11 @@ export default function PostPropertyPage() {
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
+        // Pincode validation: restrict to 6 digits
+        if (name === 'pincode') {
+            if (value.length > 6) return;
+            if (value && !/^\d*$/.test(value)) return;
+        }
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
@@ -167,12 +226,14 @@ export default function PostPropertyPage() {
     };
 
     const handleCitySelect = (city: string) => {
-        setFormData(prev => ({ ...prev, location: city }));
+        setFormData(prev => ({ ...prev, city: city, location: city }));
         setCitySearch(city);
         setShowCityDropdown(false);
     };
 
     // Location Logic
+    const [tempLocationData, setTempLocationData] = useState<any>(null);
+
     const handleDetectLocation = () => {
         if (!navigator.geolocation) {
             toast.error("Geolocation is not supported by your browser");
@@ -181,9 +242,25 @@ export default function PostPropertyPage() {
 
         setIsDetectingLocation(true);
         navigator.geolocation.getCurrentPosition(
-            (position) => {
+            async (position) => {
                 const { latitude, longitude } = position.coords;
                 setDetectedCoords({ lat: latitude, lng: longitude });
+
+                // Fetch Address Immediately
+                try {
+                    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&accept-language=en`);
+                    const data = await response.json();
+                    if (data && data.display_name) {
+                        setDetectedAddress(data.display_name);
+                        setTempLocationData(data);
+                    } else {
+                        setDetectedAddress("Address not found");
+                    }
+                } catch (error) {
+                    console.error("Reverse geocoding error:", error);
+                    setDetectedAddress("Error fetching address");
+                }
+
                 setIsDetectingLocation(false);
                 setShowLocationDialog(true);
             },
@@ -191,73 +268,42 @@ export default function PostPropertyPage() {
                 console.warn("Geolocation warning:", error.message, error.code);
                 setIsDetectingLocation(false);
                 let errorMessage = "Could not detect location.";
-
-                switch (error.code) {
-                    case error.PERMISSION_DENIED:
-                        if (error.message.toLowerCase().includes("policy")) {
-                            errorMessage = "Location blocked by browser policy.";
-                        } else {
-                            errorMessage = "Location permission denied.";
-                        }
-                        break;
-                    case error.POSITION_UNAVAILABLE:
-                        errorMessage = "Location information is unavailable.";
-                        break;
-                    case error.TIMEOUT:
-                        errorMessage = "Location detection timed out.";
-                        break;
-                    default:
-                        errorMessage = "An unknown error occurred.";
-                }
-
+                // ... error handling
                 toast.error(`${errorMessage} using manual entry instead.`);
-                // Fallback to manual
                 setUseManualLink(true);
             },
-            {
-                enableHighAccuracy: true,
-                timeout: 10000,
-                maximumAge: 0
-            }
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
         );
     };
 
-    const confirmLocation = async () => {
-        if (detectedCoords) {
-            // Update Coordinates
+    const confirmLocation = () => {
+        if (detectedCoords && tempLocationData) {
+            // Apply Data
+            const data = tempLocationData;
             setFormData(prev => ({
                 ...prev,
                 latitude: detectedCoords.lat,
                 longitude: detectedCoords.lng,
+                address: data.display_name,
+                city: data.address?.city || data.address?.town || data.address?.village || prev.city,
+                state: data.address?.state || prev.state,
+                locality: data.address?.suburb || data.address?.neighbourhood || prev.locality,
+                pincode: data.address?.postcode || prev.pincode,
                 googleMapsLink: ''
             }));
 
-            // Reverse Geocoding
-            try {
-                toast.loading("Fetching address details...");
-                const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${detectedCoords.lat}&lon=${detectedCoords.lng}`);
-                const data = await response.json();
-
-                if (data && data.display_name) {
-                    setFormData(prev => ({
-                        ...prev,
-                        address: data.display_name,
-                        // Try to extract city if possible, or just keep what user selected
-                        // location: data.address.city || prev.location 
-                    }));
-                    toast.dismiss();
-                    toast.success("Location confirmed & address updated!");
-                } else {
-                    toast.dismiss();
-                    toast.success("Location confirmed!");
-                }
-            } catch (error) {
-                console.error("Reverse geocoding error:", error);
-                toast.dismiss();
-                toast.success("Location confirmed!");
-            }
-
+            setIsMapVerified(true);
+            toast.success("Location confirmed & updated!");
             setUseManualLink(false);
+            setShowLocationDialog(false);
+        } else if (detectedCoords) {
+            // Fallback if address fetch failed but coords exist
+            setFormData(prev => ({
+                ...prev,
+                latitude: detectedCoords.lat,
+                longitude: detectedCoords.lng
+            }));
+            setIsMapVerified(true);
             setShowLocationDialog(false);
         }
     };
@@ -291,8 +337,17 @@ export default function PostPropertyPage() {
 
     const validateStep = (currentStep: number) => {
         if (currentStep === 1) {
-            if (!formData.title || !formData.description || !formData.address || !formData.location) {
-                toast.error("Please fill in basic details");
+            if (!formData.title || !formData.state || !formData.city || !formData.address || !formData.pincode) {
+                toast.error("Please fill in basic details including Pincode");
+                return false;
+            }
+            if (formData.pincode.length !== 6) {
+                toast.error("Please enter a valid 6-digit Pincode");
+                return false;
+            }
+            // Mandatory Map Selection for 100% Location Accuracy
+            if (!isMapVerified && !formData.googleMapsLink) {
+                toast.error("Please select precise location on map / कृपया मैप पर अपनी सटीक लोकेशन चुनें");
                 return false;
             }
         }
@@ -389,8 +444,11 @@ export default function PostPropertyPage() {
         if (detectedCoords) {
             return `https://maps.google.com/maps?q=${detectedCoords.lat},${detectedCoords.lng}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
         }
-        if (formData.location && formData.address) {
-            const query = encodeURIComponent(`${formData.address}, ${formData.location}`);
+        const city = formData.city || formData.location;
+        if (formData.address && city) {
+            let queryStr = `${formData.address}, ${city}`;
+            if (formData.state) queryStr += `, ${formData.state}`;
+            const query = encodeURIComponent(queryStr);
             return `https://maps.google.com/maps?q=${query}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
         }
         return '';
@@ -491,22 +549,39 @@ export default function PostPropertyPage() {
                             <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-600">
                                 <MapPin className="w-6 h-6" />
                             </div>
-                            <h3 className="text-lg font-bold text-neutral-900 mb-2">Confirm Location</h3>
+                            <h3 className="text-lg font-bold text-neutral-900 mb-2">Location Detected</h3>
+
+                            <div className="bg-neutral-50 p-3 rounded-lg border border-neutral-100 mb-4 text-left">
+                                <p className="text-xs font-bold text-neutral-500 uppercase tracking-wider mb-1">Detailed Address</p>
+                                <p className="text-sm font-medium text-neutral-800 line-clamp-3">
+                                    {detectedAddress || "Fetching address details..."}
+                                </p>
+                            </div>
+
                             <p className="text-sm text-neutral-600 mb-6">
-                                Are you currently present at the exact property location?
+                                Is this correct? If not, you can set the correct location by dragging the pin on the map.
                             </p>
                             <div className="flex flex-col gap-3">
                                 <button
                                     onClick={confirmLocation}
-                                    className="w-full py-3 bg-neutral-900 text-white rounded-lg font-medium hover:bg-black transition-colors"
+                                    className="w-full py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors"
                                 >
-                                    Yes, I am at the property
+                                    Yes, Correct
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setShowLocationDialog(false);
+                                        setShowMapPicker(true);
+                                    }}
+                                    className="w-full py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                                >
+                                    Edit on Map
                                 </button>
                                 <button
                                     onClick={rejectLocation}
                                     className="w-full py-3 bg-white border border-neutral-200 text-neutral-700 rounded-lg font-medium hover:bg-neutral-50 transition-colors"
                                 >
-                                    No, I am somewhere else
+                                    No, Enter Manually
                                 </button>
                             </div>
                         </div>
@@ -533,43 +608,90 @@ export default function PostPropertyPage() {
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-neutral-700 mb-1">Property Type</label>
+                                    <label className="block text-sm font-medium text-neutral-700 mb-1">State</label>
                                     <select
-                                        name="type"
-                                        value={formData.type}
+                                        name="state"
+                                        value={formData.state}
                                         onChange={handleInputChange}
                                         className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black outline-none"
                                     >
-                                        <option value="PG">PG / Hostel</option>
-                                        <option value="Flat">Flat / Apartment</option>
-                                        <option value="Room">Private Room</option>
+                                        <option value="">Select State</option>
+                                        {INDIAN_STATES.map(state => (
+                                            <option key={state} value={state}>{state}</option>
+                                        ))}
                                     </select>
                                 </div>
-                                <div className="relative">
+                                {/* City & Suggestions */}
+                                <div>
                                     <label className="block text-sm font-medium text-neutral-700 mb-1">City</label>
                                     <input
                                         type="text"
-                                        value={citySearch}
-                                        onChange={(e) => {
-                                            setCitySearch(e.target.value);
-                                            setShowCityDropdown(true);
-                                        }}
-                                        placeholder="Search city..."
+                                        name="city"
+                                        value={formData.city}
+                                        onChange={handleInputChange}
+                                        list="city-suggestions"
+                                        placeholder="Enter city or select from list"
                                         className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black outline-none"
                                     />
-                                    {showCityDropdown && filteredCities.length > 0 && (
-                                        <div className="absolute z-10 w-full mt-1 bg-white border shadow-lg max-h-48 overflow-y-auto rounded-lg">
-                                            {filteredCities.map(city => (
-                                                <button
-                                                    key={city}
-                                                    onClick={() => handleCitySelect(city)}
-                                                    className="w-full text-left px-4 py-2 hover:bg-neutral-50 text-sm"
-                                                >
-                                                    {city}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    )}
+                                    <datalist id="city-suggestions">
+                                        {POPULAR_LOCATIONS.map((loc) => (
+                                            <option key={loc} value={loc} />
+                                        ))}
+                                    </datalist>
+                                </div>
+
+                                {/* Pincode - Mandatory for Map Precision */}
+                                <div>
+                                    <label className="block text-sm font-medium text-neutral-700 mb-1">Pincode *</label>
+                                    <input
+                                        type="text"
+                                        name="pincode"
+                                        value={formData.pincode}
+                                        onChange={handleInputChange}
+                                        maxLength={6}
+                                        placeholder="e.g. 458001"
+                                        className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black outline-none"
+                                    />
+                                    <p className="text-[10px] text-neutral-400 mt-1">Required for map location</p>
+                                </div>
+
+                                {/* Built-up Area */}
+                                <div>
+                                    <label className="block text-sm font-medium text-neutral-700 mb-1">Built-up Area (sq.ft)</label>
+                                    <input
+                                        type="number"
+                                        name="builtUpArea"
+                                        value={formData.builtUpArea}
+                                        onChange={handleInputChange}
+                                        placeholder="e.g. 1200"
+                                        className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black outline-none"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Floor Info */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-neutral-700 mb-1">Floor No.</label>
+                                    <input
+                                        type="number"
+                                        name="floorNumber"
+                                        value={formData.floorNumber}
+                                        onChange={handleInputChange}
+                                        placeholder="e.g. 2"
+                                        className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black outline-none"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-neutral-700 mb-1">Total Floors</label>
+                                    <input
+                                        type="number"
+                                        name="totalFloors"
+                                        value={formData.totalFloors}
+                                        onChange={handleInputChange}
+                                        placeholder="e.g. 5"
+                                        className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black outline-none"
+                                    />
                                 </div>
                             </div>
 
@@ -581,29 +703,40 @@ export default function PostPropertyPage() {
                                     name="address"
                                     value={formData.address}
                                     onChange={handleInputChange}
-                                    placeholder="e.g., Near Forum Mall, Koramangala"
+                                    placeholder="e.g., Near Forum Mall, Koramangala 6th Block"
                                     className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black outline-none bg-white mb-3"
                                 />
 
                                 <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between mb-4">
-                                    <button
-                                        onClick={handleDetectLocation}
-                                        disabled={isDetectingLocation}
-                                        type="button"
-                                        className="flex items-center gap-2 px-4 py-2 bg-black text-white rounded-lg text-sm font-medium hover:bg-neutral-800 transition-all shadow-sm disabled:opacity-70 disabled:cursor-not-allowed"
-                                    >
-                                        {isDetectingLocation ? (
-                                            <>
-                                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                                Detecting...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <MapPin className="w-4 h-4" />
-                                                Detect My Current Location
-                                            </>
-                                        )}
-                                    </button>
+                                    <div className="flex gap-2 w-full sm:w-auto">
+                                        <button
+                                            onClick={handleDetectLocation}
+                                            disabled={isDetectingLocation}
+                                            type="button"
+                                            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-black text-white rounded-lg text-sm font-medium hover:bg-neutral-800 transition-all shadow-sm disabled:opacity-70 disabled:cursor-not-allowed"
+                                        >
+                                            {isDetectingLocation ? (
+                                                <>
+                                                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                    Detecting...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Navigation className="w-4 h-4" />
+                                                    Current Location
+                                                </>
+                                            )}
+                                        </button>
+                                        <button
+                                            onClick={() => setShowMapPicker(true)}
+                                            type="button"
+                                            className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-white border border-neutral-300 text-neutral-700 rounded-lg text-sm font-medium hover:bg-neutral-50 transition-all shadow-sm"
+                                        >
+                                            <MapPin className="w-4 h-4" />
+                                            Pick on Map
+                                        </button>
+                                    </div>
+
                                     {detectedCoords && !useManualLink && (
                                         <div className="flex items-center gap-2 text-green-600 text-xs font-bold bg-green-50 px-3 py-1 rounded-full">
                                             <CheckCircle2 className="w-3 h-3" />
@@ -611,6 +744,49 @@ export default function PostPropertyPage() {
                                         </div>
                                     )}
                                 </div>
+
+                                {/* Map Picker Modal */}
+                                {showMapPicker && (
+                                    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
+                                        <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden relative">
+                                            <div className="p-4 border-b bg-neutral-50 flex justify-between items-center">
+                                                <h3 className="font-bold text-lg">Pick Precise Location / सटीक लोकेशन चुनें</h3>
+                                                <button onClick={() => setShowMapPicker(false)} className="text-neutral-500 hover:text-black text-2xl">&times;</button>
+                                            </div>
+                                            <div className="p-0">
+                                                <LocationPicker
+                                                    initialLat={detectedCoords?.lat || 24.07} // Default Mandsaur
+                                                    initialLng={detectedCoords?.lng || 75.07}
+                                                    initialQuery={formData.city ? `${formData.city}, ${formData.pincode ? formData.pincode + ',' : ''} ${formData.state || ''}` : undefined}
+                                                    selectedCity={formData.city}
+                                                    selectedState={formData.state} // Added for cascading search
+                                                    onLocationSelect={(data) => {
+                                                        setFormData(prev => ({
+                                                            ...prev,
+                                                            latitude: data.lat,
+                                                            longitude: data.lng,
+                                                            address: data.address || prev.address,
+                                                            city: data.city || prev.city,
+                                                            state: data.state || prev.state,
+                                                            locality: data.locality || prev.locality
+                                                        }));
+                                                        setDetectedCoords({ lat: data.lat, lng: data.lng });
+                                                        setIsMapVerified(true); // Mark as verified
+                                                        setUseManualLink(false);
+                                                        // LocationPicker calls onClose internally for Confirm, we handle state updates here
+                                                    }}
+                                                    onClose={() => setShowMapPicker(false)}
+                                                />
+                                            </div>
+                                            <div className="p-3 bg-blue-50 border-t text-center">
+                                                <p className="text-xs text-blue-800 font-medium leading-relaxed">
+                                                    We have set the map according to the city you selected. Now please place the pin on your exact building. <br />
+                                                    Map has been centered based on your city. Now please drag the pin to your exact building.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
 
                                 {/* Manual Link Option */}
                                 {useManualLink && (
@@ -634,20 +810,57 @@ export default function PostPropertyPage() {
                                     </div>
                                 )}
 
-                                {/* Mini Map Widget */}
-                                {(detectedCoords || (formData.address && formData.location)) && getMapSrc() !== '' && (
-                                    <div className="mt-4 h-32 w-full bg-neutral-200 rounded-lg overflow-hidden border border-neutral-300 relative">
-                                        <iframe
-                                            width="100%"
-                                            height="100%"
-                                            src={getMapSrc()}
-                                            style={{ border: 0 }}
-                                            loading="lazy"
-                                            className="opacity-75 hover:opacity-100 transition-opacity"
-                                        />
-                                        <div className="absolute top-2 right-2 bg-white/90 backdrop-blur px-2 py-1 rounded text-[10px] font-bold shadow-sm pointer-events-none">
-                                            Preview
-                                        </div>
+                                {/* Map Verification & Display */}
+                                {(detectedCoords || (formData.address && (formData.city || formData.location))) && getMapSrc() !== '' && (
+                                    <div className="mt-4 animate-in fade-in duration-500">
+                                        {/* Verification Question */}
+                                        {isMapVerified === null && (
+                                            <div className="mb-3 p-3 bg-blue-50 border border-blue-100 rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                                                <div className="text-sm text-blue-800 font-medium">
+                                                    Is the location shown on the map correct?
+                                                </div>
+                                                <div className="flex gap-2 shrink-0">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setIsMapVerified(true)}
+                                                        className="px-3 py-1 bg-blue-600 text-white text-xs font-bold rounded hover:bg-blue-700 transition-colors"
+                                                    >
+                                                        Yes, it's correct
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setIsMapVerified(false)}
+                                                        className="px-3 py-1 bg-white border border-blue-200 text-blue-600 text-xs font-bold rounded hover:bg-blue-50 transition-colors"
+                                                    >
+                                                        No, hide map
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Map View (Only if not explicitly rejected) */}
+                                        {isMapVerified !== false && (
+                                            <div className="h-32 w-full bg-neutral-200 rounded-lg overflow-hidden border border-neutral-300 relative">
+                                                <iframe
+                                                    width="100%"
+                                                    height="100%"
+                                                    src={getMapSrc()}
+                                                    style={{ border: 0 }}
+                                                    loading="lazy"
+                                                    className="opacity-75 hover:opacity-100 transition-opacity"
+                                                />
+                                                <div className="absolute top-2 right-2 bg-white/90 backdrop-blur px-2 py-1 rounded text-[10px] font-bold shadow-sm pointer-events-none">
+                                                    Preview
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Manual Entry Fallback Message */}
+                                        {isMapVerified === false && (
+                                            <div className="p-3 bg-neutral-50 border border-neutral-200 rounded-lg text-xs text-neutral-500 italic text-center">
+                                                Map hidden. Please ensure Address, City, and State fields are accurate.
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -685,6 +898,25 @@ export default function PostPropertyPage() {
                                                 }`}
                                         >
                                             {pref}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Furnishing Status */}
+                            <div>
+                                <label className="block text-sm font-medium text-neutral-700 mb-3">Furnishing Status</label>
+                                <div className="flex flex-wrap gap-3">
+                                    {['Fully Furnished', 'Semi-Furnished', 'Unfurnished'].map(status => (
+                                        <button
+                                            key={status}
+                                            onClick={() => setFormData(prev => ({ ...prev, furnishingStatus: status }))}
+                                            className={`px-4 py-2 rounded-full border transition-all ${formData.furnishingStatus === status
+                                                ? 'bg-black text-white border-black'
+                                                : 'bg-white text-neutral-600 border-neutral-200 hover:border-neutral-400'
+                                                }`}
+                                        >
+                                            {status}
                                         </button>
                                     ))}
                                 </div>

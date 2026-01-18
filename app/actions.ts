@@ -325,16 +325,23 @@ export async function deleteAdAction(adminUserId: string) {
 
 // Ad Actions
 export async function getAdSettingsAction() {
-    const supabase = await getSupabaseClient(); // Public read access
-    const { data, error } = await supabase.from('ads').select('*').limit(1).single();
-    if (error) {
-        if (error.code === 'PGRST116') {
-            return { success: true, data: null };
+    try {
+        const supabase = await getSupabaseClient(); // Public read access
+        const { data, error } = await supabase.from('ads').select('*').limit(1).single();
+
+        if (error) {
+            if (error.code === 'PGRST116') {
+                return { success: true, data: null };
+            }
+            console.error('Error fetching ad settings:', JSON.stringify(error, null, 2));
+            return { success: false, error: error.message };
         }
-        console.error('Error fetching ad settings:', JSON.stringify(error, null, 2));
-        return { success: false, error: error.message };
+        return { success: true, data };
+    } catch (error: any) {
+        // Handle fetch/network errors (ECONNRESET etc)
+        console.error('Exception in getAdSettingsAction:', error);
+        return { success: false, error: error.message || 'Network error' };
     }
-    return { success: true, data };
 }
 
 export async function updateAdSettingsAction(adData: { media_url: string; media_type: 'image' | 'video'; cta_text: string; cta_link: string; is_active: boolean }, adminUserId: string) {
@@ -362,4 +369,128 @@ export async function updateAdSettingsAction(adData: { media_url: string; media_
     }
 
     return { success: true };
+}
+
+export async function submitInquiryAction(data: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    subject: string;
+    message: string;
+    phoneNumber?: string;
+    propertyId?: string;
+}) {
+    try {
+        const supabase = await getSupabaseClient();
+
+        const { error } = await supabase.from('inquiries').insert({
+            first_name: data.firstName,
+            last_name: data.lastName,
+            email: data.email,
+            subject: data.subject,
+            message: data.message,
+            phone_number: data.phoneNumber,
+            property_id: data.propertyId
+        });
+
+        if (error) {
+            console.error('Error inserting inquiry:', error);
+            return { success: false, error: error.message };
+        }
+
+        return { success: true };
+    } catch (error: any) {
+        console.error('Error in submitInquiryAction:', error);
+        return { success: false, error: error.message || 'Unknown error' };
+    }
+}
+
+export async function updateLeadStatusAction(leadId: string, status: string) {
+    try {
+        const supabase = await getSupabaseClient();
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (!user) return { success: false, error: 'Unauthorized' };
+
+        const { error } = await supabase
+            .from('leads_activity')
+            .update({ status })
+            .eq('id', leadId);
+
+        if (error) throw error;
+        return { success: true };
+    } catch (error: any) {
+        console.error('Error updating lead status:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+export async function trackLeadActivity(data: { propertyId: string, actionType: 'whatsapp' | 'contact', ownerId?: string | null }) {
+    console.log(`[TrackLead] Starting for property ${data.propertyId} action ${data.actionType} owner ${data.ownerId}`);
+    const supabase = await getSupabaseClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        console.error('[TrackLead] No user found');
+        return { success: false, error: 'Not authenticated' };
+    }
+
+    try {
+        const payload: any = {
+            property_id: data.propertyId,
+            user_id: user.id,
+            action_type: data.actionType,
+            status: 'new'
+        };
+
+        // Only add owner_id if it's a valid UUID
+        if (data.ownerId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.ownerId)) {
+            payload.owner_id = data.ownerId;
+        } else if (data.ownerId) {
+            console.warn(`[TrackLead] Invalid owner UUID disregarded: ${data.ownerId}`);
+        }
+
+        console.log('[TrackLead] Inserting payload:', payload);
+
+        const { data: result, error } = await supabase
+            .from('leads_activity')
+            .insert(payload)
+            .select();
+
+        if (error) {
+            console.error('[TrackLead] Insert Error:', error);
+            throw error;
+        }
+
+        console.log('[TrackLead] Insert Success:', result);
+        return { success: true };
+    } catch (error) {
+        console.error('[TrackLead] Exception:', error);
+        return { success: false, error: 'Failed to record activity' };
+    }
+}
+
+export async function trackPropertyView(propertyId: string) {
+    const supabase = await getSupabaseClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return;
+
+    try {
+        console.log(`[TrackView] Recording view for user ${user.id} property ${propertyId}`);
+        const { error } = await supabase
+            .from('property_views')
+            .insert({
+                property_id: propertyId,
+                user_id: user.id
+            });
+
+        if (error) {
+            console.error('[TrackView] Error:', error);
+        } else {
+            console.log('[TrackView] Success');
+        }
+    } catch (err) {
+        console.error('[TrackView] Exception:', err);
+    }
 }

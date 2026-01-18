@@ -10,7 +10,7 @@ interface ProductListProps {
 }
 
 export default async function ProductList({ collection, searchParams }: ProductListProps) {
-  const query = typeof searchParams?.q === 'string' ? searchParams.q : (typeof searchParams?.search === 'string' ? searchParams.search : undefined);
+  const query = typeof searchParams?.query === 'string' ? searchParams.query : (typeof searchParams?.q === 'string' ? searchParams.q : (typeof searchParams?.search === 'string' ? searchParams.search : undefined));
   const sort = typeof searchParams?.sort === 'string' ? searchParams.sort : undefined;
   const minPrice = typeof searchParams?.minPrice === 'string' ? searchParams.minPrice : undefined;
   const maxPrice = typeof searchParams?.maxPrice === 'string' ? searchParams.maxPrice : undefined;

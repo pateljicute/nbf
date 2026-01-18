@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { trackLead } from '@/lib/api';
+import { trackLeadActivity } from '@/app/actions';
 import { Product } from '@/lib/types';
 import { useAuth } from '@/lib/auth-context';
 import { useState } from 'react';
@@ -9,6 +9,7 @@ import { LoginModal } from '@/components/auth/login-modal';
 import { ContactOptionsModal } from './contact-options-modal';
 import { FraudWarningModal } from './fraud-warning-modal';
 import { MessageCircle } from 'lucide-react';
+import { toast } from 'sonner';
 
 export function ContactOwner({ product, className }: { product: Product; className?: string }) {
   const { user } = useAuth();
@@ -17,7 +18,7 @@ export function ContactOwner({ product, className }: { product: Product; classNa
   const [showContactModal, setShowContactModal] = useState(false);
   const [intendedAction, setIntendedAction] = useState<'contact' | 'whatsapp' | null>(null);
 
-  const handleContact = () => {
+  const handleContactClick = () => {
     if (!user) {
       setShowLoginModal(true);
       return;
@@ -26,7 +27,7 @@ export function ContactOwner({ product, className }: { product: Product; classNa
     setShowFraudModal(true);
   };
 
-  const handleWhatsApp = () => {
+  const handleWhatsAppClick = () => {
     if (!user) {
       setShowLoginModal(true);
       return;
@@ -35,14 +36,28 @@ export function ContactOwner({ product, className }: { product: Product; classNa
     setShowFraudModal(true);
   };
 
-  const openWhatsApp = () => {
+  const executeWhatsAppAction = async () => {
+    // 1. Track Lead
+    if (user) {
+      console.log('[ContactOwner] Tracking WhatsApp:', {
+        propertyId: product.id,
+        ownerId: product.userId,
+        userId: user.id
+      });
+      await trackLeadActivity({
+        propertyId: product.id,
+        actionType: 'whatsapp',
+        ownerId: product.userId || null
+      });
+    }
+
+    // 2. Open WhatsApp
     const contactNumber = product.contactNumber || '';
     if (!contactNumber) {
-      alert("Contact number not available");
+      toast.error("Contact number not available");
       return;
     }
 
-    // Construct rich message
     const currentUrl = window.location.href;
     const city = product.tags?.[1] || 'Unknown City';
     const rent = (product.price || product.priceRange?.minVariantPrice?.amount)
@@ -62,42 +77,60 @@ Can I visit it tomorrow?`;
     window.open(`https://wa.me/${cleanNumber}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
-  return (
-    <div className={`fixed bottom-0 left-0 right-0 z-50 p-4 bg-white border-t border-neutral-100 flex gap-4 md:static md:p-0 md:bg-transparent md:border-none md:gap-2 ${className}`}>
-      <div className="flex gap-4 w-full md:gap-2">
-        {/* Contact Owner Button */}
-        <Button
-          className="flex-1 bg-neutral-900 hover:bg-neutral-800 text-white font-bold uppercase tracking-widest text-[10px] sm:text-xs h-12 md:h-auto rounded-lg shadow-md"
-          onClick={handleContact}
-        >
-          Contact
-        </Button>
+  const executeContactAction = async () => {
+    // 1. Track Lead
+    if (user) {
+      await trackLeadActivity({
+        propertyId: product.id,
+        actionType: 'contact',
+        ownerId: product.userId || null
+      });
+    }
 
-        {/* WhatsApp Button */}
-        <Button
-          className="flex-1 bg-[#25D366] hover:bg-[#128C7E] text-white font-bold uppercase tracking-widest text-[10px] sm:text-xs h-12 md:h-auto rounded-lg shadow-md"
-          onClick={handleWhatsApp}
-        >
-          <MessageCircle className="w-4 h-4 mr-2" />
-          WhatsApp
-        </Button>
-      </div>
+    // 2. Show Options or Redirect
+    // If we want to scroll to form:
+    const contactSection = document.getElementById('contact-form-section');
+    if (contactSection) {
+      contactSection.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      setShowContactModal(true);
+    }
+  };
+
+  return (
+    <div className={`flex gap-3 w-full ${className}`}>
+      {/* Contact Owner Button */}
+      <Button
+        className="flex-1 bg-neutral-900 hover:bg-neutral-800 text-white font-bold uppercase tracking-widest text-xs h-12 rounded-xl shadow-md"
+        onClick={handleContactClick}
+      >
+        Contact
+      </Button>
+
+      {/* WhatsApp Button */}
+      <Button
+        className="flex-1 bg-[#25D366] hover:bg-[#128C7E] text-white font-bold uppercase tracking-widest text-xs h-12 rounded-xl shadow-md"
+        onClick={handleWhatsAppClick}
+      >
+        <MessageCircle className="w-5 h-5 mr-2" />
+        WhatsApp
+      </Button>
 
       <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} />
+
       <FraudWarningModal
         isOpen={showFraudModal}
         onClose={() => setShowFraudModal(false)}
         onConfirm={() => {
           setShowFraudModal(false);
           if (intendedAction === 'whatsapp') {
-            trackLead(product.id, 'whatsapp');
-            openWhatsApp();
+            executeWhatsAppAction();
           } else {
-            trackLead(product.id, 'contact');
-            setShowContactModal(true);
+            executeContactAction();
           }
         }}
       />
+
       <ContactOptionsModal
         isOpen={showContactModal}
         onClose={() => setShowContactModal(false)}

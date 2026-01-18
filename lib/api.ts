@@ -233,9 +233,100 @@ export async function getProducts(params?: {
     dbQuery = dbQuery.eq('available_for_sale', true).eq('status', 'approved');
 
     // Apply Filters (Logic mirrored from app/api/products/route.ts)
+    // Apply Filters (Logic mirrored from app/api/products/route.ts)
     if (params?.query && validateInput(params.query, 'string')) {
+      const safeQuery = sanitizeInput(params.query).replace(/[,()]/g, ' ').trim();
+
+      // STRATEGY: Priority Search
+      // 1. Explicit Column Match (City/State/Locality) - STRICT
+      // 2. Geocoding + Radius (Spatial) - PROXIMITY
+      // 3. Text Search (Title/Desc) - FALLBACK
+
+      // --- Priority 1: Explicit Column Match ---
+      // Check if the query matches a location field directly.
+      const { data: strictData, error: strictError } = await supabase
+        .from("properties")
+        .select('id,handle,title,description,price_range,featured_image,tags,available_for_sale,category_id,"contactNumber",user_id,"bathroomType","securityDeposit","electricityStatus","tenantPreference",latitude,longitude,"googleMapsLink",is_verified,status,view_count,created_at,"price","location","address","type",state,city,locality')
+        .eq('available_for_sale', true)
+        .eq('status', 'approved')
+        .or(`city.ilike.%${safeQuery}%,locality.ilike.%${safeQuery}%,state.ilike.%${safeQuery}%`)
+        .limit(50); // Safe limit
+
+      if (!strictError && strictData && strictData.length > 0) {
+        console.log(`Server getProducts: STRICT COLUMN MATCH found ${strictData.length} for '${safeQuery}'`);
+        let results = strictData.map(mapPropertyToProduct);
+
+        // Apply In-Memory Price Filter
+        if (params?.minPrice) {
+          const min = parseFloat(params.minPrice);
+          results = results.filter(p => {
+            const priceVal = p.price?.toString() || p.priceRange?.minVariantPrice?.amount || '0';
+            return parseFloat(priceVal) >= min;
+          });
+        }
+        if (params?.maxPrice) {
+          const max = parseFloat(params.maxPrice);
+          results = results.filter(p => {
+            const priceVal = p.price?.toString() || p.priceRange?.minVariantPrice?.amount || '0';
+            return parseFloat(priceVal) <= max;
+          });
+        }
+        return results;
+      }
+
+      // --- Priority 2: Strict Geocoding + Radius Search ---
+      try {
+        const geoUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(safeQuery)}&limit=1`;
+        const geoRes = await fetch(geoUrl, {
+          headers: { 'User-Agent': 'NBFHomes-ServerSide' },
+          cache: 'no-store' // Ensure fresh results
+        });
+
+        if (geoRes.ok) {
+          const geoData = await geoRes.json();
+          if (geoData && geoData.length > 0) {
+            const { lat, lon } = geoData[0];
+            // STRICT: Found a place, so we ONLY look nearby (20km).
+            const { data: nearby, error: rpcError } = await supabase.rpc('get_nearby_properties', {
+              user_lat: parseFloat(lat),
+              user_lng: parseFloat(lon),
+              radius_meters: 20000 // 20km Radius
+            });
+
+            if (!rpcError && nearby) {
+              let results = (nearby as any[]).map(mapPropertyToProduct);
+
+              // Apply In-Memory Price Filter
+              if (params?.minPrice) {
+                const min = parseFloat(params.minPrice);
+                results = results.filter(p => {
+                  const priceVal = p.price?.toString() || p.priceRange?.minVariantPrice?.amount || '0';
+                  return parseFloat(priceVal) >= min;
+                });
+              }
+              if (params?.maxPrice) {
+                const max = parseFloat(params.maxPrice);
+                results = results.filter(p => {
+                  const priceVal = p.price?.toString() || p.priceRange?.minVariantPrice?.amount || '0';
+                  return parseFloat(priceVal) <= max;
+                });
+              }
+
+              console.log(`Server getProducts: Strict Geocode found ${results.length} results for ${safeQuery}`);
+              return results;
+            } else {
+              // Place found but no data -> Strict Empty Return
+              return [];
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Server getProducts geocode fail:', e);
+      }
+
+      // --- Priority 3: Fallback Text Search ---
       // Smart Filtering: Split query into words and search each word independently
-      // This creates an implicit "AND" between words (e.g. "Red House" -> must have "Red" AND "House" in any column)
+      // Only runs if Priority 1 and 2 yielded nothing/failed.
       const excludeStopWords = (word: string) => word.length > 0;
       const searchTerms = params.query.trim().split(/\s+/).filter(excludeStopWords);
 
@@ -605,7 +696,14 @@ export async function updateProduct(id: string, data: any, token?: string): Prom
       "googleMapsLink": data.googleMapsLink,
       amenities: data.amenities,
       featured_image: data.images?.[0] ? { url: data.images[0], altText: data.title } : null,
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
+      state: data.state,
+      city: data.city,
+      locality: data.locality,
+      built_up_area: data.builtUpArea,
+      furnishing_status: data.furnishingStatus,
+      floor_number: data.floorNumber,
+      total_floors: data.totalFloors
     };
 
     // 3. Update directly in Supabase (bypassing CSRF/API)
@@ -919,7 +1017,7 @@ export async function getAdminUsers(page: number = 1, limit: number = 10, search
 
       return {
         userId: profile.id,
-        name: profile.full_name || profile.name || profile.email?.split('@')[0] || 'N/A',
+        name: profile.first_name ? `${profile.first_name} ${profile.last_name || ''}`.trim() : (profile.full_name || profile.name || profile.email?.split('@')[0] || 'N/A'),
         email: profile.email || 'N/A',
         contactNumber: profile.contact_number || profile.phone_number || 'N/A',
         role: profile.role || 'user',
@@ -1009,5 +1107,265 @@ export async function incrementLeadsCount(id: string): Promise<void> {
     }
   } catch (error) {
     console.error('Error incrementing leads count:', error);
+  }
+}
+
+export async function getInquiries(page: number = 1, limit: number = 10): Promise<{ inquiries: any[]; total: number }> {
+  try {
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+
+    const { data, count, error } = await supabase
+      .from('inquiries')
+      .select('*', { count: 'exact' })
+      .range(from, to)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    return {
+      inquiries: data || [],
+      total: count || 0
+    };
+  } catch (error) {
+    console.error('Error fetching inquiries:', error);
+    return { inquiries: [], total: 0 };
+  }
+}
+
+export async function getAllInquiries() {
+
+  const { data, error } = await supabase
+    .from('inquiries')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching all inquiries:', error);
+    return [];
+  }
+  return data || [];
+}
+
+export async function getUnreadInquiriesCount() {
+
+  const { count, error } = await supabase
+    .from('inquiries')
+    .select('*', { count: 'exact', head: true })
+    .eq('status', 'unread');
+
+  if (error) {
+    console.error('Error fetching unread count:', error);
+    return 0;
+  }
+
+  return count || 0;
+}
+
+// Leads Activity API
+export async function getAdminLeads() {
+
+
+  // Fetch all leads with user details and property details
+  // Note: We'll do a join or separate fetches depending on complexity. 
+  // Supabase can do joins if foreign keys are set up.
+  // 'user_id' links to 'auth.users' (or public.users if synced).
+  // 'property_id' is text, so we might need manual mapping if no FK. 
+  // Assuming 'leads_activity' has 'user_id' and 'property_id'.
+
+  // Let's verify if we can fetch everything in one go.
+  // If we can't join property easily (text id), we fetch leads and separate properties.
+
+  const { data: leads, error } = await supabase
+    .from('leads_activity')
+    .select(`
+            id,
+            created_at,
+            action_type,
+            property_id,
+            user_id
+        `)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching leads:', error);
+    return [];
+  }
+
+  // Enhance leads with Property and User info
+  // Fetch unique property IDs
+  const propertyIds = Array.from(new Set(leads.map(l => l.property_id).filter(Boolean)));
+  // Fetch unique user IDs (Strict UUID Only)
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const userIds = Array.from(new Set(leads.map(l => l.user_id).filter((id) => id && uuidRegex.test(id))));
+
+  // Fetch Properties
+  let properties: any[] = [];
+  if (propertyIds.length > 0) {
+    const { data: props } = await supabase
+      .from('properties')
+      .select('id, title, location, price, images')
+      .in('id', propertyIds);
+    properties = props || [];
+  }
+
+  // Fetch Users
+  let users: any[] = [];
+  if (userIds.length > 0) {
+    const { data: fetchedUsers, error: usersError } = await supabase
+      .from('users')
+      .select('*')
+      .in('id', userIds);
+
+    if (usersError) {
+      console.error('[getAdminLeads] User Fetch Error:', JSON.stringify(usersError, null, 2));
+    } else {
+      users = fetchedUsers || [];
+    }
+  }
+
+  console.log('[getAdminLeads] Leads found:', leads?.length);
+  console.log('[getAdminLeads] UserIDs to fetch:', userIds.length, userIds);
+  console.log('[getAdminLeads] Users fetched:', users?.length, maxLog(users));
+
+  function maxLog(arr: any[]) {
+    if (!arr) return 'null';
+    return arr.length > 3 ? arr.slice(0, 3).concat(['...']) : arr;
+  }
+
+  // Combine Data
+  const enrichedLeads = leads.map(lead => {
+    const property = properties?.find(p => p.id === lead.property_id);
+    const user = users?.find(u => u.id === lead.user_id);
+
+    // Robust Name Resolution
+    const userName = user
+      ? (user.first_name ? `${user.first_name} ${user.last_name || ''}`
+        : (user.full_name || user.name || user.email?.split('@')[0] || 'User'))
+      : 'Unknown User';
+
+    return {
+      ...lead,
+      property_title: property?.title || 'Unknown Property',
+      property_location: property?.location || '',
+      user_name: userName.trim(),
+      user_email: user?.email || '',
+      user_phone: user?.phone_number || user?.contact_number || ''
+    };
+  });
+
+  return enrichedLeads;
+}
+
+export async function deleteLeadActivity(leadId: string) {
+
+  const { error } = await supabase
+    .from('leads_activity')
+    .delete()
+    .eq('id', leadId);
+
+  if (error) {
+    console.error('Error deleting lead:', error);
+    return { success: false, error: error.message };
+  }
+  return { success: true };
+}
+
+export async function getUserDetailsForAdmin(userId: string) {
+  try {
+    // 1. Fetch User Profile (from public.users)
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (userError) throw userError;
+
+    // 2. Fetch Leads (Activity)
+    const { data: leads, error: leadsError } = await supabase
+      .from('leads_activity')
+      .select('*, property:property_id(title, location, images)') // Assuming simple join works if FK starts working, else manual fetch
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    // 3. Fetch Views
+    const { data: views, error: viewsError } = await supabase
+      .from('property_views')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    // 4. Fetch Inquiries
+    const { data: inquiries, error: inqError } = await supabase
+      .from('inquiries')
+      .select('*')
+      .eq('email', user.email)
+      .order('created_at', { ascending: false });
+
+    if (inqError) {
+      console.error('Error fetching user inquiries:', inqError);
+    } else {
+      console.log(`Fetched ${inquiries?.length} inquiries for ${user.email}`);
+    }
+
+    // Manual fetch for properties if needed (for leads and views)
+    const propertyIds = new Set([
+      ...(leads || []).map((l: any) => l.property_id),
+      ...(views || []).map((v: any) => v.property_id)
+    ]);
+
+    // Only fetch unique properties if we have any
+    let properties: any[] = [];
+    let owners: any[] = [];
+
+    if (propertyIds.size > 0) {
+      const { data: props } = await supabase
+        .from('properties')
+        .select('id, title, location, price, images, user_id')
+        .in('id', Array.from(propertyIds));
+      properties = props || [];
+
+      // Fetch Owners
+      const ownerIds = new Set(properties.map((p: any) => p.user_id).filter(Boolean));
+      if (ownerIds.size > 0) {
+        const { data: ownersData } = await supabase
+          .from('users')
+          .select('*')
+          .in('id', Array.from(ownerIds));
+        owners = ownersData || [];
+      }
+    }
+
+    console.log(`[getUserDetailsForAdmin] Fetched for ${userId}: ${leads?.length} leads, ${views?.length} views.`);
+
+    // Map properties back to items
+    const enrichWithPropertyAndOwner = (item: any) => {
+      const prop = properties?.find((p: any) => p.id === item.property_id);
+      if (!prop) return { ...item, property: { title: 'Unknown', location: '' } };
+
+      const owner = owners?.find((o: any) => o.id === prop.user_id);
+      return {
+        ...item,
+        property: {
+          ...prop,
+          owner: owner || { first_name: 'Unknown', last_name: 'Owner', email: 'N/A' }
+        }
+      };
+    };
+
+    const enrichedLeads = (leads || []).map(enrichWithPropertyAndOwner);
+    const enrichedViews = (views || []).map(enrichWithPropertyAndOwner);
+
+    return {
+      user,
+      leads: enrichedLeads,
+      views: enrichedViews,
+      inquiries: inquiries || []
+    };
+
+  } catch (error: any) {
+    console.error('Error fetching user details:', error);
+    return null;
   }
 }

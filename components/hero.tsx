@@ -2,9 +2,10 @@
 
 import dynamic from 'next/dynamic';
 import Image from 'next/image';
-import cloudinaryLoader from '@/lib/cloudinary-loader';
+// import cloudinaryLoader from '@/lib/cloudinary-loader';
+import heroBg from '@/public/hero-new.jpg'; // If using static import, or just string path
 
-const HERO_SRC = 'https://res.cloudinary.com/dla8a0y7n/image/upload/v1764658021/hero-background_jdgiur.jpg';
+const HERO_SRC = '/hero-new.jpg';
 
 const HeroSearch = dynamic(() => import('./hero-search').then(m => m.HeroSearch), {
     ssr: false,
@@ -23,7 +24,6 @@ export function Hero({ onSearch }: HeroProps) {
         <div suppressHydrationWarning className="relative min-h-[50vh] h-auto pb-10 md:min-h-[80vh] w-full overflow-hidden group">
             <div className="absolute inset-0 size-full block">
                 <Image
-                    loader={cloudinaryLoader}
                     src={HERO_SRC}
                     alt="Hero Background"
                     fill
@@ -32,9 +32,9 @@ export function Hero({ onSearch }: HeroProps) {
                     className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 pointer-events-none"
                     suppressHydrationWarning
                 />
-                {/* Darker overlay */}
-                <div className="absolute inset-0 bg-black/40 pointer-events-none" suppressHydrationWarning />
-                <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/60 pointer-events-none" suppressHydrationWarning />
+                {/* Darker overlay - Reduced opacity to ensure image visibility */}
+                <div className="absolute inset-0 bg-black/30 pointer-events-none" suppressHydrationWarning />
+                <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/50 pointer-events-none" suppressHydrationWarning />
             </div>
 
             {/* Centered Content Container */}
@@ -59,7 +59,7 @@ export function Hero({ onSearch }: HeroProps) {
 
                     {/* Functional Search Bar */}
                     <div className="w-[92%] md:w-full flex justify-center mt-8 md:mt-10">
-                        <HeroSearch onSearch={onSearch} />
+                        <HeroSearch />
                     </div>
                 </div>
             </div>

@@ -71,9 +71,15 @@ export function OnboardingModal({ isOpen, onClose, onComplete }: OnboardingModal
         }
     };
 
+    // Validation for Submit Button
+    const isValid =
+        contactNumber?.length >= 10 &&
+        !!profession &&
+        (profession !== 'Other' || (otherDescription?.trim().length > 0 && otherDescription.trim().length <= 15));
+
     return (
-        <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="sm:max-w-md bg-white text-neutral-900 border-neutral-200" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
+        <Dialog open={isOpen} onOpenChange={() => { }}>
+            <DialogContent showCloseButton={false} className="sm:max-w-md bg-white text-neutral-900 border-neutral-200" onPointerDownOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
                 <DialogHeader>
                     <DialogTitle>Complete Your Profile</DialogTitle>
                     <DialogDescription>
@@ -83,7 +89,7 @@ export function OnboardingModal({ isOpen, onClose, onComplete }: OnboardingModal
 
                 <div className="space-y-4 py-4">
                     <div className="space-y-2">
-                        <Label>Phone Number</Label>
+                        <Label>Phone Number (Mandatory)</Label>
                         <Input
                             type="tel"
                             placeholder="Enter your mobile number"
@@ -127,7 +133,7 @@ export function OnboardingModal({ isOpen, onClose, onComplete }: OnboardingModal
                     )}
 
                     <div className="flex justify-end pt-2">
-                        <Button onClick={handleSubmit} disabled={loading} className="w-full sm:w-auto">
+                        <Button onClick={handleSubmit} disabled={loading || !isValid} className="w-full sm:w-auto">
                             {loading ? 'Saving...' : 'Save & Continue'}
                         </Button>
                     </div>

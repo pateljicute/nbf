@@ -9,80 +9,7 @@ const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_RE
     })
     : null;
 
-// --- Types (Mirroring Frontend Types) ---
-export interface Money {
-    amount: string;
-    currencyCode: string;
-}
-
-export interface Image {
-    url: string;
-    altText: string;
-    width?: number;
-    height?: number;
-}
-
-export interface Product {
-    id: string;
-    handle: string;
-    title: string;
-    description: string;
-    priceRange: {
-        minVariantPrice: Money;
-        maxVariantPrice: Money;
-    };
-    currencyCode: string;
-    seo: {
-        title: string;
-        description: string;
-    };
-    featuredImage: Image;
-    images: Image[];
-    options: { id: string; name: string; values: string[] }[];
-    variants: {
-        id: string;
-        title: string;
-        price: Money;
-        availableForSale: boolean;
-        selectedOptions: { name: string; value: string }[];
-    }[];
-    tags: string[];
-    availableForSale: boolean;
-    userId?: string; // Added userId
-    contactNumber?: string;
-    categoryId?: string;
-    ownerName?: string;
-    amenities?: string[];
-    bathroom_type?: string;
-    securityDeposit?: string;
-    electricityStatus?: string;
-    tenantPreference?: string;
-    latitude?: number;
-    longitude?: number;
-    googleMapsLink?: string;
-    leadsCount?: number;
-    is_verified?: boolean;
-    status?: 'pending' | 'approved' | 'rejected' | 'sold' | 'inactive';
-    viewCount?: number;
-    createdAt?: string;
-    price?: string;
-    location?: string;
-    address?: string;
-    type?: string;
-}
-
-export interface Collection {
-    id: string;
-    handle: string;
-    title: string;
-    description: string;
-    path: string;
-    updatedAt: string;
-    seo: {
-        title: string;
-        description: string;
-    };
-}
+import { Product, Collection, Money, Image } from './types';
 
 // --- Helper to Normalize Price Range ---
 export const normalizePriceRange = (prop: any) => {
@@ -153,7 +80,14 @@ export const mapPropertyToProduct = (prop: any): Product => {
         price: prop.price,
         location: prop.location,
         address: prop.address,
-        type: prop.type
+        type: prop.type,
+        state: prop.state,
+        city: prop.city,
+        locality: prop.locality,
+        builtUpArea: prop.built_up_area,
+        furnishingStatus: prop.furnishing_status,
+        floorNumber: prop.floor_number,
+        totalFloors: prop.total_floors
     };
 };
 

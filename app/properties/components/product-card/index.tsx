@@ -63,24 +63,22 @@ export const ProductCard = ({ product, className }: { product: Product; classNam
         <div className="flex flex-col p-3 md:p-4 gap-2 md:gap-3">
           <div className="space-y-0.5 md:space-y-1">
             <Link href={`/product/${product.handle}`} className="block" onClick={handleProductClick}>
-              <h3 className="font-serif text-base md:text-lg font-bold text-neutral-900 line-clamp-1 group-hover:text-black transition-colors">
+              <h3 className="font-serif text-base md:text-lg font-medium text-neutral-900 line-clamp-1 group-hover:text-black transition-colors">
                 {product.title}
               </h3>
             </Link>
 
             {/* Improved Location UI */}
-            <div className="flex items-center gap-1 text-neutral-600 mt-1">
-              <MapPin className="size-3.5 md:size-4 shrink-0" />
+            <div className="flex items-center gap-1 text-black mt-1 font-bold">
+              <MapPin className="size-3.5 md:size-4 shrink-0 stroke-[2.5]" />
               <p className="text-xs md:text-sm line-clamp-1">
                 {(() => {
-                  // Cleaning logic for Area Name
                   let cleanAddress = address || '';
 
-                  // 1. Remove specific house/flat prefixes to get to "Area"
-                  // Matches: "House No. 123,", "Flat 4B, ", "#22 "
+                  // 1. Remove house/flat prefixes
                   cleanAddress = cleanAddress.replace(/^(?:House|Flat|Shop|Plot|Room)?\s*(?:No\.?|Number)?\s*[\d\w\/-]+\s*,?\s*/i, '');
 
-                  // 2. Remove City from address if present (to avoid duplication like "Patel Nagar, Mandsaur, Mandsaur")
+                  // 2. Remove City from address if present
                   if (city && cleanAddress.toLowerCase().includes(city.toLowerCase())) {
                     cleanAddress = cleanAddress.replace(new RegExp(city, 'gi'), '').replace(/,\s*$/, '').trim();
                   }
@@ -88,13 +86,15 @@ export const ProductCard = ({ product, className }: { product: Product; classNam
                   // 3. Clean leading/trailing commas
                   cleanAddress = cleanAddress.replace(/^[\s,]+|[\s,]+$/g, '');
 
-                  return (
-                    <>
-                      {cleanAddress}
-                      {cleanAddress && city ? ', ' : ''}
-                      <span className="font-bold text-neutral-900">{city}</span>
-                    </>
-                  );
+                  // 4. Smart Join
+                  const parts = [cleanAddress, city].filter(Boolean);
+
+                  // Dedupe if cleanAddress already includes city (case-insensitive)
+                  if (parts.length > 1 && parts[0]?.toLowerCase().includes((parts[1] || '').toLowerCase())) {
+                    return parts[0];
+                  }
+
+                  return parts.join(', ');
                 })()}
               </p>
             </div>

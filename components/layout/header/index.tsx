@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { LogoSvg } from './logo-svg';
+import Image from 'next/image';
 import { NavItem } from '@/lib/types';
 import { Collection } from '@/lib/types';
 import { User, ChevronDown, Shield } from 'lucide-react';
@@ -169,12 +170,13 @@ export function Header({ collections }: HeaderProps) {
               {mounted && user ? (
                 <Link href="/profile" className="relative flex items-center justify-center w-8 h-8 rounded-full bg-neutral-100 hover:bg-neutral-200 transition-colors text-neutral-900 overflow-hidden" title={user.email}>
                   {user.user_metadata?.avatar_url ? (
-                    <img
+                    <Image
                       src={user.user_metadata.avatar_url}
                       alt="Profile"
-                      className="absolute inset-0 w-full h-full object-cover"
+                      fill
+                      className="object-cover"
                       referrerPolicy="no-referrer"
-                      loading="lazy"
+                      sizes="32px"
                     />
                   ) : (
                     <User className="w-4 h-4" />
@@ -196,12 +198,13 @@ export function Header({ collections }: HeaderProps) {
             {mounted && user ? (
               <Link href="/profile" className="relative flex items-center justify-center w-8 h-8 rounded-full bg-white/20 backdrop-blur-md hover:bg-white/30 transition-colors text-neutral-900 overflow-hidden">
                 {user.user_metadata?.avatar_url ? (
-                  <img
+                  <Image
                     src={user.user_metadata.avatar_url}
                     alt="Profile"
-                    className="absolute inset-0 w-full h-full object-cover"
+                    fill
+                    className="object-cover"
                     referrerPolicy="no-referrer"
-                    loading="lazy"
+                    sizes="32px"
                   />
                 ) : (
                   <User className="w-4 h-4" />

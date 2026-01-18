@@ -114,7 +114,11 @@ export default async function RootLayout({
                 { '@type': 'City', name: 'Chittorgarh' }
               ],
               sameAs: [
-                'https://www.instagram.com/joyco.studio/',
+                'https://x.com/nbfhomes',
+                'https://www.linkedin.com/in/nbf-homes-2689b4381',
+                'https://www.facebook.com/share/17qdRqXzeN/',
+                'https://www.instagram.com/nbfhomes',
+                'https://whatsapp.com/channel/0029Vb74TGqFnSzA8mE6wE0Y'
               ],
             }),
           }}

@@ -9,7 +9,7 @@ export default function AboutPage() {
                     <div className="absolute inset-0 z-0">
                         <div className="absolute inset-0 bg-black/40 z-10" />
                         <img
-                            src="https://res.cloudinary.com/dla8a0y7n/image/upload/f_auto,q_auto,w_1600/v1764658021/hero-background_jdgiur.jpg"
+                            src="https://res.cloudinary.com/dilccqhro/image/upload/f_auto,q_auto,w_1600/v1764658021/hero-background_jdgiur.jpg"
                             alt="About Us Hero"
                             className="absolute inset-0 w-full h-full object-cover"
                             loading="lazy"

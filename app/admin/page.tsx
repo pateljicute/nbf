@@ -3,7 +3,8 @@
 import { useAuth } from '@/lib/auth-context';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
-import { Trash2, Eye, Users, Building, TrendingUp, ChevronLeft, ChevronRight, Search, Filter, CheckCircle, XCircle, Download, Info } from 'lucide-react';
+import { Trash2, Eye, Users, User, Building, TrendingUp, ChevronLeft, ChevronRight, Search, Filter, CheckCircle, XCircle, Download, Info, MessageSquare, MessageCircle, Ban } from 'lucide-react';
+import Image from 'next/image';
 // ... imports
 // ... imports
 import { checkAdminStatus, updateProductStatusAction, approveProductAction, rejectProductAction, adminDeleteProductAction, updateUserRoleAction, toggleUserVerifiedAction, togglePropertyVerifiedAction, updateSiteSettingsAction } from '@/app/actions';
@@ -15,9 +16,11 @@ import { Product } from '@/lib/types';
 import { QRPosterModal } from '@/components/unique/qr-poster-modal';
 import { UserPropertiesModal } from '@/components/admin/UserPropertiesModal';
 import UserInfoModal from '@/components/admin/UserInfoModal';
-import { getAdminProducts, getAdminStats, getAdminUsers, getSiteSettings, getUserPropertiesForAdmin, banUser } from '@/lib/api';
+import { getAdminProducts, getAdminStats, getAdminUsers, getSiteSettings, getUserPropertiesForAdmin, banUser, getInquiries, getUnreadInquiriesCount, getAdminLeads, getAllInquiries } from '@/lib/api';
 import { getOptimizedImageUrl } from '@/lib/cloudinary-utils';
 import { AdManager } from '@/components/admin/ad-manager';
+import { InquiryModal } from '@/components/admin/InquiryModal';
+import { LeadActivityModal } from '@/components/admin/LeadActivityModal';
 
 // ... existing code ...
 
@@ -71,6 +74,7 @@ export default function AdminPage() {
     const [isAdmin, setIsAdmin] = useState(false);
     const [adminChecked, setAdminChecked] = useState(false);
     const [stats, setStats] = useState({ total: 0, users: 0, active: 0 });
+    const [unreadInquiries, setUnreadInquiries] = useState(0);
     const [qrPosterProperty, setQrPosterProperty] = useState<Product | null>(null);
 
     // User Properties Modal State
@@ -80,6 +84,15 @@ export default function AdminPage() {
 
     // User Info Modal State
     const [selectedUserForInfo, setSelectedUserForInfo] = useState<AdminUser | null>(null);
+
+    // Leads State
+    const [leads, setLeads] = useState<any[]>([]);
+    const [groupedLeads, setGroupedLeads] = useState<any[]>([]);
+    const [selectedPropertyLeads, setSelectedPropertyLeads] = useState<any | null>(null);
+
+    // Inquiries State
+    const [inquiries, setInquiries] = useState<any[]>([]);
+    const [selectedInquiry, setSelectedInquiry] = useState<any | null>(null);
 
     // New Filter States
     const [cityFilter, setCityFilter] = useState('');
@@ -98,7 +111,7 @@ export default function AdminPage() {
     const [totalPages, setTotalPages] = useState(1);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
-    const [activeTab, setActiveTab] = useState<'overview' | 'properties' | 'users' | 'approvals' | 'settings' | 'ads'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'properties' | 'users' | 'approvals' | 'settings' | 'ads' | 'inquiries' | 'leads'>('overview');
 
     const ITEMS_PER_PAGE = 10;
 
@@ -142,6 +155,19 @@ export default function AdminPage() {
                 homepage_description: data.homepage_description || '',
                 whatsapp_number: data.whatsapp_number || ''
             });
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    // Fetch Inquiries
+    const fetchInquiries = useCallback(async (page: number) => {
+        setLoading(true);
+        try {
+            const data = await getInquiries(page, ITEMS_PER_PAGE);
+            setInquiries(data.inquiries);
+            setTotalPages(Math.ceil(data.total / ITEMS_PER_PAGE));
+            setCurrentPage(page);
         } finally {
             setLoading(false);
         }
@@ -243,6 +269,98 @@ export default function AdminPage() {
         }
     }, [adminChecked, isAdmin, router]);
 
+
+
+    // Re-writing the functions properly:
+
+    const handleLeadDeleteAction = async (leadId: string) => {
+        if (!confirm('Delete this lead?')) return;
+        const { deleteLeadActivity } = await import('@/lib/api');
+        const res = await deleteLeadActivity(leadId);
+        if (res.success) {
+            alert('Lead deleted');
+            fetchLeads(); // Refresh
+            // Also update local selected property leads if modal open
+            if (selectedPropertyLeads) {
+                const updatedLeads = selectedPropertyLeads.leads.filter((l: any) => l.id !== leadId);
+                setSelectedPropertyLeads({ ...selectedPropertyLeads, leads: updatedLeads, count: updatedLeads.length });
+                if (updatedLeads.length === 0) setSelectedPropertyLeads(null);
+            }
+        } else {
+            alert('Failed to delete lead');
+        }
+    };
+
+    const fetchLeads = useCallback(async () => {
+        setLoading(true);
+        try {
+            const allLeads = await getAdminLeads();
+            setLeads(allLeads);
+            const grouped = allLeads.reduce((acc: any, lead: any) => {
+                if (!acc[lead.property_id]) {
+                    acc[lead.property_id] = {
+                        property_id: lead.property_id,
+                        property_title: lead.property_title,
+                        property_location: lead.property_location,
+                        count: 0,
+                        leads: []
+                    };
+                }
+                acc[lead.property_id].count++;
+                acc[lead.property_id].leads.push(lead);
+                return acc;
+            }, {});
+            setGroupedLeads(Object.values(grouped));
+        } catch (e) { console.error(e); }
+        finally { setLoading(false); }
+    }, []);
+
+    const handlePropertyLeadsClick = async (property: any) => {
+        setLoading(true);
+        try {
+            // We need to fetch leads for just this property. 
+            // Reuse getAdminLeads but we filter client side for now as getAdminLeads fetches all.
+            // Or ideally use a more specific API. For MVP reuse global fetch or simple filter.
+            // Let's assume we maintain a 'leads' state which has all, if loaded.
+            // If not, we fetch all.
+            let currentLeads = leads;
+            if (currentLeads.length === 0) {
+                currentLeads = await getAdminLeads();
+                setLeads(currentLeads);
+            }
+
+            const propLeads = currentLeads.filter((l: any) => l.property_id === property.id);
+            setSelectedPropertyLeads({
+                property_id: property.id,
+                property_handle: property.handle,
+                property_title: property.title,
+                count: propLeads.length,
+                leads: propLeads
+            });
+        } catch (error) {
+            console.error(error);
+            alert('Failed to load leads');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleLeadDelete = async (leadId: string) => {
+        if (!confirm("Delete lead?")) return;
+        const { deleteLeadActivity } = await import('@/lib/api');
+        const res = await deleteLeadActivity(leadId);
+        if (res.success) {
+            alert('Lead deleted');
+            fetchLeads();
+            if (selectedPropertyLeads) {
+                const updated = selectedPropertyLeads.leads.filter((l: any) => l.id !== leadId);
+                setSelectedPropertyLeads({ ...selectedPropertyLeads, leads: updated, count: updated.length });
+            }
+        } else {
+            alert('Failed');
+        }
+    };
+
     // Debounce search
     useEffect(() => {
         // Guard: only run for properties or users tab when admin
@@ -255,14 +373,20 @@ export default function AdminPage() {
                 fetchUsers(1);
             } else if (activeTab === 'approvals') {
                 fetchApprovals(1);
+            } else if (activeTab === 'inquiries') {
+                fetchInquiries(1);
+            } else if (activeTab === 'leads') {
+                fetchLeads();
             }
         }, 500);
         return () => clearTimeout(timer);
-    }, [searchQuery, statusFilter, isAdmin, activeTab, fetchProducts, fetchUsers]);
+    }, [searchQuery, statusFilter, isAdmin, activeTab, fetchProducts, fetchUsers, fetchInquiries, fetchLeads]);
 
     const fetchStats = async () => {
         const data = await getAdminStats();
         setStats(data);
+        const unread = await getUnreadInquiriesCount();
+        setUnreadInquiries(unread);
     };
 
     const handlePageChange = (newPage: number) => {
@@ -270,6 +394,8 @@ export default function AdminPage() {
             if (activeTab === 'properties') fetchProducts(newPage);
             if (activeTab === 'users') fetchUsers(newPage);
             if (activeTab === 'approvals') fetchApprovals(newPage);
+            if (activeTab === 'inquiries') fetchInquiries(newPage);
+            if (activeTab === 'leads') fetchLeads(); // Fetch all for now
         }
     };
 
@@ -387,6 +513,72 @@ export default function AdminPage() {
         }
     };
 
+    // Export Helpers
+    const downloadCSV = (content: string, filename: string) => {
+        const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        if (link.download !== undefined) {
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', filename);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    };
+
+    const handleExportInquiries = async () => {
+        try {
+            const allInquiries = await getAllInquiries();
+            const headers = ['Date', 'Name', 'Email', 'Phone', 'Subject', 'Message', 'Status', 'Property ID'];
+            const csvContent = [
+                headers.join(','),
+                ...allInquiries.map((inq: any) => [
+                    `"${new Date(inq.created_at).toLocaleString()}"`,
+                    `"${inq.first_name} ${inq.last_name}"`,
+                    `"${inq.email}"`,
+                    `"${inq.phone_number || ''}"`,
+                    `"${inq.subject?.replace(/"/g, '""') || ''}"`,
+                    `"${inq.message?.replace(/"/g, '""') || ''}"`,
+                    inq.status,
+                    `"${inq.property_id || ''}"`
+                ].join(','))
+            ].join('\n');
+
+            downloadCSV(csvContent, `inquiries-export-${new Date().toISOString().split('T')[0]}.csv`);
+        } catch (error) {
+            console.error('Export failed:', error);
+            alert('Failed to export inquiries');
+        }
+    };
+
+    const handleExportLeads = () => {
+        const leadsToExport = leads.length > 0 ? leads : groupedLeads.flatMap(g => g.leads);
+
+        if (!leadsToExport || leadsToExport.length === 0) {
+            alert('No leads to export');
+            return;
+        }
+
+        const headers = ['Date', 'User Name', 'User Email', 'User Phone', 'Action Type', 'Property Title', 'Property Location', 'Property ID'];
+        const csvContent = [
+            headers.join(','),
+            ...leadsToExport.map((lead: any) => [
+                `"${new Date(lead.created_at).toLocaleString()}"`,
+                `"${lead.user_name || ''}"`,
+                `"${lead.user_email || ''}"`,
+                `"${lead.user_phone || ''}"`,
+                `"${lead.action_type || ''}"`,
+                `"${lead.property_title?.replace(/"/g, '""') || ''}"`,
+                `"${lead.property_location?.replace(/"/g, '""') || ''}"`,
+                `"${lead.property_id || ''}"`
+            ].join(','))
+        ].join('\n');
+
+        downloadCSV(csvContent, `leads-export-${new Date().toISOString().split('T')[0]}.csv`);
+    };
+
     // Hydration check
     const [mounted, setMounted] = useState(false);
     useEffect(() => {
@@ -438,13 +630,20 @@ export default function AdminPage() {
                         user={selectedUserForInfo}
                     />
                 )}
-                {selectedUserForInfo && (
-                    <UserInfoModal
-                        isOpen={!!selectedUserForInfo}
-                        onClose={() => setSelectedUserForInfo(null)}
-                        user={selectedUserForInfo}
-                    />
-                )}
+                <LeadActivityModal
+                    isOpen={!!selectedPropertyLeads}
+                    onClose={() => setSelectedPropertyLeads(null)}
+                    propertyTitle={selectedPropertyLeads?.property_title || ''}
+                    propertyHandle={selectedPropertyLeads?.property_handle}
+                    leads={selectedPropertyLeads?.leads || []}
+                    onDeleteLead={handleLeadDelete}
+                />
+                <InquiryModal
+                    isOpen={!!selectedInquiry}
+                    onClose={() => setSelectedInquiry(null)}
+                    inquiry={selectedInquiry}
+                />
+
                 {/* Header */}
                 <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between">
                     <div>
@@ -456,6 +655,14 @@ export default function AdminPage() {
                         <button onClick={() => { setActiveTab('properties'); fetchProducts(1); }} className={`px-3 py-2 sm:px-4 rounded-lg text-sm font-medium transition-colors ${activeTab === 'properties' ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-600 hover:bg-neutral-100'}`}>Properties</button>
                         <button onClick={() => { setActiveTab('users'); fetchUsers(1); }} className={`px-3 py-2 sm:px-4 rounded-lg text-sm font-medium transition-colors ${activeTab === 'users' ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-600 hover:bg-neutral-100'}`}>Users</button>
                         <button onClick={() => { setActiveTab('approvals'); fetchApprovals(1); }} className={`px-3 py-2 sm:px-4 rounded-lg text-sm font-medium transition-colors ${activeTab === 'approvals' ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-600 hover:bg-neutral-100'}`}>Approvals</button>
+                        <button onClick={() => { setActiveTab('inquiries'); fetchInquiries(1); }} className={`relative px-3 py-2 sm:px-4 rounded-lg text-sm font-medium transition-colors ${activeTab === 'inquiries' ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-600 hover:bg-neutral-100'}`}>
+                            Inquiries
+                            {unreadInquiries > 0 && (
+                                <span className={`absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white`}>
+                                    {unreadInquiries}
+                                </span>
+                            )}
+                        </button>
                         <button onClick={() => { setActiveTab('ads'); }} className={`px-3 py-2 sm:px-4 rounded-lg text-sm font-medium transition-colors ${activeTab === 'ads' ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-600 hover:bg-neutral-100'}`}>Manage Ads</button>
                         <button onClick={() => { setActiveTab('settings'); fetchSettings(); }} className={`px-3 py-2 sm:px-4 rounded-lg text-sm font-medium transition-colors ${activeTab === 'settings' ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-600 hover:bg-neutral-100'}`}>Settings</button>
                     </div>
@@ -567,11 +774,12 @@ export default function AdminPage() {
                                                         <div className="flex items-center">
                                                             <div className="h-10 w-10 flex-shrink-0">
                                                                 {property.featuredImage && property.featuredImage.url ? (
-                                                                    <img
-                                                                        className="h-10 w-10 rounded object-cover"
+                                                                    <Image
+                                                                        className="rounded object-cover"
                                                                         src={getOptimizedImageUrl(property.featuredImage.url, 160, 160, 'fill')}
                                                                         alt=""
-                                                                        loading="lazy"
+                                                                        fill
+                                                                        sizes="40px"
                                                                     />
                                                                 ) : (<div className="h-10 w-10 rounded bg-neutral-200" />
                                                                 )}
@@ -592,7 +800,18 @@ export default function AdminPage() {
                                                         </div>
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900 font-medium">
-                                                        {property.leadsCount || 0}
+                                                        <button
+                                                            onClick={() => handlePropertyLeadsClick(property)}
+                                                            className="flex items-center gap-1.5 hover:text-blue-600 transition-colors group"
+                                                            title="View Leads"
+                                                        >
+                                                            <div className={`p-1 rounded-full ${(property.leadsCount || 0) > 0 ? 'bg-blue-50 text-blue-600 group-hover:bg-blue-100' : 'bg-neutral-100 text-neutral-400'}`}>
+                                                                <User className="w-3 h-3" />
+                                                            </div>
+                                                            <span className={(property.leadsCount || 0) > 0 ? 'underline decoration-dotted' : ''}>
+                                                                {property.leadsCount || 0}
+                                                            </span>
+                                                        </button>
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         <button
@@ -682,12 +901,12 @@ export default function AdminPage() {
                     </div>
                 </div>
             )}
+
             {activeTab === 'users' && (
-                /* Users View */
                 <div className="space-y-6">
                     <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden">
                         <div className="px-6 py-4 border-b border-neutral-200 flex justify-between items-center">
-                            <h2 className="text-lg font-semibold text-neutral-900">Registered Users</h2>
+                            <h2 className="text-lg font-semibold text-neutral-900">Users List</h2>
                             <span className="text-sm text-neutral-500">Page {currentPage} of {totalPages}</span>
                         </div>
 
@@ -696,84 +915,192 @@ export default function AdminPage() {
                                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
                             </div>
                         ) : (
-                            <>
-                                <div className="overflow-x-auto">
-                                    <table className="w-full">
-                                        <thead className="bg-neutral-50">
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead className="bg-neutral-50">
+                                        <tr>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">User</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Email</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Phone</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Joined</th>
+                                            <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 uppercase tracking-wider">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-neutral-200">
+                                        {usersList.length === 0 ? (
                                             <tr>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">User ID</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Name</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Email</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Contact</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Total Properties</th>
-                                            </tr >
-                                        </thead >
-                                        <tbody className="bg-white divide-y divide-neutral-200">
-                                            {usersList.map((userItem) => (
-                                                <tr key={userItem.userId} className="hover:bg-neutral-50">
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-900" title={userItem.userId}>
-                                                        {userItem.userId.substring(0, 8)}...
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900">
-                                                        {userItem.name}
+                                                <td colSpan={5} className="px-6 py-12 text-center text-neutral-500">
+                                                    No users found.
+                                                </td>
+                                            </tr>
+                                        ) : (
+                                            usersList.map((user) => (
+                                                <tr key={user.userId} className="hover:bg-neutral-50">
+                                                    <td className="px-6 py-4 whitespace-nowrap">
+                                                        <div className="flex items-center">
+                                                            <div className="h-8 w-8 rounded-full bg-neutral-100 flex items-center justify-center">
+                                                                <span className="text-xs font-bold text-neutral-500">{user.name?.[0]}</span>
+                                                            </div>
+                                                            <div className="ml-3">
+                                                                <button
+                                                                    onClick={() => router.push(`/admin/users/${user.userId}`)}
+                                                                    className="text-sm font-medium text-neutral-900 hover:text-blue-600 hover:underline text-left"
+                                                                >
+                                                                    {user.name}
+                                                                </button>
+                                                                <div className="text-xs text-neutral-500 capitalize">{user.role}</div>
+                                                            </div>
+                                                        </div>
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
-                                                        {userItem.email}
+                                                        {user.email}
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
                                                         <div className="flex items-center gap-2">
-                                                            {userItem.contactNumber}
-                                                            {userItem.contactNumber !== 'N/A' && (
+                                                            <span>{user.contactNumber || 'N/A'}</span>
+                                                            {user.contactNumber && (
                                                                 <a
-                                                                    href={`https://wa.me/${userItem.contactNumber.replace(/\D/g, '')}`}
+                                                                    href={`https://wa.me/${user.contactNumber.replace(/\D/g, '')}`}
                                                                     target="_blank"
                                                                     rel="noopener noreferrer"
-                                                                    className="text-green-600 hover:text-green-700 hover:bg-green-50 p-1 rounded-full transition-colors"
-                                                                    title="Chat on WhatsApp"
+                                                                    className="text-green-600 hover:text-green-700"
                                                                 >
-                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>
+                                                                    <MessageCircle className="w-4 h-4" />
                                                                 </a>
                                                             )}
                                                         </div>
                                                     </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900">
-                                                        <button
-                                                            onClick={() => handleUserPropertiesClick(userItem.userId, userItem.name)}
-                                                            className="text-blue-600 hover:text-blue-800 hover:underline font-medium flex items-center gap-1"
-                                                        >
-                                                            {userItem.totalProperties} Properties
-                                                            <Eye className="w-3 h-3" />
-                                                        </button>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
+                                                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${user.isVerified ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                                            {user.isVerified && <CheckCircle className="w-3 h-3" />}
+                                                            {user.isVerified ? 'Verified' : 'Unverified'}
+                                                        </span>
                                                     </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900">
-                                                        <div className="flex items-center gap-3">
-                                                            <button
-                                                                onClick={() => setSelectedUserForInfo(userItem)}
-                                                                className="text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 p-1.5 rounded-lg transition-colors"
-                                                                title="User Info"
+                                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                        <div className="flex items-center justify-end gap-3">
+                                                            <a
+                                                                href={`/admin/users/${user.userId}`}
+                                                                className="text-blue-600 hover:text-blue-900"
                                                             >
-                                                                <Info className="w-4 h-4" />
+                                                                View Details
+                                                            </a>
+                                                            <button
+                                                                onClick={() => {
+                                                                    if (window.confirm('Are you sure you want to BAN this user? This action cannot be undone easily.')) {
+                                                                        handleBanUser(user.userId);
+                                                                    }
+                                                                }}
+                                                                className="text-red-600 hover:text-red-900"
+                                                                title="Ban User"
+                                                            >
+                                                                <Ban className="w-4 h-4" />
                                                             </button>
-                                                            {userItem.status !== 'banned' ? (
-                                                                <button
-                                                                    onClick={() => handleBanUser(userItem.userId)}
-                                                                    className="px-3 py-1 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg text-sm font-medium transition-colors"
-                                                                >
-                                                                    Ban
-                                                                </button>
-                                                            ) : (
-                                                                <span className="text-neutral-400 text-sm font-medium">Banned</span>
-                                                            )}
                                                         </div>
                                                     </td>
                                                 </tr>
-                                            ))}
-                                        </tbody>
-                                    </table >
-                                </div >
+                                            ))
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                        <div className="px-6 py-4 border-t border-neutral-200 flex items-center justify-between">
+                            <button
+                                onClick={() => handlePageChange(currentPage - 1)}
+                                disabled={currentPage === 1}
+                                className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${currentPage === 1
+                                    ? 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
+                                    : 'text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50'
+                                    }`}
+                            >
+                                <ChevronLeft className="w-4 h-4 mr-2" />
+                                Previous
+                            </button>
+                            <span className="text-sm text-neutral-700">Page {currentPage} of {totalPages}</span>
+                            <button
+                                onClick={() => handlePageChange(currentPage + 1)}
+                                disabled={currentPage === totalPages}
+                                className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${currentPage === totalPages
+                                    ? 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
+                                    : 'text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50'
+                                    }`}
+                            >
+                                Next
+                                <ChevronRight className="w-4 h-4 ml-2" />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
-                                {/* Pagination Controls */}
-                                < div className="px-6 py-4 border-t border-neutral-200 flex items-center justify-between" >
+            {activeTab === 'inquiries' && (
+                <div className="space-y-6">
+                    <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden">
+                        <div className="px-6 py-4 border-b border-neutral-200 flex justify-between items-center">
+                            <h2 className="text-lg font-semibold text-neutral-900">User Inquiries</h2>
+                            <div className="flex items-center gap-4">
+                                <button
+                                    onClick={handleExportInquiries}
+                                    className="flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white text-xs font-bold rounded-lg hover:bg-green-700 transition-colors"
+                                >
+                                    <Download className="w-3 h-3" />
+                                    Export to Excel
+                                </button>
+                                <span className="text-sm text-neutral-500">Page {currentPage} of {totalPages}</span>
+                            </div>
+                        </div>
+                        {loading ? (
+                            <div className="p-12 flex justify-center">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
+                            </div>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead className="bg-neutral-50">
+                                        <tr>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Date</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Name</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Subject</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Status</th>
+                                            <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 uppercase tracking-wider">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-neutral-200">
+                                        {inquiries.length > 0 ? inquiries.map((inq) => (
+                                            <tr key={inq.id} className="hover:bg-neutral-50">
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
+                                                    {new Date(inq.created_at).toLocaleDateString()}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-900">
+                                                    {inq.first_name} {inq.last_name}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
+                                                    {inq.subject}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${inq.status === 'unread' ? 'bg-blue-100 text-blue-800' : 'bg-neutral-100 text-neutral-800'}`}>
+                                                        {inq.status || 'unread'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                    <button
+                                                        onClick={() => setSelectedInquiry(inq)}
+                                                        className="text-blue-600 hover:text-blue-900 flex items-center justify-end gap-1 ml-auto"
+                                                    >
+                                                        View <Eye className="w-3 h-3" />
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        )) : (
+                                            <tr>
+                                                <td colSpan={5} className="px-6 py-12 text-center text-neutral-500">
+                                                    No inquiries found
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                                <div className="px-6 py-4 border-t border-neutral-200 flex items-center justify-between">
                                     <button
                                         onClick={() => handlePageChange(currentPage - 1)}
                                         disabled={currentPage === 1}
@@ -785,11 +1112,7 @@ export default function AdminPage() {
                                         <ChevronLeft className="w-4 h-4 mr-2" />
                                         Previous
                                     </button>
-                                    <div className="hidden sm:flex">
-                                        <p className="text-sm text-neutral-700">
-                                            Showing page <span className="font-medium">{currentPage}</span> of <span className="font-medium">{totalPages}</span>
-                                        </p>
-                                    </div>
+                                    <span className="text-sm text-neutral-700">Page {currentPage} of {totalPages}</span>
                                     <button
                                         onClick={() => handlePageChange(currentPage + 1)}
                                         disabled={currentPage === totalPages}
@@ -801,13 +1124,139 @@ export default function AdminPage() {
                                         Next
                                         <ChevronRight className="w-4 h-4 ml-2" />
                                     </button>
-                                </div >
-                            </>
-                        )
-                        }
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+            {
+                activeTab === 'users' && (
+                    /* Users View */
+                    <div className="space-y-6">
+                        <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden">
+                            <div className="px-6 py-4 border-b border-neutral-200 flex justify-between items-center">
+                                <h2 className="text-lg font-semibold text-neutral-900">Registered Users</h2>
+                                <span className="text-sm text-neutral-500">Page {currentPage} of {totalPages}</span>
+                            </div>
+
+                            {loading ? (
+                                <div className="p-12 flex justify-center">
+                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full">
+                                            <thead className="bg-neutral-50">
+                                                <tr>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">User ID</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Name</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Email</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Contact</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Total Properties</th>
+                                                </tr >
+                                            </thead >
+                                            <tbody className="bg-white divide-y divide-neutral-200">
+                                                {usersList.map((userItem) => (
+                                                    <tr key={userItem.userId} className="hover:bg-neutral-50">
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-900" title={userItem.userId}>
+                                                            {userItem.userId.substring(0, 8)}...
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900">
+                                                            {userItem.name}
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
+                                                            {userItem.email}
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
+                                                            <div className="flex items-center gap-2">
+                                                                {userItem.contactNumber}
+                                                                {userItem.contactNumber !== 'N/A' && (
+                                                                    <a
+                                                                        href={`https://wa.me/${userItem.contactNumber.replace(/\D/g, '')}`}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        className="text-green-600 hover:text-green-700 hover:bg-green-50 p-1 rounded-full transition-colors"
+                                                                        title="Chat on WhatsApp"
+                                                                    >
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>
+                                                                    </a>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900">
+                                                            <button
+                                                                onClick={() => handleUserPropertiesClick(userItem.userId, userItem.name)}
+                                                                className="text-blue-600 hover:text-blue-800 hover:underline font-medium flex items-center gap-1"
+                                                            >
+                                                                {userItem.totalProperties} Properties
+                                                                <Eye className="w-3 h-3" />
+                                                            </button>
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900">
+                                                            <div className="flex items-center gap-3">
+                                                                <button
+                                                                    onClick={() => setSelectedUserForInfo(userItem)}
+                                                                    className="text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 p-1.5 rounded-lg transition-colors"
+                                                                    title="User Info"
+                                                                >
+                                                                    <Info className="w-4 h-4" />
+                                                                </button>
+                                                                {userItem.status !== 'banned' ? (
+                                                                    <button
+                                                                        onClick={() => handleBanUser(userItem.userId)}
+                                                                        className="px-3 py-1 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg text-sm font-medium transition-colors"
+                                                                    >
+                                                                        Ban
+                                                                    </button>
+                                                                ) : (
+                                                                    <span className="text-neutral-400 text-sm font-medium">Banned</span>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table >
+                                    </div >
+
+                                    {/* Pagination Controls */}
+                                    < div className="px-6 py-4 border-t border-neutral-200 flex items-center justify-between" >
+                                        <button
+                                            onClick={() => handlePageChange(currentPage - 1)}
+                                            disabled={currentPage === 1}
+                                            className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${currentPage === 1
+                                                ? 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
+                                                : 'text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50'
+                                                }`}
+                                        >
+                                            <ChevronLeft className="w-4 h-4 mr-2" />
+                                            Previous
+                                        </button>
+                                        <div className="hidden sm:flex">
+                                            <p className="text-sm text-neutral-700">
+                                                Showing page <span className="font-medium">{currentPage}</span> of <span className="font-medium">{totalPages}</span>
+                                            </p>
+                                        </div>
+                                        <button
+                                            onClick={() => handlePageChange(currentPage + 1)}
+                                            disabled={currentPage === totalPages}
+                                            className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${currentPage === totalPages
+                                                ? 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
+                                                : 'text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50'
+                                                }`}
+                                        >
+                                            Next
+                                            <ChevronRight className="w-4 h-4 ml-2" />
+                                        </button>
+                                    </div >
+                                </>
+                            )
+                            }
+                        </div >
                     </div >
-                </div >
-            )
+                )
             }
             {
                 activeTab === 'approvals' && (

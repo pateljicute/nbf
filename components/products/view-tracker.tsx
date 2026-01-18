@@ -1,24 +1,12 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { incrementViewCount } from '@/lib/api';
+import { useEffect } from 'react';
+import { trackPropertyView } from '@/app/actions';
 
-export function ViewTracker({ productId }: { productId: string }) {
-    const initialized = useRef(false);
-
+export function ViewTracker({ propertyId }: { propertyId: string }) {
     useEffect(() => {
-        if (!initialized.current) {
-            initialized.current = true;
-
-            // Spam Protection: Check if already viewed in this session
-            const storageKey = `viewed_property_${productId}`;
-            if (typeof window !== 'undefined' && !sessionStorage.getItem(storageKey)) {
-                incrementViewCount(productId)
-                    .then(() => sessionStorage.setItem(storageKey, 'true'))
-                    .catch(console.error);
-            }
-        }
-    }, [productId]);
+        trackPropertyView(propertyId).catch(console.error);
+    }, [propertyId]);
 
     return null;
 }

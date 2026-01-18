@@ -25,7 +25,7 @@ import { DesktopGallery } from './components/desktop-gallery';
 import {
   Wifi, Car, Shield, Waves, Zap, Utensils, Shirt, PersonStanding, MapPin, Navigation, ExternalLink, AlertTriangle,
   Droplets, Bath, Armchair, Monitor, BookOpen, Warehouse, Trees, CheckCircle, Video, ArrowUpFromDot, Users, Home,
-  Smartphone, ShieldCheck
+  Smartphone, ShieldCheck, Scaling
 } from 'lucide-react';
 import { ViewTracker } from '@/components/products/view-tracker';
 
@@ -61,9 +61,10 @@ export async function generateMetadata(props: { params: Promise<{ handle: string
 
   const { url, width, height } = product.featuredImage || {};
   const indexable = !product.tags?.includes(HIDDEN_PRODUCT_TAG);
-  const city = product.tags?.[1] || 'Mandsaur';
-  const area = product.tags?.[2] || 'City';
-  const alt = `Room for rent in ${city} - ${product.title} NBF Homes`;
+  const city = product.city || product.tags?.[1] || 'Mandsaur';
+  const area = product.locality || product.tags?.[2] || 'City';
+  const state = product.state || 'Madhya Pradesh';
+  const alt = `Room for rent in ${area}, ${city}, ${state} - ${product.title} NBF Homes`;
 
   return {
     title: `${product.title} in ${area}, ${city} | No Brokerage | NBF Homes`,
@@ -160,14 +161,15 @@ export default async function ProductPage(props: { params: Promise<{ handle: str
 
   // Map Generation
   // Address is roughly taken from Tags (Area, City)
-  const addressQuery = encodeURIComponent(`${product.tags?.[2] || ''}, ${product.tags?.[1] || ''}`);
+  const addressString = [product.address, product.locality, product.city, product.state].filter(Boolean).join(', ');
+  const addressQuery = encodeURIComponent(addressString || `${product.tags?.[2] || ''}, ${product.tags?.[1] || ''}`);
   const mapEmbedUrl = `https://maps.google.com/maps?q=${addressQuery}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
   const directionsUrl = `https://www.google.com/maps/search/?api=1&query=${addressQuery}`;
 
   return (
     // Added padding bottom for mobile sticky footer space
     <PageLayout className="bg-neutral-50/50 pb-24 lg:pb-12">
-      <ViewTracker productId={product.id} />
+      <ViewTracker propertyId={product.id} />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -236,10 +238,20 @@ export default async function ProductPage(props: { params: Promise<{ handle: str
 
             {/* Title (Mobile Only) */}
             <div className="lg:hidden">
-              <h1 className="text-2xl font-bold text-neutral-900 mb-2">{product.title}</h1>
-              <div className="flex items-center text-neutral-500 text-sm mb-6">
-                <MapPin className="w-4 h-4 mr-1" />
-                {product.tags?.[2] || 'Location Unavailable'}
+              <h1 className="text-2xl font-medium text-neutral-800 mb-2">{product.title}</h1>
+              <div className="flex items-center text-black text-sm mb-6 font-bold">
+                <MapPin className="w-4 h-4 mr-1 stroke-[2.5]" />
+                {(() => {
+                  const loc = product.locality || product.tags?.[2] || product.address || product.location || '';
+                  const city = product.city || '';
+                  const parts = [loc, city].filter(Boolean);
+
+                  // Dedupe
+                  if (parts.length > 1 && parts[0]?.toLowerCase().includes((parts[1] || '').toLowerCase())) {
+                    return parts[0];
+                  }
+                  return parts.join(', ');
+                })() || 'Location Unavailable'}
               </div>
 
               {/* Mobile Pricing Card */}
@@ -271,8 +283,56 @@ export default async function ProductPage(props: { params: Promise<{ handle: str
               </div>
             </div>
 
-            {/* Key Highlights Cards (Refined Styling) */}
+            {/* Key Highlights Cards (Merged & Refined) */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+
+              {/* Type - Emerald */}
+              <div className="bg-emerald-50/50 p-4 rounded-xl border border-emerald-100 flex flex-col items-center text-center gap-2 hover:bg-emerald-50 transition-colors">
+                <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
+                  <Home className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider mb-1">Type</p>
+                  <p className="text-sm font-bold text-neutral-900">{product.tags?.[0] || 'Property'}</p>
+                </div>
+              </div>
+
+              {/* Area - Indigo (NEW) */}
+              <div className="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 flex flex-col items-center text-center gap-2 hover:bg-indigo-50 transition-colors">
+                <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600">
+                  <Scaling className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="text-[10px] text-indigo-600 font-bold uppercase tracking-wider mb-1">Area</p>
+                  <p className="text-sm font-bold text-neutral-900">{product.builtUpArea ? `${product.builtUpArea} sq.ft` : 'N/A'}</p>
+                </div>
+              </div>
+
+              {/* Furnishing - Rose (NEW) */}
+              <div className="bg-rose-50/50 p-4 rounded-xl border border-rose-100 flex flex-col items-center text-center gap-2 hover:bg-rose-50 transition-colors">
+                <div className="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center text-rose-600">
+                  <Armchair className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="text-[10px] text-rose-600 font-bold uppercase tracking-wider mb-1">Furnishing</p>
+                  <p className="text-sm font-bold text-neutral-900">{product.furnishingStatus || 'Unfurnished'}</p>
+                </div>
+              </div>
+
+              {/* Floor - Cyan (NEW) */}
+              <div className="bg-cyan-50/50 p-4 rounded-xl border border-cyan-100 flex flex-col items-center text-center gap-2 hover:bg-cyan-50 transition-colors">
+                <div className="w-10 h-10 rounded-full bg-cyan-100 flex items-center justify-center text-cyan-600">
+                  <ArrowUpFromDot className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="text-[10px] text-cyan-600 font-bold uppercase tracking-wider mb-1">Floor</p>
+                  <p className="text-sm font-bold text-neutral-900">
+                    {product.floorNumber ? `${product.floorNumber}${product.totalFloors ? ` / ${product.totalFloors}` : ''}` : 'Ground'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Tenant - Blue */}
               <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 flex flex-col items-center text-center gap-2 hover:bg-blue-50 transition-colors">
                 <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
                   <Users className="w-5 h-5" />
@@ -283,6 +343,7 @@ export default async function ProductPage(props: { params: Promise<{ handle: str
                 </div>
               </div>
 
+              {/* Bathroom - Purple */}
               <div className="bg-purple-50/50 p-4 rounded-xl border border-purple-100 flex flex-col items-center text-center gap-2 hover:bg-purple-50 transition-colors">
                 <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-600">
                   <Bath className="w-5 h-5" />
@@ -293,6 +354,7 @@ export default async function ProductPage(props: { params: Promise<{ handle: str
                 </div>
               </div>
 
+              {/* Electricity - Amber */}
               <div className="bg-amber-50/50 p-4 rounded-xl border border-amber-100 flex flex-col items-center text-center gap-2 hover:bg-amber-50 transition-colors">
                 <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-600">
                   <Zap className="w-5 h-5" />
@@ -303,15 +365,6 @@ export default async function ProductPage(props: { params: Promise<{ handle: str
                 </div>
               </div>
 
-              <div className="bg-emerald-50/50 p-4 rounded-xl border border-emerald-100 flex flex-col items-center text-center gap-2 hover:bg-emerald-50 transition-colors">
-                <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
-                  <Home className="w-5 h-5" />
-                </div>
-                <div>
-                  <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider mb-1">Type</p>
-                  <p className="text-sm font-bold text-neutral-900">{product.tags?.[0] || 'Property'}</p>
-                </div>
-              </div>
             </div>
 
             {/* Description Section */}
@@ -375,15 +428,19 @@ export default async function ProductPage(props: { params: Promise<{ handle: str
                 </a>
               </div>
 
-              {/* Bold Address Display with City */}
-              <div className="mb-6 p-4 bg-neutral-50 rounded-xl border border-neutral-100">
-                <p className="text-sm text-neutral-500 font-bold uppercase tracking-wider mb-1">Address</p>
-                <div className="flex flex-col gap-1">
-                  <p className="text-lg font-bold text-neutral-900">
-                    {product.tags?.[2] || 'Area Listed'}
-                  </p>
-                  <p className="text-base text-neutral-700 font-medium">
-                    {product.tags?.[1] || 'City Unavailable'}, {product.tags?.[1] ? 'India' : 'Madhya Pradesh'}
+              {/* Location Details Grid */}
+              <div className="mb-6 p-4 bg-neutral-50 rounded-xl border border-neutral-100 space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider mb-1">State</p>
+                    <p className="text-base font-bold text-neutral-900">{product.state || 'Madhya Pradesh'}</p>
+                  </div>
+
+                </div>
+                <div>
+                  <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider mb-1">Address / Area</p>
+                  <p className="text-base font-medium text-neutral-900">
+                    {product.address || product.locality || product.tags?.[2] || 'Address available on request'}
                   </p>
                 </div>
               </div>
@@ -414,12 +471,22 @@ export default async function ProductPage(props: { params: Promise<{ handle: str
 
               {/* Title */}
               <div>
-                <h1 className="text-3xl font-bold font-serif text-neutral-900 mb-2 leading-tight">
+                <h1 className="text-3xl font-medium font-serif text-neutral-800 mb-2 leading-tight">
                   {product.title}
                 </h1>
-                <div className="flex items-center text-neutral-500 text-sm mb-4">
-                  <MapPin className="w-4 h-4 mr-1" />
-                  {product.tags?.[2] || 'Location Unavailable'}
+                <div className="flex items-center text-black text-sm mb-4 font-bold">
+                  <MapPin className="w-4 h-4 mr-1 stroke-[2.5]" />
+                  {(() => {
+                    const loc = product.locality || product.tags?.[2] || product.address || product.location || '';
+                    const city = product.city || '';
+                    const parts = [loc, city].filter(Boolean);
+
+                    // Dedupe
+                    if (parts.length > 1 && parts[0]?.toLowerCase().includes((parts[1] || '').toLowerCase())) {
+                      return parts[0];
+                    }
+                    return parts.join(', ');
+                  })() || 'Location Unavailable'}
                 </div>
               </div>
 
@@ -462,6 +529,16 @@ export default async function ProductPage(props: { params: Promise<{ handle: str
                 <p className="text-xs text-center text-neutral-500 mt-4 font-medium">
                   No Booking Fees. Directly contact the owner and visit the property for free.
                 </p>
+
+                <div className="mt-6 pt-6 border-t border-neutral-100 text-center">
+                  <Link
+                    href={`/contact?propertyId=${product.id}&handle=${encodeURIComponent(product.handle)}`}
+                    className="inline-flex items-center gap-2 text-sm font-medium text-neutral-400 hover:text-red-600 transition-colors"
+                  >
+                    <AlertTriangle className="w-4 h-4" />
+                    Report this Property
+                  </Link>
+                </div>
               </div>
             </div>
           </div>
@@ -483,6 +560,13 @@ export default async function ProductPage(props: { params: Promise<{ handle: str
           product={product}
           className="flex-1 py-1"
         />
+        <Link
+          href={`/contact?propertyId=${product.id}&handle=${encodeURIComponent(product.handle)}`}
+          className="flex flex-col items-center justify-center p-2 text-red-600 hover:text-red-700 active:scale-95 transition-all"
+        >
+          <AlertTriangle className="w-5 h-5 mb-0.5" />
+          <span className="text-[9px] font-bold uppercase tracking-wider">Report</span>
+        </Link>
       </div>
 
     </PageLayout>

@@ -70,6 +70,13 @@ export interface Product {
   location?: string;
   address?: string;
   type?: string;
+  state?: string;
+  city?: string;
+  locality?: string;
+  builtUpArea?: number;
+  furnishingStatus?: string;
+  floorNumber?: number;
+  totalFloors?: number;
 }
 
 export interface Collection {
@@ -82,6 +89,7 @@ export interface Collection {
     description: string;
   };
   path: string;
+  updatedAt?: string;
   parentCategoryTree?: { id: string; name: string }[];
 }
 

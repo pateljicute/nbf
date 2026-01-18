@@ -5,6 +5,8 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { getOptimizedImageUrl } from '@/lib/cloudinary-utils';
 
+import Image from 'next/image';
+
 interface AdSettings {
     media_url: string;
     media_type: 'image' | 'video';
@@ -35,10 +37,13 @@ export function AdSection({ ad, className }: AdSectionProps) {
                         className="absolute inset-0 w-full h-full object-cover"
                     />
                 ) : (
-                    <img
+                    <Image
                         src={getOptimizedImageUrl(ad.media_url, 1200, 300, 'fill')}
                         alt="Special Offer"
-                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                        fill
+                        className="object-cover transition-transform duration-700 group-hover:scale-105"
+                        sizes="(max-width: 768px) 100vw, 1200px"
+                        priority
                     />
                 )}
 
