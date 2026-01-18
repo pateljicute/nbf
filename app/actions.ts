@@ -494,3 +494,47 @@ export async function trackPropertyView(propertyId: string) {
         console.error('[TrackView] Exception:', err);
     }
 }
+
+export async function saveAdminSubscription(subscription: string) {
+    try {
+        const supabase = await getSupabaseClient();
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (!user) throw new Error('Not authenticated');
+
+        const isAdmin = await checkAdminStatus(user.id);
+        if (!isAdmin) throw new Error('Not authorized');
+
+        const { error } = await supabase
+            .from('admin_settings')
+            .upsert({
+                user_id: user.id,
+                push_subscription: JSON.parse(subscription),
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'user_id' });
+
+        if (error) throw error;
+        return { success: true };
+    } catch (error: any) {
+        console.error('Error saving subscription:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+export async function sendNewPropertyNotificationAction(propertyTitle: string, propertyLocation: string, propertyPrice: string) {
+    try {
+        const { sendAdminPushNotification } = await import('@/lib/notifications');
+        await sendAdminPushNotification({
+            title: `New Pending Property: ${propertyTitle}`,
+            body: `Location: ${propertyLocation} | Price: ₹${propertyPrice}`,
+            url: `/admin`
+        });
+        return { success: true };
+    } catch (error) {
+        console.error('Failed to trigger admin notification:', error);
+        return { success: false };
+    }
+}
+
+
+

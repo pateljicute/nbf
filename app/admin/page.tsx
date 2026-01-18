@@ -76,6 +76,22 @@ export default function AdminPage() {
     const [stats, setStats] = useState({ total: 0, users: 0, active: 0 });
     const [unreadInquiries, setUnreadInquiries] = useState(0);
     const [qrPosterProperty, setQrPosterProperty] = useState<Product | null>(null);
+    const [pushSubscription, setPushSubscription] = useState<PushSubscription | null>(null);
+
+    useEffect(() => {
+        if ('serviceWorker' in navigator) {
+            // Explicitly register SW to ensure it works in Dev/Production even if next-pwa varies
+            navigator.serviceWorker.register('/sw.js')
+                .then(registration => {
+                    console.log('SW Registered:', registration);
+                    return registration.pushManager.getSubscription();
+                })
+                .then(sub => {
+                    setPushSubscription(sub);
+                })
+                .catch(err => console.error('SW Registration failing:', err));
+        }
+    }, []);
 
     // User Properties Modal State
     const [selectedUserForProperties, setSelectedUserForProperties] = useState<{ id: string, name: string } | null>(null);
@@ -604,9 +620,53 @@ export default function AdminPage() {
         );
     }
 
+
+
+    const subscribeToPush = async () => {
+        if (!('serviceWorker' in navigator)) return;
+        try {
+            const registration = await navigator.serviceWorker.ready;
+            const sub = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+            });
+            setPushSubscription(sub);
+
+            // Save to DB via API to avoid client-side import issues or server actions conflicts immediately
+            const { saveAdminSubscription } = await import('@/app/actions');
+            await saveAdminSubscription(JSON.stringify(sub));
+            alert('Admin Alerts Enabled!');
+        } catch (err) {
+            console.error('Push subscription failed:', err);
+            // alert('Failed to enable alerts. Check console.');
+            console.log(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY);
+        }
+    };
+
+    const unsubscribeFromPush = async () => {
+        if (!('serviceWorker' in navigator)) return;
+        try {
+            const registration = await navigator.serviceWorker.ready;
+            const sub = await registration.pushManager.getSubscription();
+            if (sub) await sub.unsubscribe();
+            setPushSubscription(null);
+            alert('Admin Alerts Disabled.');
+            // Ideally remove from DB too, but unsubscribing locally stops messages
+        } catch (err) {
+            console.error('Unsubscribe failed:', err);
+        }
+    };
+
     return (
-        <div className="min-h-screen bg-neutral-50 pt-24 pb-12 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-7xl mx-auto">
+        <div className="min-h-screen bg-neutral-50 flex">
+            {/* Sidebar */}
+            <aside className="w-64 bg-white border-r hidden md:block fixed h-full z-10 overflow-y-auto">
+                <div className="p-6 border-b">
+                    <h1 className="text-xl font-serif font-bold text-neutral-900">NBF Admin</h1>
+
+                </div>
+            </aside>
+            <main className="flex-1 ml-0 md:ml-64 p-8 overflow-y-auto w-full">
                 {qrPosterProperty && (
                     <QRPosterModal
                         isOpen={!!qrPosterProperty}
@@ -667,439 +727,348 @@ export default function AdminPage() {
                         <button onClick={() => { setActiveTab('settings'); fetchSettings(); }} className={`px-3 py-2 sm:px-4 rounded-lg text-sm font-medium transition-colors ${activeTab === 'settings' ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-600 hover:bg-neutral-100'}`}>Settings</button>
                     </div>
                 </div>
-            </div>
 
-            {activeTab === 'overview' && (
-                /* Stats View */
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                    <div className="bg-white rounded-xl p-6 shadow-sm border border-neutral-200">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-neutral-600">Total Properties</p>
-                                <p className="text-3xl font-bold text-neutral-900 mt-2">{stats.total}</p>
-                            </div>
-                            <Building className="w-12 h-12 text-blue-500 opacity-20" />
-                        </div>
-                    </div>
-                    <div className="bg-white rounded-xl p-6 shadow-sm border border-neutral-200">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-neutral-600">Total Users</p>
-                                <p className="text-3xl font-bold text-neutral-900 mt-2">{stats.users}</p>
-                            </div>
-                            <Users className="w-12 h-12 text-green-500 opacity-20" />
-                        </div>
-                    </div>
-                    <div className="bg-white rounded-xl p-6 shadow-sm border border-neutral-200">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-neutral-600">Active Listings</p>
-                                <p className="text-3xl font-bold text-neutral-900 mt-2">{stats.active}</p>
-                            </div>
-                            <TrendingUp className="w-12 h-12 text-orange-500 opacity-20" />
-                        </div>
-                    </div>
-                </div>
-            )}
 
-            {activeTab === 'properties' && (
-                /* Properties View */
-                <div className="space-y-6">
-                    {/* Filters */}
-                    <div className="bg-white p-4 rounded-xl shadow-sm border border-neutral-200 flex flex-col sm:flex-row gap-4 justify-between">
-                        <div className="flex flex-1 gap-4">
-                            <div className="relative flex-1">
-                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-neutral-400 w-5 h-5" />
-                                <input
-                                    type="text"
-                                    placeholder="Search properties..."
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="w-full pl-10 pr-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                                />
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <Filter className="text-neutral-400 w-5 h-5" />
-                                <select
-                                    value={statusFilter}
-                                    onChange={(e) => setStatusFilter(e.target.value)}
-                                    className="border border-neutral-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                                >
-                                    <option value="all">All Status</option>
-                                    <option value="active">Active</option>
-                                    <option value="inactive">Inactive</option>
-                                </select>
-                            </div>
-                        </div>
-                        <button
-                            onClick={handleExport}
-                            className="flex items-center px-4 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-lg transition-colors"
-                        >
-                            <Download className="w-4 h-4 mr-2" />
-                            Export CSV
-                        </button>
-                    </div>
-
-                    {/* Table */}
-                    <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden">
-                        <div className="px-6 py-4 border-b border-neutral-200 flex justify-between items-center">
-                            <h2 className="text-lg font-semibold text-neutral-900">Property Listings</h2>
-                            <span className="text-sm text-neutral-500">Page {currentPage} of {totalPages}</span>
-                        </div>
-
-                        {loading ? (
-                            <div className="p-12 flex justify-center">
-                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
-                            </div>
-                        ) : (
-                            <>
-                                <div className="overflow-x-auto">
-                                    <table className="w-full">
-                                        <thead className="bg-neutral-50">
-                                            <tr>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Property</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Posted</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Views</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Leads</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Status</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Price</th>
-                                                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Contact</th>
-                                                <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 uppercase tracking-wider">Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="bg-white divide-y divide-neutral-200">
-                                            {properties.map((property) => (
-                                                <tr key={property.id} className="hover:bg-neutral-50">
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <div className="flex items-center">
-                                                            <div className="h-10 w-10 flex-shrink-0">
-                                                                {property.featuredImage && property.featuredImage.url ? (
-                                                                    <Image
-                                                                        className="rounded object-cover"
-                                                                        src={getOptimizedImageUrl(property.featuredImage.url, 160, 160, 'fill')}
-                                                                        alt=""
-                                                                        fill
-                                                                        sizes="40px"
-                                                                    />
-                                                                ) : (<div className="h-10 w-10 rounded bg-neutral-200" />
-                                                                )}
-                                                            </div>
-                                                            <div className="ml-4">
-                                                                <div className="text-sm font-medium text-neutral-900 max-w-[200px] truncate">{property.title}</div>
-                                                                <div className="text-xs text-neutral-500">{property.tags?.[0]}</div>
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-xs text-neutral-500">
-                                                        {timeAgo(property.createdAt)}
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900 font-medium">
-                                                        <div className="flex items-center gap-1">
-                                                            <Eye className="w-3 h-3 text-neutral-400" />
-                                                            {property.viewCount || 0}
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900 font-medium">
-                                                        <button
-                                                            onClick={() => handlePropertyLeadsClick(property)}
-                                                            className="flex items-center gap-1.5 hover:text-blue-600 transition-colors group"
-                                                            title="View Leads"
-                                                        >
-                                                            <div className={`p-1 rounded-full ${(property.leadsCount || 0) > 0 ? 'bg-blue-50 text-blue-600 group-hover:bg-blue-100' : 'bg-neutral-100 text-neutral-400'}`}>
-                                                                <User className="w-3 h-3" />
-                                                            </div>
-                                                            <span className={(property.leadsCount || 0) > 0 ? 'underline decoration-dotted' : ''}>
-                                                                {property.leadsCount || 0}
-                                                            </span>
-                                                        </button>
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <button
-                                                            onClick={() => handleStatusToggle(property.id, property.availableForSale)}
-                                                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${property.availableForSale
-                                                                ? 'bg-green-100 text-green-800'
-                                                                : 'bg-red-100 text-red-800'
-                                                                }`}
-                                                        >
-                                                            {property.availableForSale ? 'Active' : 'Inactive'}
-                                                        </button>
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900 font-medium">
-                                                        ₹{Number(property.priceRange?.minVariantPrice?.amount || property.price || 0).toLocaleString('en-IN')}
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
-                                                        {property.contactNumber || 'N/A'}
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                        <button
-                                                            onClick={() => router.push(`/product/${property.handle}`)}
-                                                            className="text-blue-600 hover:text-blue-900 mr-4"
-                                                            title="View"
-                                                        >
-                                                            <Eye className="w-4 h-4 inline" />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => setQrPosterProperty(property)}
-                                                            className="text-purple-600 hover:text-purple-900 mr-4"
-                                                            title="Generate QR Poster"
-                                                        >
-                                                            <Download className="w-4 h-4 inline" />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleStatusToggle(property.id, property.availableForSale)}
-                                                            className={`mr-4 ${property.availableForSale ? 'text-orange-600 hover:text-orange-900' : 'text-green-600 hover:text-green-900'}`}
-                                                            title={property.availableForSale ? "Deactivate" : "Activate"}
-                                                        >
-                                                            {property.availableForSale ? <XCircle className="w-4 h-4 inline" /> : <CheckCircle className="w-4 h-4 inline" />}
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleDelete(property.id)}
-                                                            className="text-red-600 hover:text-red-900"
-                                                            title="Delete"
-                                                        >
-                                                            <Trash2 className="w-4 h-4 inline" />
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-
-                                {/* Pagination Controls */}
-                                <div className="px-6 py-4 border-t border-neutral-200 flex items-center justify-between">
-                                    <button
-                                        onClick={() => handlePageChange(currentPage - 1)}
-                                        disabled={currentPage === 1}
-                                        className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${currentPage === 1
-                                            ? 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
-                                            : 'text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50'
-                                            }`}
-                                    >
-                                        <ChevronLeft className="w-4 h-4 mr-2" />
-                                        Previous
-                                    </button>
-                                    <div className="hidden sm:flex">
-                                        <p className="text-sm text-neutral-700">
-                                            Showing page <span className="font-medium">{currentPage}</span> of <span className="font-medium">{totalPages}</span>
-                                        </p>
+                {
+                    activeTab === 'overview' && (
+                        /* Stats View */
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                            <div className="bg-white rounded-xl p-6 shadow-sm border border-neutral-200">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm font-medium text-neutral-600">Total Properties</p>
+                                        <p className="text-3xl font-bold text-neutral-900 mt-2">{stats.total}</p>
                                     </div>
-                                    <button
-                                        onClick={() => handlePageChange(currentPage + 1)}
-                                        disabled={currentPage === totalPages}
-                                        className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${currentPage === totalPages
-                                            ? 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
-                                            : 'text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50'
-                                            }`}
-                                    >
-                                        Next
-                                        <ChevronRight className="w-4 h-4 ml-2" />
-                                    </button>
+                                    <Building className="w-12 h-12 text-blue-500 opacity-20" />
                                 </div>
-                            </>
-                        )}
-                    </div>
-                </div>
-            )}
-
-            {activeTab === 'users' && (
-                <div className="space-y-6">
-                    <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden">
-                        <div className="px-6 py-4 border-b border-neutral-200 flex justify-between items-center">
-                            <h2 className="text-lg font-semibold text-neutral-900">Users List</h2>
-                            <span className="text-sm text-neutral-500">Page {currentPage} of {totalPages}</span>
-                        </div>
-
-                        {loading ? (
-                            <div className="p-12 flex justify-center">
-                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
                             </div>
-                        ) : (
-                            <div className="overflow-x-auto">
-                                <table className="w-full">
-                                    <thead className="bg-neutral-50">
-                                        <tr>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">User</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Email</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Phone</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Joined</th>
-                                            <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 uppercase tracking-wider">Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="bg-white divide-y divide-neutral-200">
-                                        {usersList.length === 0 ? (
-                                            <tr>
-                                                <td colSpan={5} className="px-6 py-12 text-center text-neutral-500">
-                                                    No users found.
-                                                </td>
-                                            </tr>
-                                        ) : (
-                                            usersList.map((user) => (
-                                                <tr key={user.userId} className="hover:bg-neutral-50">
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <div className="flex items-center">
-                                                            <div className="h-8 w-8 rounded-full bg-neutral-100 flex items-center justify-center">
-                                                                <span className="text-xs font-bold text-neutral-500">{user.name?.[0]}</span>
-                                                            </div>
-                                                            <div className="ml-3">
-                                                                <button
-                                                                    onClick={() => router.push(`/admin/users/${user.userId}`)}
-                                                                    className="text-sm font-medium text-neutral-900 hover:text-blue-600 hover:underline text-left"
-                                                                >
-                                                                    {user.name}
-                                                                </button>
-                                                                <div className="text-xs text-neutral-500 capitalize">{user.role}</div>
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
-                                                        {user.email}
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
-                                                        <div className="flex items-center gap-2">
-                                                            <span>{user.contactNumber || 'N/A'}</span>
-                                                            {user.contactNumber && (
-                                                                <a
-                                                                    href={`https://wa.me/${user.contactNumber.replace(/\D/g, '')}`}
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
-                                                                    className="text-green-600 hover:text-green-700"
-                                                                >
-                                                                    <MessageCircle className="w-4 h-4" />
-                                                                </a>
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
-                                                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${user.isVerified ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                                                            {user.isVerified && <CheckCircle className="w-3 h-3" />}
-                                                            {user.isVerified ? 'Verified' : 'Unverified'}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                        <div className="flex items-center justify-end gap-3">
-                                                            <a
-                                                                href={`/admin/users/${user.userId}`}
-                                                                className="text-blue-600 hover:text-blue-900"
-                                                            >
-                                                                View Details
-                                                            </a>
-                                                            <button
-                                                                onClick={() => {
-                                                                    if (window.confirm('Are you sure you want to BAN this user? This action cannot be undone easily.')) {
-                                                                        handleBanUser(user.userId);
-                                                                    }
-                                                                }}
-                                                                className="text-red-600 hover:text-red-900"
-                                                                title="Ban User"
-                                                            >
-                                                                <Ban className="w-4 h-4" />
-                                                            </button>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            ))
-                                        )}
-                                    </tbody>
-                                </table>
+                            <div className="bg-white rounded-xl p-6 shadow-sm border border-neutral-200">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm font-medium text-neutral-600">Total Users</p>
+                                        <p className="text-3xl font-bold text-neutral-900 mt-2">{stats.users}</p>
+                                    </div>
+                                    <Users className="w-12 h-12 text-green-500 opacity-20" />
+                                </div>
                             </div>
-                        )}
-                        <div className="px-6 py-4 border-t border-neutral-200 flex items-center justify-between">
-                            <button
-                                onClick={() => handlePageChange(currentPage - 1)}
-                                disabled={currentPage === 1}
-                                className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${currentPage === 1
-                                    ? 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
-                                    : 'text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50'
-                                    }`}
-                            >
-                                <ChevronLeft className="w-4 h-4 mr-2" />
-                                Previous
-                            </button>
-                            <span className="text-sm text-neutral-700">Page {currentPage} of {totalPages}</span>
-                            <button
-                                onClick={() => handlePageChange(currentPage + 1)}
-                                disabled={currentPage === totalPages}
-                                className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${currentPage === totalPages
-                                    ? 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
-                                    : 'text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50'
-                                    }`}
-                            >
-                                Next
-                                <ChevronRight className="w-4 h-4 ml-2" />
-                            </button>
+                            <div className="bg-white rounded-xl p-6 shadow-sm border border-neutral-200">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm font-medium text-neutral-600">Active Listings</p>
+                                        <p className="text-3xl font-bold text-neutral-900 mt-2">{stats.active}</p>
+                                    </div>
+                                    <TrendingUp className="w-12 h-12 text-orange-500 opacity-20" />
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                </div>
-            )}
+                    )
+                }
 
-            {activeTab === 'inquiries' && (
-                <div className="space-y-6">
-                    <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden">
-                        <div className="px-6 py-4 border-b border-neutral-200 flex justify-between items-center">
-                            <h2 className="text-lg font-semibold text-neutral-900">User Inquiries</h2>
-                            <div className="flex items-center gap-4">
+                {
+                    activeTab === 'properties' && (
+                        /* Properties View */
+                        <div className="space-y-6">
+                            {/* Filters */}
+                            <div className="bg-white p-4 rounded-xl shadow-sm border border-neutral-200 flex flex-col sm:flex-row gap-4 justify-between">
+                                <div className="flex flex-1 gap-4">
+                                    <div className="relative flex-1">
+                                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-neutral-400 w-5 h-5" />
+                                        <input
+                                            type="text"
+                                            placeholder="Search properties..."
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            className="w-full pl-10 pr-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                                        />
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Filter className="text-neutral-400 w-5 h-5" />
+                                        <select
+                                            value={statusFilter}
+                                            onChange={(e) => setStatusFilter(e.target.value)}
+                                            className="border border-neutral-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                                        >
+                                            <option value="all">All Status</option>
+                                            <option value="active">Active</option>
+                                            <option value="inactive">Inactive</option>
+                                        </select>
+                                    </div>
+                                </div>
                                 <button
-                                    onClick={handleExportInquiries}
-                                    className="flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white text-xs font-bold rounded-lg hover:bg-green-700 transition-colors"
+                                    onClick={handleExport}
+                                    className="flex items-center px-4 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-lg transition-colors"
                                 >
-                                    <Download className="w-3 h-3" />
-                                    Export to Excel
+                                    <Download className="w-4 h-4 mr-2" />
+                                    Export CSV
                                 </button>
-                                <span className="text-sm text-neutral-500">Page {currentPage} of {totalPages}</span>
+                            </div>
+
+                            {/* Table */}
+                            <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden">
+                                <div className="px-6 py-4 border-b border-neutral-200 flex justify-between items-center">
+                                    <h2 className="text-lg font-semibold text-neutral-900">Property Listings</h2>
+                                    <span className="text-sm text-neutral-500">Page {currentPage} of {totalPages}</span>
+                                </div>
+
+                                {loading ? (
+                                    <div className="p-12 flex justify-center">
+                                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full">
+                                                <thead className="bg-neutral-50">
+                                                    <tr>
+                                                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Property</th>
+                                                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Posted</th>
+                                                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Views</th>
+                                                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Leads</th>
+                                                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Status</th>
+                                                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Price</th>
+                                                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Contact</th>
+                                                        <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 uppercase tracking-wider">Actions</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="bg-white divide-y divide-neutral-200">
+                                                    {properties.map((property) => (
+                                                        <tr key={property.id} className="hover:bg-neutral-50">
+                                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                                <div className="flex items-center">
+                                                                    <div className="relative h-10 w-10 flex-shrink-0">
+                                                                        {property.featuredImage && property.featuredImage.url ? (
+                                                                            <Image
+                                                                                className="rounded object-cover"
+                                                                                src={getOptimizedImageUrl(property.featuredImage.url, 160, 160, 'fill')}
+                                                                                alt=""
+                                                                                fill
+                                                                                sizes="40px"
+                                                                            />
+                                                                        ) : (<div className="h-10 w-10 rounded bg-neutral-200" />
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="ml-4">
+                                                                        <div className="text-sm font-medium text-neutral-900 max-w-[200px] truncate">{property.title}</div>
+                                                                        <div className="text-xs text-neutral-500">{property.tags?.[0]}</div>
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-xs text-neutral-500">
+                                                                {timeAgo(property.createdAt)}
+                                                            </td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900 font-medium">
+                                                                <div className="flex items-center gap-1">
+                                                                    <Eye className="w-3 h-3 text-neutral-400" />
+                                                                    {property.viewCount || 0}
+                                                                </div>
+                                                            </td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900 font-medium">
+                                                                <button
+                                                                    onClick={() => handlePropertyLeadsClick(property)}
+                                                                    className="flex items-center gap-1.5 hover:text-blue-600 transition-colors group"
+                                                                    title="View Leads"
+                                                                >
+                                                                    <div className={`p-1 rounded-full ${(property.leadsCount || 0) > 0 ? 'bg-blue-50 text-blue-600 group-hover:bg-blue-100' : 'bg-neutral-100 text-neutral-400'}`}>
+                                                                        <User className="w-3 h-3" />
+                                                                    </div>
+                                                                    <span className={(property.leadsCount || 0) > 0 ? 'underline decoration-dotted' : ''}>
+                                                                        {property.leadsCount || 0}
+                                                                    </span>
+                                                                </button>
+                                                            </td>
+                                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                                <button
+                                                                    onClick={() => handleStatusToggle(property.id, property.availableForSale)}
+                                                                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${property.availableForSale
+                                                                        ? 'bg-green-100 text-green-800'
+                                                                        : 'bg-red-100 text-red-800'
+                                                                        }`}
+                                                                >
+                                                                    {property.availableForSale ? 'Active' : 'Inactive'}
+                                                                </button>
+                                                            </td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900 font-medium">
+                                                                ₹{Number(property.priceRange?.minVariantPrice?.amount || property.price || 0).toLocaleString('en-IN')}
+                                                            </td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
+                                                                {property.contactNumber || 'N/A'}
+                                                            </td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                                <button
+                                                                    onClick={() => router.push(`/product/${property.handle}`)}
+                                                                    className="text-blue-600 hover:text-blue-900 mr-4"
+                                                                    title="View"
+                                                                >
+                                                                    <Eye className="w-4 h-4 inline" />
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => setQrPosterProperty(property)}
+                                                                    className="text-purple-600 hover:text-purple-900 mr-4"
+                                                                    title="Generate QR Poster"
+                                                                >
+                                                                    <Download className="w-4 h-4 inline" />
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleStatusToggle(property.id, property.availableForSale)}
+                                                                    className={`mr-4 ${property.availableForSale ? 'text-orange-600 hover:text-orange-900' : 'text-green-600 hover:text-green-900'}`}
+                                                                    title={property.availableForSale ? "Deactivate" : "Activate"}
+                                                                >
+                                                                    {property.availableForSale ? <XCircle className="w-4 h-4 inline" /> : <CheckCircle className="w-4 h-4 inline" />}
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleDelete(property.id)}
+                                                                    className="text-red-600 hover:text-red-900"
+                                                                    title="Delete"
+                                                                >
+                                                                    <Trash2 className="w-4 h-4 inline" />
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+
+                                        {/* Pagination Controls */}
+                                        <div className="px-6 py-4 border-t border-neutral-200 flex items-center justify-between">
+                                            <button
+                                                onClick={() => handlePageChange(currentPage - 1)}
+                                                disabled={currentPage === 1}
+                                                className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${currentPage === 1
+                                                    ? 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
+                                                    : 'text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50'
+                                                    }`}
+                                            >
+                                                <ChevronLeft className="w-4 h-4 mr-2" />
+                                                Previous
+                                            </button>
+                                            <div className="hidden sm:flex">
+                                                <p className="text-sm text-neutral-700">
+                                                    Showing page <span className="font-medium">{currentPage}</span> of <span className="font-medium">{totalPages}</span>
+                                                </p>
+                                            </div>
+                                            <button
+                                                onClick={() => handlePageChange(currentPage + 1)}
+                                                disabled={currentPage === totalPages}
+                                                className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${currentPage === totalPages
+                                                    ? 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
+                                                    : 'text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50'
+                                                    }`}
+                                            >
+                                                Next
+                                                <ChevronRight className="w-4 h-4 ml-2" />
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         </div>
-                        {loading ? (
-                            <div className="p-12 flex justify-center">
-                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
-                            </div>
-                        ) : (
-                            <div className="overflow-x-auto">
-                                <table className="w-full">
-                                    <thead className="bg-neutral-50">
-                                        <tr>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Date</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Name</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Subject</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Status</th>
-                                            <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 uppercase tracking-wider">Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="bg-white divide-y divide-neutral-200">
-                                        {inquiries.length > 0 ? inquiries.map((inq) => (
-                                            <tr key={inq.id} className="hover:bg-neutral-50">
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
-                                                    {new Date(inq.created_at).toLocaleDateString()}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-900">
-                                                    {inq.first_name} {inq.last_name}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
-                                                    {inq.subject}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${inq.status === 'unread' ? 'bg-blue-100 text-blue-800' : 'bg-neutral-100 text-neutral-800'}`}>
-                                                        {inq.status || 'unread'}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                    <button
-                                                        onClick={() => setSelectedInquiry(inq)}
-                                                        className="text-blue-600 hover:text-blue-900 flex items-center justify-end gap-1 ml-auto"
-                                                    >
-                                                        View <Eye className="w-3 h-3" />
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        )) : (
-                                            <tr>
-                                                <td colSpan={5} className="px-6 py-12 text-center text-neutral-500">
-                                                    No inquiries found
-                                                </td>
-                                            </tr>
-                                        )}
-                                    </tbody>
-                                </table>
+                    )
+                }
+
+                {
+                    activeTab === 'users' && (
+                        <div className="space-y-6">
+                            <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden">
+                                <div className="px-6 py-4 border-b border-neutral-200 flex justify-between items-center">
+                                    <h2 className="text-lg font-semibold text-neutral-900">Users List</h2>
+                                    <span className="text-sm text-neutral-500">Page {currentPage} of {totalPages}</span>
+                                </div>
+
+                                {loading ? (
+                                    <div className="p-12 flex justify-center">
+                                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
+                                    </div>
+                                ) : (
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full">
+                                            <thead className="bg-neutral-50">
+                                                <tr>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">User</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Email</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Phone</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Joined</th>
+                                                    <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 uppercase tracking-wider">Action</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="bg-white divide-y divide-neutral-200">
+                                                {usersList.length === 0 ? (
+                                                    <tr>
+                                                        <td colSpan={5} className="px-6 py-12 text-center text-neutral-500">
+                                                            No users found.
+                                                        </td>
+                                                    </tr>
+                                                ) : (
+                                                    usersList.map((user) => (
+                                                        <tr key={user.userId} className="hover:bg-neutral-50">
+                                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                                <div className="flex items-center">
+                                                                    <div className="h-8 w-8 rounded-full bg-neutral-100 flex items-center justify-center">
+                                                                        <span className="text-xs font-bold text-neutral-500">{user.name?.[0]}</span>
+                                                                    </div>
+                                                                    <div className="ml-3">
+                                                                        <button
+                                                                            onClick={() => router.push(`/admin/users/${user.userId}`)}
+                                                                            className="text-sm font-medium text-neutral-900 hover:text-blue-600 hover:underline text-left"
+                                                                        >
+                                                                            {user.name}
+                                                                        </button>
+                                                                        <div className="text-xs text-neutral-500 capitalize">{user.role}</div>
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
+                                                                {user.email}
+                                                            </td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span>{user.contactNumber || 'N/A'}</span>
+                                                                    {user.contactNumber && (
+                                                                        <a
+                                                                            href={`https://wa.me/${user.contactNumber.replace(/\D/g, '')}`}
+                                                                            target="_blank"
+                                                                            rel="noopener noreferrer"
+                                                                            className="text-green-600 hover:text-green-700"
+                                                                        >
+                                                                            <MessageCircle className="w-4 h-4" />
+                                                                        </a>
+                                                                    )}
+                                                                </div>
+                                                            </td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
+                                                                <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${user.isVerified ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                                                    {user.isVerified && <CheckCircle className="w-3 h-3" />}
+                                                                    {user.isVerified ? 'Verified' : 'Unverified'}
+                                                                </span>
+                                                            </td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                                <div className="flex items-center justify-end gap-3">
+                                                                    <a
+                                                                        href={`/admin/users/${user.userId}`}
+                                                                        className="text-blue-600 hover:text-blue-900"
+                                                                    >
+                                                                        View Details
+                                                                    </a>
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            if (window.confirm('Are you sure you want to BAN this user? This action cannot be undone easily.')) {
+                                                                                handleBanUser(user.userId);
+                                                                            }
+                                                                        }}
+                                                                        className="text-red-600 hover:text-red-900"
+                                                                        title="Ban User"
+                                                                    >
+                                                                        <Ban className="w-4 h-4" />
+                                                                    </button>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    ))
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
                                 <div className="px-6 py-4 border-t border-neutral-200 flex items-center justify-between">
                                     <button
                                         onClick={() => handlePageChange(currentPage - 1)}
@@ -1126,326 +1095,452 @@ export default function AdminPage() {
                                     </button>
                                 </div>
                             </div>
-                        )}
-                    </div>
-                </div>
-            )}
-            {
-                activeTab === 'users' && (
-                    /* Users View */
-                    <div className="space-y-6">
-                        <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden">
-                            <div className="px-6 py-4 border-b border-neutral-200 flex justify-between items-center">
-                                <h2 className="text-lg font-semibold text-neutral-900">Registered Users</h2>
-                                <span className="text-sm text-neutral-500">Page {currentPage} of {totalPages}</span>
-                            </div>
-
-                            {loading ? (
-                                <div className="p-12 flex justify-center">
-                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
-                                </div>
-                            ) : (
-                                <>
-                                    <div className="overflow-x-auto">
-                                        <table className="w-full">
-                                            <thead className="bg-neutral-50">
-                                                <tr>
-                                                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">User ID</th>
-                                                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Name</th>
-                                                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Email</th>
-                                                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Contact</th>
-                                                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Total Properties</th>
-                                                </tr >
-                                            </thead >
-                                            <tbody className="bg-white divide-y divide-neutral-200">
-                                                {usersList.map((userItem) => (
-                                                    <tr key={userItem.userId} className="hover:bg-neutral-50">
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-900" title={userItem.userId}>
-                                                            {userItem.userId.substring(0, 8)}...
-                                                        </td>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900">
-                                                            {userItem.name}
-                                                        </td>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
-                                                            {userItem.email}
-                                                        </td>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
-                                                            <div className="flex items-center gap-2">
-                                                                {userItem.contactNumber}
-                                                                {userItem.contactNumber !== 'N/A' && (
-                                                                    <a
-                                                                        href={`https://wa.me/${userItem.contactNumber.replace(/\D/g, '')}`}
-                                                                        target="_blank"
-                                                                        rel="noopener noreferrer"
-                                                                        className="text-green-600 hover:text-green-700 hover:bg-green-50 p-1 rounded-full transition-colors"
-                                                                        title="Chat on WhatsApp"
-                                                                    >
-                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>
-                                                                    </a>
-                                                                )}
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900">
-                                                            <button
-                                                                onClick={() => handleUserPropertiesClick(userItem.userId, userItem.name)}
-                                                                className="text-blue-600 hover:text-blue-800 hover:underline font-medium flex items-center gap-1"
-                                                            >
-                                                                {userItem.totalProperties} Properties
-                                                                <Eye className="w-3 h-3" />
-                                                            </button>
-                                                        </td>
-                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900">
-                                                            <div className="flex items-center gap-3">
-                                                                <button
-                                                                    onClick={() => setSelectedUserForInfo(userItem)}
-                                                                    className="text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 p-1.5 rounded-lg transition-colors"
-                                                                    title="User Info"
-                                                                >
-                                                                    <Info className="w-4 h-4" />
-                                                                </button>
-                                                                {userItem.status !== 'banned' ? (
-                                                                    <button
-                                                                        onClick={() => handleBanUser(userItem.userId)}
-                                                                        className="px-3 py-1 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg text-sm font-medium transition-colors"
-                                                                    >
-                                                                        Ban
-                                                                    </button>
-                                                                ) : (
-                                                                    <span className="text-neutral-400 text-sm font-medium">Banned</span>
-                                                                )}
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table >
-                                    </div >
-
-                                    {/* Pagination Controls */}
-                                    < div className="px-6 py-4 border-t border-neutral-200 flex items-center justify-between" >
-                                        <button
-                                            onClick={() => handlePageChange(currentPage - 1)}
-                                            disabled={currentPage === 1}
-                                            className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${currentPage === 1
-                                                ? 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
-                                                : 'text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50'
-                                                }`}
-                                        >
-                                            <ChevronLeft className="w-4 h-4 mr-2" />
-                                            Previous
-                                        </button>
-                                        <div className="hidden sm:flex">
-                                            <p className="text-sm text-neutral-700">
-                                                Showing page <span className="font-medium">{currentPage}</span> of <span className="font-medium">{totalPages}</span>
-                                            </p>
-                                        </div>
-                                        <button
-                                            onClick={() => handlePageChange(currentPage + 1)}
-                                            disabled={currentPage === totalPages}
-                                            className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${currentPage === totalPages
-                                                ? 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
-                                                : 'text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50'
-                                                }`}
-                                        >
-                                            Next
-                                            <ChevronRight className="w-4 h-4 ml-2" />
-                                        </button>
-                                    </div >
-                                </>
-                            )
-                            }
-                        </div >
-                    </div >
-                )
-            }
-            {
-                activeTab === 'approvals' && (
-                    /* Approvals View */
-                    <div className="space-y-6">
-                        <div className="bg-white p-4 rounded-xl shadow-sm border border-neutral-200">
-                            <h2 className="text-lg font-semibold text-neutral-900 mb-2">Pending Approvals</h2>
-                            <p className="text-sm text-neutral-500">Review and approve new property listings.</p>
                         </div>
+                    )
+                }
 
-                        <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden">
-                            <div className="px-6 py-4 border-b border-neutral-200 flex justify-between items-center">
-                                <h2 className="text-lg font-semibold text-neutral-900">Pending Listings</h2>
-                                <span className="text-sm text-neutral-500">Page {currentPage} of {totalPages}</span>
-                            </div>
-
-                            {loading ? (
-                                <div className="p-12 flex justify-center">
-                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
+                {
+                    activeTab === 'inquiries' && (
+                        <div className="space-y-6">
+                            <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden">
+                                <div className="px-6 py-4 border-b border-neutral-200 flex justify-between items-center">
+                                    <h2 className="text-lg font-semibold text-neutral-900">User Inquiries</h2>
+                                    <div className="flex items-center gap-4">
+                                        <button
+                                            onClick={handleExportInquiries}
+                                            className="flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white text-xs font-bold rounded-lg hover:bg-green-700 transition-colors"
+                                        >
+                                            <Download className="w-3 h-3" />
+                                            Export to Excel
+                                        </button>
+                                        <span className="text-sm text-neutral-500">Page {currentPage} of {totalPages}</span>
+                                    </div>
                                 </div>
-                            ) : (
-                                <>
+                                {loading ? (
+                                    <div className="p-12 flex justify-center">
+                                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
+                                    </div>
+                                ) : (
                                     <div className="overflow-x-auto">
                                         <table className="w-full">
                                             <thead className="bg-neutral-50">
                                                 <tr>
-                                                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Property</th>
-                                                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Price</th>
-                                                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Contact</th>
-                                                    <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 uppercase tracking-wider">Actions</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Date</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Name</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Subject</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Status</th>
+                                                    <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 uppercase tracking-wider">Action</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="bg-white divide-y divide-neutral-200">
-                                                {properties.length === 0 ? (
-                                                    <tr>
-                                                        <td colSpan={4} className="px-6 py-12 text-center text-neutral-500">
-                                                            No pending approvals found.
+                                                {inquiries.length > 0 ? inquiries.map((inq) => (
+                                                    <tr key={inq.id} className="hover:bg-neutral-50">
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
+                                                            {new Date(inq.created_at).toLocaleDateString()}
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-900">
+                                                            {inq.first_name} {inq.last_name}
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
+                                                            {inq.subject}
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap">
+                                                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${inq.status === 'unread' ? 'bg-blue-100 text-blue-800' : 'bg-neutral-100 text-neutral-800'}`}>
+                                                                {inq.status || 'unread'}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                            <button
+                                                                onClick={() => setSelectedInquiry(inq)}
+                                                                className="text-blue-600 hover:text-blue-900 flex items-center justify-end gap-1 ml-auto"
+                                                            >
+                                                                View <Eye className="w-3 h-3" />
+                                                            </button>
                                                         </td>
                                                     </tr>
-                                                ) : (
-                                                    properties.map((property) => (
-                                                        <tr key={property.id} className="hover:bg-neutral-50">
-                                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                                <div className="flex items-center">
-                                                                    <div className="h-10 w-10 flex-shrink-0">
-                                                                        {property.featuredImage && property.featuredImage.url ? (
-                                                                            <img
-                                                                                className="h-10 w-10 rounded object-cover"
-                                                                                src={getOptimizedImageUrl(property.featuredImage.url, 160, 160, 'fill')}
-                                                                                alt=""
-                                                                                loading="lazy"
-                                                                            />
-                                                                        ) : (<div className="h-10 w-10 rounded bg-neutral-200" />
-                                                                        )}
-                                                                    </div>
-                                                                    <div className="ml-4">
-                                                                        <div className="text-sm font-medium text-neutral-900 max-w-[200px] truncate">{property.title}</div>
-                                                                        <div className="text-xs text-neutral-500">{property.tags?.[0]}</div>
-                                                                    </div>
-                                                                </div>
-                                                            </td>
-                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900 font-medium">
-                                                                ₹{Number(property.priceRange?.minVariantPrice?.amount || property.price || 0).toLocaleString('en-IN')}
-                                                            </td>
-                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
-                                                                {property.contactNumber || 'N/A'}
-                                                            </td>
-                                                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                                <button
-                                                                    onClick={() => router.push(`/product/${property.handle}`)}
-                                                                    className="text-blue-600 hover:text-blue-900 mr-4"
-                                                                    title="View"
-                                                                >
-                                                                    <Eye className="w-4 h-4 inline" />
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => handleApprove(property.id)}
-                                                                    className="text-green-600 hover:text-green-900 mr-4"
-                                                                    title="Approve"
-                                                                >
-                                                                    <CheckCircle className="w-4 h-4 inline" />
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => handleReject(property.id)}
-                                                                    className="text-red-600 hover:text-red-900"
-                                                                    title="Reject"
-                                                                >
-                                                                    <XCircle className="w-4 h-4 inline" />
-                                                                </button>
-                                                            </td>
-                                                        </tr>
-                                                    ))
+                                                )) : (
+                                                    <tr>
+                                                        <td colSpan={5} className="px-6 py-12 text-center text-neutral-500">
+                                                            No inquiries found
+                                                        </td>
+                                                    </tr>
                                                 )}
                                             </tbody>
                                         </table>
-                                    </div>
-
-                                    {/* Pagination Controls */}
-                                    <div className="px-6 py-4 border-t border-neutral-200 flex items-center justify-between">
-                                        <button
-                                            onClick={() => handlePageChange(currentPage - 1)}
-                                            disabled={currentPage === 1}
-                                            className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${currentPage === 1
-                                                ? 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
-                                                : 'text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50'
-                                                }`}
-                                        >
-                                            <ChevronLeft className="w-4 h-4 mr-2" />
-                                            Previous
-                                        </button>
-                                        <div className="hidden sm:flex">
-                                            <p className="text-sm text-neutral-700">
-                                                Showing page <span className="font-medium">{currentPage}</span> of <span className="font-medium">{totalPages}</span>
-                                            </p>
+                                        <div className="px-6 py-4 border-t border-neutral-200 flex items-center justify-between">
+                                            <button
+                                                onClick={() => handlePageChange(currentPage - 1)}
+                                                disabled={currentPage === 1}
+                                                className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${currentPage === 1
+                                                    ? 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
+                                                    : 'text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50'
+                                                    }`}
+                                            >
+                                                <ChevronLeft className="w-4 h-4 mr-2" />
+                                                Previous
+                                            </button>
+                                            <span className="text-sm text-neutral-700">Page {currentPage} of {totalPages}</span>
+                                            <button
+                                                onClick={() => handlePageChange(currentPage + 1)}
+                                                disabled={currentPage === totalPages}
+                                                className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${currentPage === totalPages
+                                                    ? 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
+                                                    : 'text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50'
+                                                    }`}
+                                            >
+                                                Next
+                                                <ChevronRight className="w-4 h-4 ml-2" />
+                                            </button>
                                         </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )
+                }
+                {
+                    activeTab === 'users' && (
+                        /* Users View */
+                        <div className="space-y-6">
+                            <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden">
+                                <div className="px-6 py-4 border-b border-neutral-200 flex justify-between items-center">
+                                    <h2 className="text-lg font-semibold text-neutral-900">Registered Users</h2>
+                                    <span className="text-sm text-neutral-500">Page {currentPage} of {totalPages}</span>
+                                </div>
+
+                                {loading ? (
+                                    <div className="p-12 flex justify-center">
+                                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full">
+                                                <thead className="bg-neutral-50">
+                                                    <tr>
+                                                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">User ID</th>
+                                                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Name</th>
+                                                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Email</th>
+                                                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Contact</th>
+                                                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Total Properties</th>
+                                                    </tr >
+                                                </thead >
+                                                <tbody className="bg-white divide-y divide-neutral-200">
+                                                    {usersList.map((userItem) => (
+                                                        <tr key={userItem.userId} className="hover:bg-neutral-50">
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-neutral-900" title={userItem.userId}>
+                                                                {userItem.userId.substring(0, 8)}...
+                                                            </td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900">
+                                                                {userItem.name}
+                                                            </td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
+                                                                {userItem.email}
+                                                            </td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
+                                                                <div className="flex items-center gap-2">
+                                                                    {userItem.contactNumber}
+                                                                    {userItem.contactNumber !== 'N/A' && (
+                                                                        <a
+                                                                            href={`https://wa.me/${userItem.contactNumber.replace(/\D/g, '')}`}
+                                                                            target="_blank"
+                                                                            rel="noopener noreferrer"
+                                                                            className="text-green-600 hover:text-green-700 hover:bg-green-50 p-1 rounded-full transition-colors"
+                                                                            title="Chat on WhatsApp"
+                                                                        >
+                                                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>
+                                                                        </a>
+                                                                    )}
+                                                                </div>
+                                                            </td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900">
+                                                                <button
+                                                                    onClick={() => handleUserPropertiesClick(userItem.userId, userItem.name)}
+                                                                    className="text-blue-600 hover:text-blue-800 hover:underline font-medium flex items-center gap-1"
+                                                                >
+                                                                    {userItem.totalProperties} Properties
+                                                                    <Eye className="w-3 h-3" />
+                                                                </button>
+                                                            </td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900">
+                                                                <div className="flex items-center gap-3">
+                                                                    <button
+                                                                        onClick={() => setSelectedUserForInfo(userItem)}
+                                                                        className="text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 p-1.5 rounded-lg transition-colors"
+                                                                        title="User Info"
+                                                                    >
+                                                                        <Info className="w-4 h-4" />
+                                                                    </button>
+                                                                    {userItem.status !== 'banned' ? (
+                                                                        <button
+                                                                            onClick={() => handleBanUser(userItem.userId)}
+                                                                            className="px-3 py-1 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg text-sm font-medium transition-colors"
+                                                                        >
+                                                                            Ban
+                                                                        </button>
+                                                                    ) : (
+                                                                        <span className="text-neutral-400 text-sm font-medium">Banned</span>
+                                                                    )}
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table >
+                                        </div >
+
+                                        {/* Pagination Controls */}
+                                        < div className="px-6 py-4 border-t border-neutral-200 flex items-center justify-between" >
+                                            <button
+                                                onClick={() => handlePageChange(currentPage - 1)}
+                                                disabled={currentPage === 1}
+                                                className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${currentPage === 1
+                                                    ? 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
+                                                    : 'text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50'
+                                                    }`}
+                                            >
+                                                <ChevronLeft className="w-4 h-4 mr-2" />
+                                                Previous
+                                            </button>
+                                            <div className="hidden sm:flex">
+                                                <p className="text-sm text-neutral-700">
+                                                    Showing page <span className="font-medium">{currentPage}</span> of <span className="font-medium">{totalPages}</span>
+                                                </p>
+                                            </div>
+                                            <button
+                                                onClick={() => handlePageChange(currentPage + 1)}
+                                                disabled={currentPage === totalPages}
+                                                className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${currentPage === totalPages
+                                                    ? 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
+                                                    : 'text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50'
+                                                    }`}
+                                            >
+                                                Next
+                                                <ChevronRight className="w-4 h-4 ml-2" />
+                                            </button>
+                                        </div >
+                                    </>
+                                )
+                                }
+                            </div >
+                        </div >
+                    )
+                }
+                {
+                    activeTab === 'approvals' && (
+                        /* Approvals View */
+                        <div className="space-y-6">
+                            <div className="bg-white p-4 rounded-xl shadow-sm border border-neutral-200">
+                                <h2 className="text-lg font-semibold text-neutral-900 mb-2">Pending Approvals</h2>
+                                <p className="text-sm text-neutral-500">Review and approve new property listings.</p>
+                            </div>
+
+                            <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden">
+                                <div className="px-6 py-4 border-b border-neutral-200 flex justify-between items-center">
+                                    <h2 className="text-lg font-semibold text-neutral-900">Pending Listings</h2>
+                                    <span className="text-sm text-neutral-500">Page {currentPage} of {totalPages}</span>
+                                </div>
+
+                                {loading ? (
+                                    <div className="p-12 flex justify-center">
+                                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full">
+                                                <thead className="bg-neutral-50">
+                                                    <tr>
+                                                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Property</th>
+                                                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Price</th>
+                                                        <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase tracking-wider">Contact</th>
+                                                        <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 uppercase tracking-wider">Actions</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="bg-white divide-y divide-neutral-200">
+                                                    {properties.length === 0 ? (
+                                                        <tr>
+                                                            <td colSpan={4} className="px-6 py-12 text-center text-neutral-500">
+                                                                No pending approvals found.
+                                                            </td>
+                                                        </tr>
+                                                    ) : (
+                                                        properties.map((property) => (
+                                                            <tr key={property.id} className="hover:bg-neutral-50">
+                                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                                    <div className="flex items-center">
+                                                                        <div className="h-10 w-10 flex-shrink-0">
+                                                                            {property.featuredImage && property.featuredImage.url ? (
+                                                                                <img
+                                                                                    className="h-10 w-10 rounded object-cover"
+                                                                                    src={getOptimizedImageUrl(property.featuredImage.url, 160, 160, 'fill')}
+                                                                                    alt=""
+                                                                                    loading="lazy"
+                                                                                />
+                                                                            ) : (<div className="h-10 w-10 rounded bg-neutral-200" />
+                                                                            )}
+                                                                        </div>
+                                                                        <div className="ml-4">
+                                                                            <div className="text-sm font-medium text-neutral-900 max-w-[200px] truncate">{property.title}</div>
+                                                                            <div className="text-xs text-neutral-500">{property.tags?.[0]}</div>
+                                                                        </div>
+                                                                    </div>
+                                                                </td>
+                                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-900 font-medium">
+                                                                    ₹{Number(property.priceRange?.minVariantPrice?.amount || property.price || 0).toLocaleString('en-IN')}
+                                                                </td>
+                                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-500">
+                                                                    {property.contactNumber || 'N/A'}
+                                                                </td>
+                                                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                                    <button
+                                                                        onClick={() => router.push(`/product/${property.handle}`)}
+                                                                        className="text-blue-600 hover:text-blue-900 mr-4"
+                                                                        title="View"
+                                                                    >
+                                                                        <Eye className="w-4 h-4 inline" />
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => handleApprove(property.id)}
+                                                                        className="text-green-600 hover:text-green-900 mr-4"
+                                                                        title="Approve"
+                                                                    >
+                                                                        <CheckCircle className="w-4 h-4 inline" />
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => handleReject(property.id)}
+                                                                        className="text-red-600 hover:text-red-900"
+                                                                        title="Reject"
+                                                                    >
+                                                                        <XCircle className="w-4 h-4 inline" />
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        ))
+                                                    )}
+                                                </tbody>
+                                            </table>
+                                        </div>
+
+                                        {/* Pagination Controls */}
+                                        <div className="px-6 py-4 border-t border-neutral-200 flex items-center justify-between">
+                                            <button
+                                                onClick={() => handlePageChange(currentPage - 1)}
+                                                disabled={currentPage === 1}
+                                                className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${currentPage === 1
+                                                    ? 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
+                                                    : 'text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50'
+                                                    }`}
+                                            >
+                                                <ChevronLeft className="w-4 h-4 mr-2" />
+                                                Previous
+                                            </button>
+                                            <div className="hidden sm:flex">
+                                                <p className="text-sm text-neutral-700">
+                                                    Showing page <span className="font-medium">{currentPage}</span> of <span className="font-medium">{totalPages}</span>
+                                                </p>
+                                            </div>
+                                            <button
+                                                onClick={() => handlePageChange(currentPage + 1)}
+                                                disabled={currentPage === totalPages}
+                                                className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${currentPage === totalPages
+                                                    ? 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
+                                                    : 'text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50'
+                                                    }`}
+                                            >
+                                                Next
+                                                <ChevronRight className="w-4 h-4 ml-2" />
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    )
+                }
+                {
+                    activeTab === 'ads' && (
+                        <div className="max-w-4xl mx-auto">
+                            <AdManager />
+                        </div>
+                    )
+                }
+                {
+                    activeTab === 'settings' && (
+                        <div className="max-w-2xl mx-auto space-y-6">
+                            <div className="bg-white p-6 rounded-xl shadow-sm border border-neutral-200">
+                                <h2 className="text-lg font-semibold text-neutral-900 mb-4">Website Settings</h2>
+                                <form onSubmit={handleSettingsSave} className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-neutral-700 mb-1">Homepage Title (SEO)</label>
+                                        <input
+                                            type="text"
+                                            value={settings.homepage_title}
+                                            onChange={(e) => setSettings({ ...settings, homepage_title: e.target.value })}
+                                            className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                                            placeholder="e.g. Find Your Perfect Home"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-neutral-700 mb-1">Homepage Description (SEO)</label>
+                                        <textarea
+                                            value={settings.homepage_description}
+                                            onChange={(e) => setSettings({ ...settings, homepage_description: e.target.value })}
+                                            className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 h-24"
+                                            placeholder="e.g. Discover verified rooms and flats..."
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-neutral-700 mb-1">Global WhatsApp Number</label>
+                                        <input
+                                            type="text"
+                                            value={settings.whatsapp_number}
+                                            onChange={(e) => setSettings({ ...settings, whatsapp_number: e.target.value })}
+                                            className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
+                                            placeholder="e.g. 917470724553"
+                                        />
+                                        <p className="text-xs text-neutral-500 mt-1">Used for 'Contact Us' and Application buttons. Format: CountryCode+Number (no symbols).</p>
+                                    </div>
+                                    <div className="pt-4">
                                         <button
-                                            onClick={() => handlePageChange(currentPage + 1)}
-                                            disabled={currentPage === totalPages}
-                                            className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${currentPage === totalPages
-                                                ? 'text-neutral-400 bg-neutral-100 cursor-not-allowed'
-                                                : 'text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50'
-                                                }`}
+                                            type="submit"
+                                            className="w-full px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors font-medium"
                                         >
-                                            Next
-                                            <ChevronRight className="w-4 h-4 ml-2" />
+                                            Save Changes
                                         </button>
                                     </div>
-                                </>
-                            )}
+                                </form>
+                            </div>
+
+                            {/* Notification Settings */}
+                            <div className="bg-white p-6 rounded-xl shadow-sm border border-neutral-200">
+                                <h2 className="text-lg font-semibold text-neutral-900 mb-4">Device Notifications</h2>
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="font-medium text-neutral-900">Admin Push Alerts</p>
+                                        <p className="text-sm text-neutral-500">Receive system-level notifications for new properties.</p>
+                                    </div>
+                                    <div>
+                                        {pushSubscription ? (
+                                            <button onClick={unsubscribeFromPush} className="px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg hover:bg-red-100 transition-colors font-medium text-sm">
+                                                Disable
+                                            </button>
+                                        ) : (
+                                            <button onClick={subscribeToPush} className="px-4 py-2 bg-green-50 text-green-600 border border-green-200 rounded-lg hover:bg-green-100 transition-colors font-medium text-sm">
+                                                Enable This Device
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                )
-            }
-            {
-                activeTab === 'ads' && (
-                    <div className="max-w-4xl mx-auto">
-                        <AdManager />
-                    </div>
-                )
-            }
-            {
-                activeTab === 'settings' && (
-                    <div className="max-w-2xl mx-auto space-y-6">
-                        <div className="bg-white p-6 rounded-xl shadow-sm border border-neutral-200">
-                            <h2 className="text-lg font-semibold text-neutral-900 mb-4">Website Settings</h2>
-                            <form onSubmit={handleSettingsSave} className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-neutral-700 mb-1">Homepage Title (SEO)</label>
-                                    <input
-                                        type="text"
-                                        value={settings.homepage_title}
-                                        onChange={(e) => setSettings({ ...settings, homepage_title: e.target.value })}
-                                        className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                                        placeholder="e.g. Find Your Perfect Home"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-neutral-700 mb-1">Homepage Description (SEO)</label>
-                                    <textarea
-                                        value={settings.homepage_description}
-                                        onChange={(e) => setSettings({ ...settings, homepage_description: e.target.value })}
-                                        className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 h-24"
-                                        placeholder="e.g. Discover verified rooms and flats..."
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-neutral-700 mb-1">Global WhatsApp Number</label>
-                                    <input
-                                        type="text"
-                                        value={settings.whatsapp_number}
-                                        onChange={(e) => setSettings({ ...settings, whatsapp_number: e.target.value })}
-                                        className="w-full px-4 py-2 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900"
-                                        placeholder="e.g. 917470724553"
-                                    />
-                                    <p className="text-xs text-neutral-500 mt-1">Used for 'Contact Us' and Application buttons. Format: CountryCode+Number (no symbols).</p>
-                                </div>
-                                <div className="pt-4">
-                                    <button
-                                        type="submit"
-                                        className="w-full px-4 py-2 bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors font-medium"
-                                    >
-                                        Save Changes
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                )
-            }
+                    )}
+
+                {activeTab === 'ads' && (
+                    <AdManager />
+                )}
+            </main>
         </div >
     );
 }
+

@@ -662,8 +662,22 @@ export async function createProduct(data: any, token?: string): Promise<Product>
     // UPDATE RATE LIMIT TIMESTAMP
     await supabase.from('users').update({ last_posted_at: new Date().toISOString() }).eq('id', user.id);
 
+    // TRIGGER NOTIFICATION
+    // TRIGGER NOTIFICATION via Server Action
+    try {
+      const { sendNewPropertyNotificationAction } = await import('@/app/actions');
+      await sendNewPropertyNotificationAction(
+        insertedProperty.title,
+        insertedProperty.location,
+        insertedProperty.price?.toString() || '0'
+      );
+    } catch (notifError) {
+      console.error('Failed to send admin notification:', notifError);
+    }
+
     return mapPropertyToProduct(insertedProperty);
   } catch (e: any) {
+
     console.error("Create Product failed:", e);
     throw e;
   }

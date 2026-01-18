@@ -39,11 +39,7 @@ export function ContactOwner({ product, className }: { product: Product; classNa
   const executeWhatsAppAction = async () => {
     // 1. Track Lead
     if (user) {
-      console.log('[ContactOwner] Tracking WhatsApp:', {
-        propertyId: product.id,
-        ownerId: product.userId,
-        userId: user.id
-      });
+
       await trackLeadActivity({
         propertyId: product.id,
         actionType: 'whatsapp',
