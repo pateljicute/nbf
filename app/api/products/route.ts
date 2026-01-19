@@ -83,6 +83,7 @@ export async function GET(request: NextRequest) {
             .from("properties")
             .select('id,handle,title,description,price_range,currency_code,featured_image,tags,available_for_sale,category_id,"contactNumber",user_id,seo,"bathroomType","securityDeposit","electricityStatus","tenantPreference",latitude,longitude,"googleMapsLink",is_verified,status,view_count,created_at,"price","location","address","type",state,city,locality')
             .eq('available_for_sale', true)
+            .order('created_at', { ascending: false })
             .limit(50);
         if (error) throw error;
 

@@ -471,14 +471,20 @@ export default function AdminPage() {
         if (!user) return;
 
         try {
+            // Optimistic Update: Immediately remove from UI
+            setProperties(properties.filter(p => p.id !== id));
+
             const result = await adminDeleteProductAction(id, user.id);
             if (result.success) {
-                // Remove from list
-                setProperties(properties.filter(p => p.id !== id));
+                // Real-time Sync
+                router.refresh();
                 fetchStats();
                 alert('Property deleted successfully');
             } else {
+                // Revert if failed (optional, but for now we just alert)
                 alert(`Failed to delete property: ${result.error || 'Unknown error'}`);
+                // Ideally reload original list here
+                fetchProducts(currentPage);
             }
         } catch (error) {
             console.error('Error deleting:', error);

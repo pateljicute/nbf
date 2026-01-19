@@ -368,8 +368,8 @@ export async function getProducts(params?: {
     } else if (sortKey === 'CREATED_AT') {
       dbQuery = dbQuery.order('created_at', { ascending: !reverse });
     } else {
-      // Default sort
-      dbQuery = dbQuery.order('id', { ascending: false });
+      // Default sort: Newest First
+      dbQuery = dbQuery.order('created_at', { ascending: false });
     }
 
     const { data, error } = await dbQuery;
@@ -452,6 +452,7 @@ export async function getProduct(handle: string): Promise<Product | null> {
       } catch (err) {
         console.warn('Failed to fetch user details for product:', err);
         // Continue without owner details - do not crash the page
+        // Continue without user details
       }
     }
 
@@ -465,8 +466,9 @@ export async function getUserProducts(userId: string): Promise<Product[]> {
   try {
     const { data, error } = await supabase
       .from("properties")
-      .select('id,handle,title,description,price_range,featured_image,tags,available_for_sale,category_id,"contactNumber",user_id,"bathroomType","securityDeposit","electricityStatus","tenantPreference",latitude,longitude,"googleMapsLink",is_verified,status,"price","location","address","type"')
-      .eq('user_id', userId);
+      .select('id,handle,title,description,price_range,featured_image,tags,available_for_sale,category_id,"contactNumber",user_id,"bathroomType","securityDeposit","electricityStatus","tenantPreference",latitude,longitude,"googleMapsLink",is_verified,status,"price","location","address","type",view_count,created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false }); // Ensure Newest First
 
     if (error) return [];
     return (data || []).map(mapPropertyToProduct);

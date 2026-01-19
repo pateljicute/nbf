@@ -184,12 +184,7 @@ export default function ProfilePage() {
                                 <p className="text-[10px] font-bold uppercase text-neutral-500 tracking-wider">Listings</p>
                                 <p className="text-lg font-black text-neutral-900 leading-none mt-1">{properties.length}</p>
                             </div>
-                            <div className="bg-neutral-50 rounded-lg p-3 border border-neutral-100">
-                                <p className="text-[10px] font-bold uppercase text-neutral-500 tracking-wider">Total Views</p>
-                                <p className="text-lg font-black text-neutral-900 leading-none mt-1">
-                                    {properties.reduce((acc, curr) => acc + (curr.viewCount || 0), 0)}
-                                </p>
-                            </div>
+                            {/* Views Removed */}
                         </div>
 
                         {/* Desktop Stats (Hidden on Mobile) */}
@@ -198,10 +193,7 @@ export default function ProfilePage() {
                                 <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider">Total Listings</p>
                                 <p className="text-2xl font-bold text-neutral-900">{properties.length}</p>
                             </div>
-                            <div className="space-y-1">
-                                <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider">Total Views</p>
-                                <p className="text-2xl font-bold text-neutral-900">{properties.reduce((acc, curr) => acc + (curr.viewCount || 0), 0)}</p>
-                            </div>
+                            {/* Views Removed as per request */}
                             <div className="space-y-1">
                                 <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider">Member Since</p>
                                 <p className="text-sm font-medium text-neutral-900">

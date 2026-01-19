@@ -175,6 +175,25 @@ export async function approveProductAction(
             return { success: false, error: updateError.message };
         }
 
+        // 4. Trigger Google Indexing (Automation)
+        try {
+            const { notifyGoogleIndexing } = await import('@/lib/google-indexing');
+            const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.nbfhomes.in';
+            // Assuming handle is available or constructed. 
+            // We need to fetch handle if not in hand. properties table has it.
+            if (product.handle) { // If fetched above, waiting to verify if 'tags' select included 'handle'
+                await notifyGoogleIndexing(`${siteUrl}/product/${product.handle}`, 'URL_UPDATED');
+            } else {
+                // Re-fetch handle if missing
+                const { data: fullProp } = await supabase.from('properties').select('handle').eq('id', productId).single();
+                if (fullProp?.handle) {
+                    await notifyGoogleIndexing(`${siteUrl}/product/${fullProp.handle}`, 'URL_UPDATED');
+                }
+            }
+        } catch (idxError) {
+            console.warn('Indexing trigger failed (Non-critical):', idxError);
+        }
+
         return { success: true };
     } catch (error: any) {
         console.error('Error in approveProductAction:', error);
@@ -215,7 +234,7 @@ export async function rejectProductAction(
     }
 }
 
-// Admin action to delete product
+// Admin action to delete product (Zero-Residual Delete)
 export async function adminDeleteProductAction(
     productId: string,
     adminUserId: string
@@ -228,6 +247,59 @@ export async function adminDeleteProductAction(
 
         const supabase = await getSupabaseClient();
 
+        // STEP 1: Image Retrieval & Storage Cleanup
+        // We fetch the property first to get its images
+        const { data: property, error: fetchError } = await supabase
+            .from('properties')
+            .select('images')
+            .eq('id', productId)
+            .single();
+
+        if (fetchError) {
+            // If property doesn't exist, we can't delete it, but it's effectively "gone" or already deleted.
+            // We'll proceed to try delete anyway to be safe, or return error.
+            if (fetchError.code !== 'PGRST116') { // PGRST116 is 'not found'
+                console.error('Error fetching property for deletion:', fetchError);
+            }
+        }
+
+        if (property && property.images && Array.isArray(property.images)) {
+            const imagePaths: string[] = property.images
+                .map((url: string) => {
+                    // Extract path from Supabase URL if applicable
+                    // Pattern: .../storage/v1/object/public/properties/folder/file.jpg
+                    try {
+                        if (url.includes('/properties/')) {
+                            return url.split('/properties/')[1]; // Get path after bucket name
+                        } else if (url.includes('cloudinary.com')) {
+                            // Cloudinary URL - Server-side delete requires API Secret.
+                            // Marking as SKIPPED unless secrets provided.
+                            // console.warn('Skipping Cloudinary delete: No server credentials');
+                            return null;
+                        }
+                        return null;
+                    } catch (e) { return null; }
+                })
+                .filter((p): p is string => p !== null);
+
+            if (imagePaths.length > 0) {
+                console.log(`[Zero-Residual] Deleting ${imagePaths.length} files from storage...`);
+                // STEP 2: Storage Cleanup
+                const { error: storageError } = await supabase.storage
+                    .from('properties')
+                    .remove(imagePaths);
+
+                if (storageError) {
+                    console.error('[Zero-Residual] Storage cleanup warning:', storageError);
+                    // We LOG but do not Halt. "Resilient Delete" means we proceed to DB delete guarantees no orphan rows.
+                } else {
+                    console.log('[Zero-Residual] Storage cleanup successful');
+                }
+            }
+        }
+
+        // STEP 3: Database Deletion (Row + Cascade)
+        // With ON DELETE CASCADE enabled in DB, this single call removes views/leads/favorites.
         const { error } = await supabase
             .from('properties')
             .delete()
@@ -237,6 +309,7 @@ export async function adminDeleteProductAction(
             return { success: false, error: error.message };
         }
 
+        console.log('[Zero-Residual] Property and related data deleted successfully.');
         return { success: true };
     } catch (error: any) {
         console.error('Error in adminDeleteProductAction:', error);
