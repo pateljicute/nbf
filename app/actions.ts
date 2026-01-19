@@ -150,7 +150,7 @@ export async function approveProductAction(
         // 1. Get current tags (legacy cleanup)
         const { data: product, error: fetchError } = await supabase
             .from('properties')
-            .select('tags')
+            .select('tags, handle')
             .eq('id', productId)
             .maybeSingle();
 
