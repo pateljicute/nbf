@@ -4,8 +4,8 @@ import { getAdSettingsAction } from '@/app/actions';
 import { Product, AdSettings } from '../lib/types';
 import { HomeClient } from '@/components/home/home-client';
 
-// Cache for 0 seconds (dynamic) to ensure SEO updates are reflected immediately during dev
-export const revalidate = 0;
+// Cache for 60 seconds (ISR) to ensure instant loading while keeping data fresh
+export const revalidate = 60;
 
 export default async function Home() {
   let featuredProducts: Product[] = [];

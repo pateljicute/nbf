@@ -53,7 +53,7 @@ export const mapPropertyToProduct = (prop: any): Product => {
         description: prop.description || '',
         priceRange: normalizePriceRange(prop),
         currencyCode: prop.currency_code || 'INR',
-        seo: prop.seo || { title: prop.title, description: prop.description },
+        seo: prop.seo || { title: prop.title, description: prop.seo_description || prop.description },
         featuredImage: featuredImage,
         images: images,
         options: prop.options || [],
@@ -87,7 +87,9 @@ export const mapPropertyToProduct = (prop: any): Product => {
         builtUpArea: prop.built_up_area,
         furnishingStatus: prop.furnishing_status,
         floorNumber: prop.floor_number,
-        totalFloors: prop.total_floors
+        totalFloors: prop.total_floors,
+        local_area_guide: prop.local_area_guide,
+        updatedAt: prop.updated_at
     };
 };
 

@@ -10,6 +10,7 @@ import {
 
 import { useAuth } from '@/lib/auth-context';
 import { getProducts, updateProduct, createProduct } from '@/lib/api';
+import { createPropertyAction } from '@/app/actions';
 import { toast } from 'sonner';
 import { MultiImageUpload } from '@/components/ui/multi-image-upload';
 import dynamic from 'next/dynamic';
@@ -366,6 +367,8 @@ export default function PostPropertyPage() {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
+
+
     const handleSubmit = async () => {
         if (!formData.price || !formData.contactNumber) {
             toast.error("Please fill in price and contact details");
@@ -401,7 +404,14 @@ export default function PostPropertyPage() {
                 toast.success('Property updated successfully');
                 router.push('/profile');
             } else {
-                result = await createProduct(payload, session?.access_token);
+                // Server Action Call
+                const response = await createPropertyAction(payload);
+                if (!response.success) {
+                    // Check for specific ban message to show distinct UI if needed, but toast.error works fine
+                    throw new Error(response.error);
+                }
+                result = response.data;
+
                 setCreatedProduct({ ...formData, handle: result?.handle || 'new-property' }); // Mock handle if not returned immediately
                 setIsSuccess(true);
                 window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -866,16 +876,15 @@ export default function PostPropertyPage() {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-neutral-700 mb-1">Description</label>
-                                <textarea
-                                    name="description"
-                                    value={formData.description}
-                                    onChange={handleInputChange}
-                                    rows={4}
-                                    placeholder="Describe the property, nearby landmarks, and rules..."
-                                    className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black outline-none resize-none"
-                                />
                             </div>
+                            <textarea
+                                name="description"
+                                value={formData.description}
+                                onChange={handleInputChange}
+                                rows={4}
+                                placeholder="Describe the property, nearby landmarks, and rules..."
+                                className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black outline-none resize-none"
+                            />
                         </div>
                     )}
 
@@ -1092,6 +1101,6 @@ export default function PostPropertyPage() {
                     )}
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

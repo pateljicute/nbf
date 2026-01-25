@@ -47,6 +47,8 @@ export const ProductCard = ({ product, className }: { product: Product; classNam
               src={product.featuredImage?.url || '/placeholder.svg'}
               alt={product.featuredImage?.altText || product.title}
               fill
+              placeholder="blur"
+              blurDataURL="data:image/jpeg;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+P+/HgAfhAJ/wlseKgAAAABJRU5ErkJggg=="
               className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
             />

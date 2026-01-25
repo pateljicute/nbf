@@ -54,7 +54,7 @@ Please let me know more.`;
                         </div>
                         <div>
                             <h3 className="text-lg font-bold text-neutral-900">{ownerName}</h3>
-                            <p className="text-xs text-neutral-500 uppercase tracking-wider font-medium mb-1">Verified Seller</p>
+                            <p className="text-xs text-neutral-500 uppercase tracking-wider font-medium mb-1">Verified Owner</p>
                             {contactNumber && (
                                 <p className="text-sm font-mono text-neutral-600 bg-neutral-50 px-2 py-1 rounded inline-block">
                                     {contactNumber}

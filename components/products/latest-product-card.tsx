@@ -53,9 +53,11 @@ export function LatestProductCard({
             src="https://res.cloudinary.com/dilccqhro/image/upload/v1764658021/hero-background_jdgiur.jpg"
             alt="Hero Background"
             fill
-            priority
+            priority={true}
             sizes="100vw"
             className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+            placeholder="blur"
+            blurDataURL="data:image/jpeg;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+P+/HgAfhAJ/wlseKgAAAABJRU5ErkJggg=="
           />
           {/* Darker overlay for better text contrast matching the reference */}
           <div className="absolute inset-0 bg-black/40" />
@@ -125,6 +127,9 @@ export function LatestProductCard({
               className="object-cover transition-transform duration-500 group-hover:scale-105"
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
               suppressHydrationWarning
+              priority={principal} // Prioritize only if it's the hero/principal card
+              placeholder="blur"
+              blurDataURL="data:image/jpeg;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+P+/HgAfhAJ/wlseKgAAAABJRU5ErkJggg=="
             />
           </Link>
           {/* Tag */}

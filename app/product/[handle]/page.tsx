@@ -68,7 +68,7 @@ export async function generateMetadata(props: { params: Promise<{ handle: string
 
   return {
     title: `${product.title} in ${area}, ${city} | No Brokerage | NBF Homes`,
-    description: `Looking for a room in ${city}? Check out ${product.title} in ${area}. Direct owner contact, 0% brokerage.`,
+    description: product.seo?.description || `Looking for a room in ${city}? Check out ${product.title} in ${area}. Direct owner contact, 0% brokerage.`,
     robots: {
       index: indexable,
       follow: indexable,
@@ -462,6 +462,25 @@ export default async function ProductPage(props: { params: Promise<{ handle: str
                 Note: The location shown on Google Maps is an area estimate. Please contact the owner directly for the exact location.
               </p>
             </div>
+
+            {/* Local Area Guide (SEO) */}
+            {product.local_area_guide && (
+              <div className="bg-white p-6 md:p-8 rounded-2xl border border-neutral-200 shadow-sm mt-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600">
+                    <MapPin className="w-5 h-5" />
+                  </div>
+                  <h2 className="text-xl font-bold text-neutral-900">Neighborhood Guide</h2>
+                </div>
+                <div className="prose prose-neutral prose-sm max-w-none text-neutral-600">
+                  <Prose html={product.local_area_guide} />
+                </div>
+                <div className="mt-4 pt-4 border-t border-neutral-100 flex items-center justify-between text-xs text-neutral-400">
+                  <span>Local Insights by NBF Homes</span>
+                  <span>Updated {new Date(product.updatedAt || Date.now()).toLocaleDateString()}</span>
+                </div>
+              </div>
+            )}
 
           </div>
 

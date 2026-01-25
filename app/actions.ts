@@ -4,6 +4,7 @@ import { Redis } from '@upstash/redis';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { revalidatePath } from 'next/cache';
 
 // Initialize Redis client
 const redis = process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
@@ -48,6 +49,13 @@ async function getSupabaseClient() {
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const globalSupabase = createSupabaseClient(supabaseUrl, supabaseServiceKey || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+
+// Helper to check ban status locally
+async function checkUserBanned(userId: string) {
+    const supabase = await getSupabaseClient();
+    const { data } = await supabase.from('users').select('is_banned').eq('id', userId).single();
+    return data?.is_banned || false;
+}
 
 export async function checkAdminStatus(userId: string): Promise<boolean> {
     // SERVER-SIDE SECURITY CHECK
@@ -175,7 +183,16 @@ export async function approveProductAction(
             return { success: false, error: updateError.message };
         }
 
-        // 4. Trigger Google Indexing (Automation)
+        // 4. Trigger SEO Content Generation (Background Task)
+        // We do not await this to fail the approval, but we await it to ensure it runs in the serverless lifecycle
+        // or we can use `waitUntil` if available in Next.js (newer versions), but simple await is safer here.
+        try {
+            await generateSEOContentAction(productId);
+        } catch (seoError) {
+            console.error('SEO Generation failed (Non-critical):', seoError);
+        }
+
+        // 5. Trigger Google Indexing (Automation)
         try {
             const { notifyGoogleIndexing } = await import('@/lib/google-indexing');
             const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.nbfhomes.in';
@@ -198,6 +215,79 @@ export async function approveProductAction(
     } catch (error: any) {
         console.error('Error in approveProductAction:', error);
         return { success: false, error: error.message || 'Unknown error' };
+    }
+}
+
+export async function generateSEOContentAction(productId: string) {
+    const GEN_AI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+    const API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
+
+    if (!GEN_AI_API_KEY) {
+        console.warn('Skipping SEO Generation: No API Key found.');
+        return;
+    }
+
+    const supabase = await getSupabaseClient();
+    const { data: property } = await supabase
+        .from('properties')
+        .select('title, city, locality, type, user_id, tags')
+        .eq('id', productId)
+        .single();
+
+    if (!property) return;
+
+    // construct prompt
+    const location = property.locality || property.city || 'Mandsaur';
+    const city = property.city || 'Mandsaur';
+    const type = property.type || 'Property';
+
+    const prompt = `
+    You are a Local SEO Expert for NBF Homes.
+    Write a unique "Local Area Guide" (150-200 words) for the location: ${location}, ${city}.
+    Context: A user is looking for a ${type} (${property.title}).
+    
+    Requirements:
+    1. Content must be unique, helpful, and written in a professional yet inviting tone.
+    2. Naturally include these keywords: "Rent in ${location}", "Best PG in ${city}", "NBF Homes", "affordable housing", "student friendly".
+    3. Also generate a "Meta Description" (max 150 chars) summarizing this.
+    
+    Output Format: JSON only.
+    {
+      "local_area_guide": "html content with <p> tags...",
+      "seo_description": "plain text meta description..."
+    }
+    `;
+
+    try {
+        const payload = {
+            contents: [{ parts: [{ text: prompt }] }]
+        };
+
+        const response = await fetch(`${API_URL}?key=${GEN_AI_API_KEY}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) throw new Error('Gemini API Error');
+
+        const data = await response.json();
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+        // simple json cleanup
+        const cleanJson = text.replace(/```json/g, '').replace(/```/g, '').trim();
+        const parsed = JSON.parse(cleanJson);
+
+        if (parsed.local_area_guide) {
+            await supabase.from('properties').update({
+                local_area_guide: parsed.local_area_guide,
+                seo_description: parsed.seo_description
+            }).eq('id', productId);
+            console.log(`SEO Content Generated for ${productId}`);
+        }
+
+    } catch (error) {
+        console.error('Error generating SEO content:', error);
     }
 }
 
@@ -456,6 +546,15 @@ export async function submitInquiryAction(data: {
     try {
         const supabase = await getSupabaseClient();
 
+        // BAN CHECK
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+            const isBanned = await checkUserBanned(user.id);
+            if (isBanned) {
+                return { success: false, error: "Your account has been restricted. Contact the nbfhomes.in team for assistance." };
+            }
+        }
+
         const { error } = await supabase.from('inquiries').insert({
             first_name: data.firstName,
             last_name: data.lastName,
@@ -506,6 +605,12 @@ export async function trackLeadActivity(data: { propertyId: string, actionType: 
     if (!user) {
         console.error('[TrackLead] No user found');
         return { success: false, error: 'Not authenticated' };
+    }
+
+    // BAN CHECK
+    const isBanned = await checkUserBanned(user.id);
+    if (isBanned) {
+        return { success: false, error: "Your account has been restricted. Contact the nbfhomes.in team for assistance." };
     }
 
     try {
@@ -611,3 +716,180 @@ export async function sendNewPropertyNotificationAction(propertyTitle: string, p
 
 
 
+
+export async function banUserAction(userId: string, reason: string, adminUserId: string) {
+    try {
+        const isAdmin = await checkAdminStatus(adminUserId);
+        if (!isAdmin) return { success: false, error: 'Unauthorized' };
+
+        // Reverting to authenticated client (Service Role Key missing in env)
+        const supabase = await getSupabaseClient();
+
+        // 1. Update User Status (Sync both users and profiles tables)
+        const { error: banError } = await supabase
+            .from('users')
+            .update({
+                is_banned: true,
+                ban_reason: reason
+            })
+            .eq('id', userId);
+
+        if (banError) throw banError;
+
+        // Sync to profiles table as requested
+        // Sync to profiles table remove as "users" is the source of truth
+        // (Snippet removed to fix PGRST205 error)
+
+        // 2. Hide all user properties (Optional: if we rely on filter, this isn't strictly needed, 
+        // but setting them to inactive ensures they don't show up in direct queries bypassing filters)
+        // However, user asked for visibility filter. Let's do both for safety.
+        // We will set available_for_sale = false for all their properties.
+        const { error: propError } = await supabase
+            .from('properties')
+            .update({ available_for_sale: false, status: 'inactive' })
+            .eq('user_id', userId);
+
+        if (propError) console.warn('Failed to auto-hide properties for banned user:', propError);
+
+        revalidatePath('/admin');
+        revalidatePath('/'); // Clear home cache if necessary
+        return { success: true };
+    } catch (error: any) {
+        console.error('Error banning user:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+export async function unbanUserAction(userId: string, adminUserId: string) {
+    try {
+        const isAdmin = await checkAdminStatus(adminUserId);
+        if (!isAdmin) return { success: false, error: 'Unauthorized' };
+
+        // Reverting to authenticated client
+        const supabase = await getSupabaseClient();
+
+        const { error } = await supabase
+            .from('users')
+            .update({
+                is_banned: false,
+                ban_reason: null
+            })
+            .eq('id', userId);
+
+        if (error) throw error;
+
+        // Sync to profiles table
+        // Sync to profiles table removed
+        // (Snippet removed to fix PGRST205 error)
+        revalidatePath('/admin');
+        return { success: true };
+    } catch (error: any) {
+        console.error('Error unbanning user:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+// Server Action for securely creating a property with Ban Checks
+export async function createPropertyAction(data: any) {
+    try {
+        const supabase = await getSupabaseClient();
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (!user) {
+            return { success: false, error: 'User not authenticated' };
+        }
+
+        // 1. STRICT BAN CHECK (Database Level via Helper)
+        const isBanned = await checkUserBanned(user.id);
+        if (isBanned) {
+            // EXACT MESSAGE REQUIRED BY USER
+            return {
+                success: false,
+                error: 'Your posting feature has been blocked for security reasons. Contact the nbfhomes.in team for assistance.'
+            };
+        }
+
+        // 1.5 Rate Limit Check
+        const { data: userData } = await supabase
+            .from('users')
+            .select('last_posted_at')
+            .eq('id', user.id)
+            .single();
+
+        if (userData?.last_posted_at) {
+            const lastPosted = new Date(userData.last_posted_at).getTime();
+            const now = new Date().getTime();
+            const diffMinutes = (now - lastPosted) / 1000 / 60;
+            if (diffMinutes < 5) {
+                return { success: false, error: `Please wait ${Math.ceil(5 - diffMinutes)} minutes before posting another property.` };
+            }
+        }
+
+        // 2. Prepare Data
+        const tags = [
+            data.type || 'PG',
+            data.location || '',
+            data.address || '',
+            ...(data.tags || [])
+        ].filter(Boolean);
+
+        const insertData = {
+            title: data.title,
+            description: data.description,
+            price_range: {
+                "minVariantPrice": { "amount": String(data.price || 0), "currencyCode": "INR" }
+            },
+            "price": String(data.price || 0),
+            currency_code: 'INR',
+            images: data.images?.map((url: string) => ({ url, altText: data.title })) || [],
+            tags: tags,
+            available_for_sale: false,
+            status: 'pending',
+            user_id: user.id,
+            "userId": user.id,
+            "contactNumber": data.contactNumber,
+            "bathroomType": data.bathroom_type || data.bathroomType,
+            "securityDeposit": data.securityDeposit?.toString() || '0',
+            "electricityStatus": data.electricityStatus,
+            "tenantPreference": data.tenantPreference,
+            "location": data.location,
+            "address": data.address,
+            "type": data.type,
+            latitude: data.latitude,
+            longitude: data.longitude,
+            "googleMapsLink": data.googleMapsLink,
+            amenities: data.amenities,
+            featured_image: data.images?.[0] ? { url: data.images[0], altText: data.title } : null
+        };
+
+        // 3. Insert Property
+        const { data: insertedProperty, error } = await supabase
+            .from('properties')
+            .insert(insertData)
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        // 4. Update Rate Limit
+        await supabase.from('users').update({ last_posted_at: new Date().toISOString() }).eq('id', user.id);
+
+        // 5. Send Notification (fire and forget)
+        try {
+            await sendNewPropertyNotificationAction(
+                insertedProperty.title,
+                insertedProperty.location,
+                insertedProperty.price?.toString() || '0'
+            );
+        } catch (e) {
+            console.warn('Failed to send notification', e);
+        }
+
+        // Return the simplified object expected by the UI (or the full product)
+        return { success: true, data: insertedProperty };
+
+    } catch (error: any) {
+        console.error('Error in createPropertyAction:', error);
+        return { success: false, error: error.message || 'Failed to create property' };
+    }
+}

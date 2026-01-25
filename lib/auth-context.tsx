@@ -19,42 +19,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [session, setSession] = useState<Session | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
-    if (typeof window !== 'undefined') {
-        console.log('[AuthContext] AuthProvider rendering');
-    }
 
-    // Use the global singleton client from lib/db.ts
-    // const supabase = useMemo(() => createClient(), []);
 
     useEffect(() => {
         let mounted = true;
 
-        // Check active session
+        const verifyBanStatus = async (uid: string) => {
+            // Check public.users first (Primary Source)
+            const { data: userData } = await supabase
+                .from('users')
+                .select('is_banned')
+                .eq('id', uid)
+                .single();
+
+            if (userData?.is_banned) {
+                if (mounted) {
+                    await supabase.auth.signOut();
+                    window.location.href = '/banned';
+                }
+                return true;
+            }
+
+            // Profiles check removed
+            return false;
+        };
+
         const checkUser = async () => {
             try {
                 const { data: { session } } = await supabase.auth.getSession();
                 if (mounted) {
+                    if (session?.user) {
+                        const isBanned = await verifyBanStatus(session.user.id);
+                        if (isBanned) return;
+                    }
                     setSession(session);
                     setUser(session?.user ?? null);
-
-                    if (session?.user) {
-                        const { data } = await supabase
-                            .from('users')
-                            .select('*') // Select all available fields to be safe, or specify known ones if 'role' is missing
-                            .eq('id', session.user.id)
-                            .single();
-                        if (mounted) {
-                            // Assuming we had a profile state, but we removed it. 
-                            // Wait, I see I removed profile state in Step 447/448? 
-                            // The user diff showed removal of profile state. 
-                            // So I should NOT try to set profile here.
-                        }
-                    }
                     setIsLoading(false);
                 }
             } catch (error) {
                 console.error("Auth check error:", error);
                 if (mounted) setIsLoading(false);
+            } finally {
+                // Check complete
             }
         };
 
@@ -63,6 +69,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Listen for auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
             if (mounted) {
+                if (session?.user) {
+                    const isBanned = await verifyBanStatus(session.user.id);
+                    if (isBanned) return;
+                }
                 setSession(session);
                 setUser(session?.user ?? null);
                 setIsLoading(false);

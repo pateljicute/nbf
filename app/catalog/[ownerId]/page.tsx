@@ -13,6 +13,89 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 // Force dynamic rendering since we rely on params
 export const dynamic = 'force-dynamic';
 
+export async function generateMetadata(props: { params: Promise<{ ownerId: string }> }) {
+    const params = await props.params;
+    const { ownerId } = params;
+
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    let ownerName = 'Property Owner';
+    let location = 'Mandsaur';
+    let ogImage = 'https://www.nbfhomes.in/og-image.jpg';
+
+    try {
+        // 1. Fetch Owner Name
+        let { data: userData } = await supabase
+            .from('users')
+            .select('full_name')
+            .eq('id', ownerId)
+            .single();
+
+        if (!userData) {
+            const { data: profileData } = await supabase
+                .from('profiles')
+                .select('first_name, last_name, username')
+                .eq('id', ownerId)
+                .single();
+
+            if (profileData) {
+                userData = {
+                    full_name: `${profileData.first_name || ''} ${profileData.last_name || ''}`.trim() || profileData.username || 'Property Owner'
+                } as any;
+            }
+        }
+
+        if (userData?.full_name) {
+            ownerName = userData.full_name;
+        }
+
+        // 2. Fetch Location from First Active Property
+        const { data: propertyData } = await supabase
+            .from('properties')
+            .select('city, locality, images')
+            .eq('user_id', ownerId)
+            .eq('available_for_sale', true)
+            .limit(1)
+            .single();
+
+        if (propertyData) {
+            if (propertyData.city) location = propertyData.city;
+            else if (propertyData.locality) location = propertyData.locality;
+
+            // Use property image for OG if available
+            if (propertyData.images && propertyData.images.length > 0) {
+                //@ts-ignore
+                const img = propertyData.images[0];
+                if (typeof img === 'string') ogImage = img;
+                else if (img.url) ogImage = img.url;
+            }
+        }
+
+    } catch (e) {
+        console.error('Error generating metadata:', e);
+    }
+
+    const title = `${ownerName} - Property Catalog | nbfhomes.in`;
+    const description = `View all rental properties listed by ${ownerName} in ${location}, Mandsaur. Find the best rooms and houses directly from the owner.`;
+
+    return {
+        title: title,
+        description: description,
+        openGraph: {
+            title: title,
+            description: description,
+            type: 'profile',
+            images: [
+                {
+                    url: ogImage,
+                    width: 1200,
+                    height: 630,
+                    alt: ownerName,
+                },
+            ],
+        },
+    };
+}
+
 export default async function OwnerCatalogPage(props: { params: Promise<{ ownerId: string }> }) {
     const params = await props.params;
     const { ownerId } = params;
@@ -85,7 +168,7 @@ export default async function OwnerCatalogPage(props: { params: Promise<{ ownerI
 
             {/* 2. Property Grid */}
             <main className="max-w-3xl mx-auto px-4 py-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                <div className="grid grid-cols-2 md:grid-cols-2 gap-4 md:gap-6">
                     {displayProperties.map((property) => (
                         <Link
                             key={property.id}

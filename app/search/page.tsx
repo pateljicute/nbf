@@ -191,30 +191,7 @@ export default function SearchPage() {
                     </form>
                 </div>
 
-                {/* Find Properties Near Me Button (Only shown if no query and no location yet) */}
-                {!userLocation && !query && (
-                    <div className="mt-4">
-                        <div className="text-xs font-medium text-neutral-400 mb-2 pl-1">Are we in the right area?</div>
-                        <button
-                            onClick={handleLocateMe}
-                            disabled={isLocating}
-                            className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl shadow-lg shadow-blue-200 hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-3 group relative overflow-hidden"
-                        >
-                            {/* Shiny effect overlay */}
-                            <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
-
-                            {isLocating ? (
-                                <Loader2 className="w-5 h-5 animate-spin" />
-                            ) : (
-                                <div className="p-1 bg-white/20 rounded-full">
-                                    <Navigation className="w-5 h-5 fill-current" />
-                                </div>
-                            )}
-                            <span className="font-bold text-base tracking-wide">Find Properties Near Me</span>
-                        </button>
-                        <p className="text-[10px] text-neutral-400 mt-2 text-center">If not, type your colony name in the search bar</p>
-                    </div>
-                )}
+                {/* Find Properties Near Me Button Removed as per request */}
             </div>
 
             {/* Content Body */}

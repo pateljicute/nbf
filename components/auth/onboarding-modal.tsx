@@ -94,7 +94,11 @@ export function OnboardingModal({ isOpen, onClose, onComplete }: OnboardingModal
                             type="tel"
                             placeholder="Enter your mobile number"
                             value={contactNumber}
-                            onChange={(e) => setContactNumber(e.target.value)}
+                            onChange={(e) => {
+                                const val = e.target.value.replace(/\D/g, '');
+                                if (val.length <= 10) setContactNumber(val);
+                            }}
+                            maxLength={10}
                         />
                     </div>
                     <div className="space-y-2">

@@ -29,6 +29,7 @@ const nextConfig = {
     remotePatterns: [
       { protocol: 'https', hostname: 'res.cloudinary.com' },
     ],
+    qualities: [70, 75, 80, 90, 100],
     unoptimized: true,
   },
   compress: true,

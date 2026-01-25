@@ -66,6 +66,7 @@ export interface Product {
   status?: 'pending' | 'approved' | 'rejected' | 'sold' | 'inactive';
   viewCount?: number;
   createdAt?: string;
+  updatedAt?: string;
   price?: string;
   location?: string;
   address?: string;
@@ -77,6 +78,7 @@ export interface Product {
   furnishingStatus?: string;
   floorNumber?: number;
   totalFloors?: number;
+  local_area_guide?: string;
 }
 
 export interface Collection {

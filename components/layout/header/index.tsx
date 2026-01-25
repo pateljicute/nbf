@@ -102,68 +102,76 @@ export function Header({ collections }: HeaderProps) {
         </Link>
         <nav className="flex justify-end items-center md:col-span-9 xl:col-span-10 pointer-events-none">
           <div className="pointer-events-auto hidden md:flex items-center gap-1 p-1.5 bg-white/60 backdrop-blur-xl border border-white/20 shadow-lg rounded-full transition-all hover:bg-white/95">
-            <ul className="flex items-center gap-2">
-              {navItems.map(item => (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    className={cn(
-                      'block px-6 py-2.5 text-xs font-bold tracking-widest uppercase rounded-full transition-all duration-300',
-                      pathname === item.href
-                        ? 'bg-neutral-100 text-neutral-900 shadow-inner'
-                        : 'text-neutral-600 hover:bg-neutral-50 hover:text-black'
-                    )}
-                    prefetch
-                  >
-                    {item.label}
-                  </Link>
+            {!pathname.startsWith('/admin') && (
+              <ul className="flex items-center gap-2">
+                {navItems.map(item => (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      className={cn(
+                        'block px-6 py-2.5 text-xs font-bold tracking-widest uppercase rounded-full transition-all duration-300',
+                        pathname === item.href
+                          ? 'bg-neutral-100 text-neutral-900 shadow-inner'
+                          : 'text-neutral-600 hover:bg-neutral-50 hover:text-black'
+                      )}
+                      prefetch
+                    >
+                      {item.label}
+                    </Link>
+                  </li>
+                ))}
+
+                {/* Category Dropdown */}
+                <li>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger suppressHydrationWarning className="flex items-center gap-1 px-6 py-2.5 text-xs font-bold tracking-widest uppercase rounded-full transition-all duration-300 text-neutral-600 hover:bg-neutral-50 hover:text-black outline-none">
+                      Categories <ChevronDown className="w-3 h-3" />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48 bg-white/95 backdrop-blur-xl border-white/20 shadow-xl rounded-xl p-2 mt-2">
+                      {categoryItems.map((cat) => (
+                        <DropdownMenuItem key={cat.href} asChild>
+                          <Link
+                            href={cat.href}
+                            className="w-full cursor-pointer text-xs font-bold uppercase tracking-wider py-2.5 px-3 rounded-lg hover:bg-neutral-100 focus:bg-neutral-100 text-neutral-600 focus:text-black"
+                          >
+                            {cat.label}
+                          </Link>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </li>
-              ))}
 
-              {/* Category Dropdown */}
-              <li>
-                <DropdownMenu>
-                  <DropdownMenuTrigger suppressHydrationWarning className="flex items-center gap-1 px-6 py-2.5 text-xs font-bold tracking-widest uppercase rounded-full transition-all duration-300 text-neutral-600 hover:bg-neutral-50 hover:text-black outline-none">
-                    Categories <ChevronDown className="w-3 h-3" />
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48 bg-white/95 backdrop-blur-xl border-white/20 shadow-xl rounded-xl p-2 mt-2">
-                    {categoryItems.map((cat) => (
-                      <DropdownMenuItem key={cat.href} asChild>
-                        <Link
-                          href={cat.href}
-                          className="w-full cursor-pointer text-xs font-bold uppercase tracking-wider py-2.5 px-3 rounded-lg hover:bg-neutral-100 focus:bg-neutral-100 text-neutral-600 focus:text-black"
-                        >
-                          {cat.label}
-                        </Link>
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </li>
+                {isAdmin && (
+                  <li>
+                    <Link
+                      href="/admin"
+                      className="flex items-center gap-2 px-6 py-2.5 text-xs font-bold tracking-widest uppercase rounded-full transition-all duration-300 border border-neutral-200 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 hover:border-neutral-300"
+                      prefetch
+                    >
+                      <Shield className="w-3 h-3" />
+                      Admin Panel
+                    </Link>
+                  </li>
+                )}
 
-              {isAdmin && (
                 <li>
                   <Link
-                    href="/admin"
-                    className="flex items-center gap-2 px-6 py-2.5 text-xs font-bold tracking-widest uppercase rounded-full transition-all duration-300 border border-neutral-200 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 hover:border-neutral-300"
+                    href="/post-property"
+                    className="block px-6 py-2.5 text-xs font-bold tracking-widest uppercase rounded-full transition-all duration-300 bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg ml-4 hover:shadow-xl hover:scale-105 animate-pulse"
                     prefetch
                   >
-                    <Shield className="w-3 h-3" />
-                    Admin Panel
+                    Post Property
                   </Link>
                 </li>
-              )}
-
-              <li>
-                <Link
-                  href="/post-property"
-                  className="block px-6 py-2.5 text-xs font-bold tracking-widest uppercase rounded-full transition-all duration-300 bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg ml-4 hover:shadow-xl hover:scale-105 animate-pulse"
-                  prefetch
-                >
-                  Post Property
-                </Link>
-              </li>
-            </ul>
+              </ul>
+            )}
+            {/* Show only User Profile in Admin Mode, but keep the container styles for consistency or adjust if needed */}
+            {pathname.startsWith('/admin') && (
+              <div className="px-4 text-xs font-bold uppercase tracking-widest text-neutral-500">
+                Administrator Mode
+              </div>
+            )}
             <div className="w-px h-6 bg-neutral-200 mx-2" />
             {mounted && user && <NotificationBadge />}
             <div className="pr-1.5 pl-1">

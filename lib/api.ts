@@ -174,7 +174,20 @@ export async function getLocationSuggestions(query: string): Promise<LocationSug
     const results: LocationSuggestion[] = [];
 
     products.forEach(product => {
-      // Add title (partial) or location/tags
+      // 1. Check City
+      if (product.city && product.city.toLowerCase().includes(sanitizedQuery) && !suggestions.has(product.city.toLowerCase())) {
+        suggestions.add(product.city.toLowerCase());
+        results.push({ label: product.city, type: 'City' });
+      }
+
+      // 2. Check Address (Extract simple locality if possible, else use full address)
+      if (product.address && product.address.toLowerCase().includes(sanitizedQuery) && !suggestions.has(product.address.toLowerCase())) {
+        // Heuristic: If address is short, use it. If long, maybe just use it anyway for now because logic is complex
+        suggestions.add(product.address.toLowerCase());
+        results.push({ label: product.address, type: 'Area' });
+      }
+
+      // 3. Check Tags
       if (product.tags) {
         product.tags.forEach(tag => {
           if (tag.toLowerCase().includes(sanitizedQuery) && !suggestions.has(tag.toLowerCase())) {
@@ -226,11 +239,21 @@ export async function getProducts(params?: {
 
     let dbQuery = supabase
       .from("properties")
-      .select('id,handle,title,description,price_range,featured_image,tags,available_for_sale,category_id,"contactNumber",user_id,"bathroomType","securityDeposit","electricityStatus","tenantPreference",latitude,longitude,"googleMapsLink",is_verified,status,view_count,created_at,"price","location","address","type"')
+      .select('id,handle,title,description,price_range,featured_image,tags,available_for_sale,category_id,"contactNumber",user_id,"bathroomType","securityDeposit","electricityStatus","tenantPreference",latitude,longitude,"googleMapsLink",is_verified,status,view_count,created_at,updated_at,"price","location","address","type"')
       .limit(safeLimit);
 
-    // Apply base filter
-    dbQuery = dbQuery.eq('available_for_sale', true).eq('status', 'approved');
+    // Apply base filter & NO-BANNED USER FILTER
+    dbQuery = dbQuery
+      .eq('available_for_sale', true)
+      .eq('status', 'approved');
+    // .eq('users.is_banned', false); // Exclude banned users - TEMPORARILY DISABLED FOR DEBUGGING
+
+    // City Filter (Case-Insensitive)
+    if (params?.city && validateInput(params.city, 'string')) {
+      // Search both 'city' column and 'location' tags/column for robustness
+      const c = sanitizeInput(params.city);
+      dbQuery = dbQuery.or(`city.ilike.%${c}%, location.ilike.%${c}%`);
+    }
 
     // Apply Filters (Logic mirrored from app/api/products/route.ts)
     // Apply Filters (Logic mirrored from app/api/products/route.ts)
@@ -249,7 +272,7 @@ export async function getProducts(params?: {
         .select('id,handle,title,description,price_range,featured_image,tags,available_for_sale,category_id,"contactNumber",user_id,"bathroomType","securityDeposit","electricityStatus","tenantPreference",latitude,longitude,"googleMapsLink",is_verified,status,view_count,created_at,"price","location","address","type",state,city,locality')
         .eq('available_for_sale', true)
         .eq('status', 'approved')
-        .or(`city.ilike.%${safeQuery}%,locality.ilike.%${safeQuery}%,state.ilike.%${safeQuery}%`)
+        .or(`city.ilike.%${safeQuery}%,locality.ilike.%${safeQuery}%,state.ilike.%${safeQuery}%,address.ilike.%${safeQuery}%,location.ilike.%${safeQuery}%`)
         .limit(50); // Safe limit
 
       if (!strictError && strictData && strictData.length > 0) {
@@ -332,9 +355,9 @@ export async function getProducts(params?: {
 
       searchTerms.forEach(term => {
         const q = sanitizeInput(term);
-        // Multi-Column Search with Partial Match (ILIKE) across Title and Description
-        // Restricting to Title/Description to ensure stability (prevent SQL errors on missing columns)
-        dbQuery = dbQuery.or(`title.ilike.%${q}%,description.ilike.%${q}%`);
+        // Multi-Column Search with Partial Match (ILIKE)
+        // Expanded to include Address and Location as the fallback
+        dbQuery = dbQuery.or(`title.ilike.%${q}%,description.ilike.%${q}%,address.ilike.%${q}%,location.ilike.%${q}%`);
       });
     }
 
@@ -408,6 +431,8 @@ export async function getProduct(handle: string): Promise<Product | null> {
       .from("properties")
       .select("*")
       .eq('handle', handle)
+      .eq('status', 'approved') // SECURITY PATCH: Hide banned/inactive
+      .eq('available_for_sale', true) // SECURITY PATCH
       .single();
 
     if (error) return null;
@@ -431,13 +456,23 @@ export async function getProduct(handle: string): Promise<Product | null> {
         if (usersData && !usersError) {
           userData = usersData;
         } else {
-          // Fallback to 'profiles' table if 'users' fails or is empty
-          const { data: profilesData } = await clientToUse
-            .from("profiles")
-            .select("*")
-            .eq("id", product.userId)
-            .single();
-          userData = profilesData;
+          console.warn(`[getProduct] Failed to fetch user ${product.userId} (Error: ${usersError?.message}, Data: ${!!usersData}). AdminClient: ${!!adminClient}`);
+
+          // Fallback: Try Secure RPC (get_owner_name)
+          // This fixes the issue where implicit RLS blocks reading the user table for "Property Owner" name
+          try {
+            // We use 'supabase' (public client) here because the RPC is SECURITY DEFINER (publicly executable)
+            const { data: rpcName, error: rpcError } = await supabase.rpc('get_owner_name', { owner_id: product.userId });
+
+            if (!rpcError && rpcName) {
+              product.ownerName = rpcName;
+              console.log(`[getProduct] Fetched owner name via RPC: ${rpcName}`);
+            }
+          } catch (e) {
+            // Ignore
+          }
+
+          userData = null;
         }
 
         if (userData) {
@@ -448,6 +483,7 @@ export async function getProduct(handle: string): Promise<Product | null> {
             (userData.first_name ? `${userData.first_name} ${userData.last_name || ''}`.trim() : null) ||
             userData.username ||
             userData.email?.split('@')[0]; // Fallback to email prefix if absolutely nothing else
+          console.log(`[getProduct] Fetched owner name: ${product.ownerName} for product ${handle}`);
         }
       } catch (err) {
         console.warn('Failed to fetch user details for product:', err);
@@ -466,7 +502,7 @@ export async function getUserProducts(userId: string): Promise<Product[]> {
   try {
     const { data, error } = await supabase
       .from("properties")
-      .select('id,handle,title,description,price_range,featured_image,tags,available_for_sale,category_id,"contactNumber",user_id,"bathroomType","securityDeposit","electricityStatus","tenantPreference",latitude,longitude,"googleMapsLink",is_verified,status,"price","location","address","type",view_count,created_at')
+      .select('id,handle,title,description,price_range,featured_image,tags,available_for_sale,category_id,"contactNumber",user_id,"bathroomType","securityDeposit","electricityStatus","tenantPreference",latitude,longitude,"googleMapsLink",is_verified,status,view_count,created_at,updated_at,"price","location","address","type"')
       .eq('user_id', userId)
       .order('created_at', { ascending: false }); // Ensure Newest First
 
@@ -572,7 +608,7 @@ export async function createProduct(data: any, token?: string): Promise<Product>
     // Check if user exists in public.users to avoid FK error
     const { data: existingUser } = await supabase
       .from('users')
-      .select('id, last_posted_at')
+      .select('id, last_posted_at, is_banned')
       .eq('id', user.id)
       .single();
 
@@ -592,6 +628,11 @@ export async function createProduct(data: any, token?: string): Promise<Product>
         // We continue anyway, hoping the trigger fired or it was a race condition
       }
     } else {
+      // 1.5.1 BAN CHECK
+      if (existingUser.is_banned) {
+        throw new Error("Your account has been restricted. You cannot post new properties.");
+      }
+
       // RATE LIMIT CHECK
       if (existingUser.last_posted_at) {
         const lastPosted = new Date(existingUser.last_posted_at).getTime();
@@ -721,6 +762,15 @@ export async function updateProduct(id: string, data: any, token?: string): Prom
       floor_number: data.floorNumber,
       total_floors: data.totalFloors
     };
+
+    // SECURITY PATCH: Check Ban Status before Update
+    if (token) {
+      const { data: { user } } = await supabase.auth.getUser(token);
+      if (user) {
+        const { data: u } = await supabase.from('users').select('is_banned').eq('id', user.id).single();
+        if (u?.is_banned) throw new Error("Account Restricted: Cannot update property.");
+      }
+    }
 
     // 3. Update directly in Supabase (bypassing CSRF/API)
     const { data: updatedProperty, error } = await supabase
@@ -996,7 +1046,7 @@ export async function trackLead(propertyId: string, type: 'contact' | 'whatsapp'
   }
 }
 
-export async function getAdminUsers(page: number = 1, limit: number = 10, search: string = ''): Promise<{ users: { userId: string; name: string; email: string; contactNumber: string; role: string; isVerified: boolean; totalProperties: number; activeProperties: number; profession: string; status: string }[]; total: number; page: number; limit: number }> {
+export async function getAdminUsers(page: number = 1, limit: number = 10, search: string = ''): Promise<{ users: { userId: string; name: string; email: string; contactNumber: string; role: string; isVerified: boolean; totalProperties: number; activeProperties: number; profession: string; status: string; is_banned: boolean }[]; total: number; page: number; limit: number }> {
   try {
     const from = (page - 1) * limit;
     const to = from + limit - 1;
@@ -1041,7 +1091,8 @@ export async function getAdminUsers(page: number = 1, limit: number = 10, search
         totalProperties: totalProperties || 0,
         activeProperties: activeProperties || 0,
         profession: profile.profession || '',
-        status: profile.status || 'active'
+        status: profile.status || 'active',
+        is_banned: profile.is_banned || false
       };
     }));
 
@@ -1382,6 +1433,149 @@ export async function getUserDetailsForAdmin(userId: string) {
 
   } catch (error: any) {
     console.error('Error fetching user details:', error);
+    return null;
+  }
+}
+// User Activity Dashboard Types & Function
+export interface UserActivityData {
+  user: {
+    id: string;
+    email: string;
+    fullName: string;
+    phoneNumber: string;
+    avatarUrl?: string;
+    joinedAt: string;
+    role: string;
+    isBanned: boolean;
+  };
+  stats: {
+    totalContacts: number; // Leads
+    totalViews: number;
+    conversionRate: number; // (Contacts / Views) * 100
+  };
+  timeline: ActivityItem[];
+  leads: any[];
+  views: any[];
+  inquiries: any[];
+}
+
+export interface ActivityItem {
+  id: string;
+  type: 'view' | 'contact' | 'inquiry';
+  propertyName?: string;
+  propertyHandle?: string;
+  propertyOwner?: string; // Owner Email
+  date: string;
+  details?: string; // "Viewed Property" or "Contacted via WhatsApp"
+}
+
+export async function getUserActivityData(userId: string): Promise<UserActivityData | null> {
+  try {
+    const adminClient = getAdminClient(); // Ensure we use admin privileges
+    const client = adminClient || supabase;
+
+    // 1. Fetch User Details
+    const { data: user, error: userError } = await client
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (userError || !user) throw new Error('User not found');
+
+    // 2. Fetch Leads (Contacts Initiated)
+    const { data: leads } = await client
+      .from('leads_activity')
+      .select('*, properties(title, handle, user_id)') // Join property details
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    // 3. Fetch Property Views
+    const { data: views } = await client
+      .from('property_views')
+      .select('*, properties(title, handle, user_id)')
+      .eq('user_id', userId)
+      .order('viewed_at', { ascending: false });
+
+    // 4. Fetch Inquiries (Match by Email)
+    const { data: inquiries } = await client
+      .from('inquiries')
+      .select('*')
+      .eq('email', user.email)
+      .order('created_at', { ascending: false });
+
+    // 5. Aggregate Data for Timeline
+    const timeline: ActivityItem[] = [];
+
+    // Process Leads
+    leads?.forEach((lead: any) => {
+      timeline.push({
+        id: lead.id,
+        type: 'contact',
+        propertyName: lead.properties?.title || 'Unknown Property',
+        propertyHandle: lead.properties?.handle,
+        propertyOwner: 'Loading...', // Ideally fetch owner email, but effectively complex in one go. UI can handle or we fetch separately if critical.
+        date: lead.created_at,
+        details: `Contacted via ${lead.type}`
+      });
+    });
+
+    // Process Views
+    views?.forEach((view: any) => {
+      timeline.push({
+        id: view.id,
+        type: 'view',
+        propertyName: view.properties?.title || 'Unknown Property',
+        propertyHandle: view.properties?.handle,
+        propertyOwner: 'Loading...',
+        date: view.viewed_at,
+        details: 'Viewed Property'
+      });
+    });
+
+    // Process Inquiries
+    inquiries?.forEach((inq: any) => {
+      timeline.push({
+        id: inq.id,
+        type: 'inquiry',
+        propertyName: 'N/A', // General inquiry
+        date: inq.created_at,
+        details: `Subject: ${inq.subject || 'No Subject'}`
+      });
+    });
+
+    // Sort Timeline by Date Descending
+    timeline.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    // 6. Calculate Stats
+    const totalContacts = leads?.length || 0;
+    const totalViews = views?.length || 0;
+    const conversionRate = totalViews > 0 ? ((totalContacts / totalViews) * 100) : 0;
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        fullName: user.full_name || user.name || 'User',
+        phoneNumber: user.phone_number || user.contactNumber || 'N/A',
+        avatarUrl: user.avatar_url,
+        joinedAt: user.created_at,
+        role: user.role || 'user',
+        isBanned: user.is_banned || false
+      },
+      stats: {
+        totalContacts,
+        totalViews,
+        conversionRate
+      },
+      timeline,
+      leads: leads || [],
+      views: views || [],
+      inquiries: inquiries || []
+    };
+
+  } catch (error) {
+    console.error('Error fetching user activity:', error);
     return null;
   }
 }

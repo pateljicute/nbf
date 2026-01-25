@@ -19,16 +19,7 @@ interface HomeClientProps {
 export function HomeClient({ initialProducts, adSettings }: HomeClientProps) {
     const [filteredProducts, setFilteredProducts] = useState(initialProducts);
 
-    // Force reload to clear stuck service worker cache
-    useEffect(() => {
-        if (typeof window !== 'undefined') {
-            const hasReloaded = sessionStorage.getItem('nbf_home_fix_v1');
-            if (!hasReloaded) {
-                sessionStorage.setItem('nbf_home_fix_v1', 'true');
-                window.location.reload();
-            }
-        }
-    }, []);
+    // Forced reload logic removed to fix auth loop issues
 
     const handleSearch = useCallback((query: string) => {
         if (!query.trim()) {
