@@ -43,8 +43,11 @@ export async function generateStaticParams() {
   }
 }
 
-// Cache for 5 minutes
-export const revalidate = 300;
+import { cookies } from 'next/headers';
+import { createServerClient } from '@supabase/ssr';
+
+// Force dynamic rendering to ensure fresh data (especially for owners seeing pending items)
+export const dynamic = 'force-dynamic';
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -55,7 +58,7 @@ export const viewport: Viewport = {
 
 export async function generateMetadata(props: { params: Promise<{ handle: string }> }): Promise<Metadata> {
   const params = await props.params;
-  const product = await getProduct(params.handle);
+  const product = await getProduct(params.handle); // Metadata can still use public/anon client for speed/caching if needed, or we can duplicate the client creation here if purely dynamic. For now, public is fine as crawlers are public.
 
   if (!product) return notFound();
 
@@ -106,7 +109,27 @@ export async function generateMetadata(props: { params: Promise<{ handle: string
 
 export default async function ProductPage(props: { params: Promise<{ handle: string }> }) {
   const params = await props.params;
-  const product = await getProduct(params.handle);
+
+  // Create context-aware client to allow owners to see their own pending properties
+  const cookieStore = await cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options));
+          } catch { }
+        },
+      },
+    }
+  );
+
+  const product = await getProduct(params.handle, supabase);
 
   if (!product) return notFound();
 

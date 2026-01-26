@@ -129,6 +129,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const logout = async () => {
         const { error } = await supabase.auth.signOut();
         if (error) console.error('Error logging out:', error);
+
+        // Zero Lag Cleanup
+        localStorage.clear();
+        sessionStorage.clear(); // Good practice to clear session too
+
+        // Hard Redirect to flush memory state
+        window.location.href = '/';
     };
 
     return (

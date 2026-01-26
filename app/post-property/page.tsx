@@ -414,6 +414,7 @@ export default function PostPropertyPage() {
 
                 setCreatedProduct({ ...formData, handle: result?.handle || 'new-property' }); // Mock handle if not returned immediately
                 setIsSuccess(true);
+                router.refresh(); // INSTANT REFRESH: Updates client cache immediately
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             }
         } catch (error: any) {
@@ -496,7 +497,7 @@ export default function PostPropertyPage() {
                     </div>
 
                     <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-                        <button onClick={() => router.push('/')} className="px-8 py-3 border border-neutral-200 rounded-xl hover:bg-neutral-50 transition-all font-medium text-neutral-600 w-full sm:w-auto">
+                        <button onClick={() => window.location.href = '/'} className="px-8 py-3 border border-neutral-200 rounded-xl hover:bg-neutral-50 transition-all font-medium text-neutral-600 w-full sm:w-auto">
                             Return Home
                         </button>
                         <button onClick={() => router.push('/profile')} className="px-8 py-3 bg-black text-white rounded-xl hover:bg-neutral-800 transition-all font-medium flex items-center justify-center gap-2 w-full sm:w-auto">
@@ -1090,12 +1091,15 @@ export default function PostPropertyPage() {
                             onClick={handleSubmit}
                             disabled={isLoading || formData.images.length === 0}
                             title={formData.images.length === 0 ? "Please upload at least one photo" : ""}
-                            className={`flex items-center gap-2 px-8 py-3 rounded-xl transition-all font-medium
+                            className={`flex items-center justify-center gap-2 px-8 py-3 rounded-xl transition-all font-medium
                                 ${isLoading || formData.images.length === 0
                                     ? 'bg-neutral-300 text-neutral-500 cursor-not-allowed'
                                     : 'bg-black text-white hover:bg-neutral-800 shadow-lg hover:shadow-xl hover:scale-105 active:scale-95'
                                 }`}
                         >
+                            {isLoading && (
+                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            )}
                             {isLoading ? 'Submitting...' : (isEditMode ? 'Update Property' : 'Post Property')}
                         </button>
                     )}

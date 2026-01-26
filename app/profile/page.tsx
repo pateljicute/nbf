@@ -20,6 +20,7 @@ export default function ProfilePage() {
     const [editingProperty, setEditingProperty] = useState<Product | null>(null);
     const [qrPosterProperty, setQrPosterProperty] = useState<Product | null>(null); // New State
     const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+    const [isLogoutLoading, setIsLogoutLoading] = useState(false);
 
     const [isMounted, setIsMounted] = useState(false);
 
@@ -134,7 +135,7 @@ export default function ProfilePage() {
                     {/* Mobile Sign Out (Absolute Top Right) */}
                     <button
                         onClick={handleLogout}
-                        className="md:hidden absolute top-2 right-2 p-2 bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-white/30 transition-colors z-10"
+                        className="md:hidden absolute top-2 right-2 p-2.5 bg-red-600 rounded-full text-white hover:bg-red-700 transition-colors z-10 shadow-sm"
                     >
                         <LogOut className="w-4 h-4" />
                     </button>
@@ -173,11 +174,24 @@ export default function ProfilePage() {
 
                             {/* Desktop Sign Out */}
                             <button
-                                onClick={handleLogout}
-                                className="hidden md:flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors mb-2"
+                                onClick={async () => {
+                                    try {
+                                        setIsLogoutLoading(true);
+                                        await handleLogout();
+                                    } finally {
+                                        // No need to set false as we redirect, but safe practice
+                                        // setIsLogoutLoading(false); 
+                                    }
+                                }}
+                                disabled={isLogoutLoading}
+                                className="hidden md:flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors mb-2 shadow-sm disabled:opacity-70 disabled:cursor-not-allowed"
                             >
-                                <LogOut className="w-4 h-4" />
-                                Sign Out
+                                {isLogoutLoading ? (
+                                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                ) : (
+                                    <LogOut className="w-4 h-4" />
+                                )}
+                                {isLogoutLoading ? 'Signing Out...' : 'Sign Out'}
                             </button>
                         </div>
 

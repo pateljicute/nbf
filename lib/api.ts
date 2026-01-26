@@ -423,14 +423,16 @@ export async function getProducts(params?: {
   }
 }
 
-export async function getProduct(handle: string): Promise<Product | null> {
+export async function getProduct(handle: string, supabaseClient?: any): Promise<Product | null> {
   try {
-    const { data, error } = await supabase
+    const client = supabaseClient || supabase;
+
+    const { data, error } = await client
       .from("properties")
       .select("*")
       .eq('handle', handle)
-      .eq('status', 'approved') // SECURITY PATCH: Hide banned/inactive
-      .eq('available_for_sale', true) // SECURITY PATCH
+      // .eq('status', 'approved') // REMOVED: Rely on RLS for visibility (Public sees approved, Owner sees all)
+      // .eq('available_for_sale', true) // REMOVED: Rely on RLS
       .single();
 
     if (error) return null;

@@ -752,7 +752,8 @@ export async function banUserAction(userId: string, reason: string, adminUserId:
         if (propError) console.warn('Failed to auto-hide properties for banned user:', propError);
 
         revalidatePath('/admin');
-        revalidatePath('/'); // Clear home cache if necessary
+        revalidatePath('/properties');
+        revalidatePath('/');
         return { success: true };
     } catch (error: any) {
         console.error('Error banning user:', error);
@@ -875,6 +876,8 @@ export async function createPropertyAction(data: any) {
         await supabase.from('users').update({ last_posted_at: new Date().toISOString() }).eq('id', user.id);
 
         // 5. Send Notification (fire and forget)
+        revalidatePath('/', 'layout'); // GLOBAL PURGE: Clears defaults, home, admin, properties - EVERYTHING.
+
         try {
             await sendNewPropertyNotificationAction(
                 insertedProperty.title,

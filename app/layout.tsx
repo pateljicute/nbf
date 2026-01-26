@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from 'next';
+import ZeroLoader from '@/components/layout/zero-loader';
+import { Suspense } from 'react';
 // import { Inter } from 'next/font/google';
 
 // const inter = Inter({
@@ -80,10 +82,14 @@ export default async function RootLayout({
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#000000" />
       </head>
+
       <body
         style={{ '--font-geist-sans': 'sans-serif' } as React.CSSProperties}
         className={`antialiased min-h-screen overflow-y-auto`}
       >
+        <Suspense fallback={null}>
+          <ZeroLoader />
+        </Suspense>
         <script
           dangerouslySetInnerHTML={{
             __html: `
