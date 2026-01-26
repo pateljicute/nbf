@@ -22,6 +22,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 
     useEffect(() => {
+        // Smart Refresh: Check if we just logged in and are on the home page
+        if (typeof window !== 'undefined') {
+            const justLoggedIn = localStorage.getItem('just_logged_in');
+            if (justLoggedIn && window.location.pathname === '/') {
+                console.log('Smart Refresh: Triggering hard reload on Home Page to sync session...');
+                localStorage.removeItem('just_logged_in');
+                window.location.reload();
+                return; // Stop execution to allow reload
+            }
+        }
+
         let mounted = true;
 
         const verifyBanStatus = async (uid: string) => {
@@ -73,15 +84,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
             // Force Hard Refresh on Sign In (PWA Fix as requested)
             if (event === 'SIGNED_IN') {
-                // Only refresh if not already establishing the initial session to avoid loops on load
-                // But user asked for immediate hard refresh.
-                // We'll trust the "SIGNED_IN" event usually implies a state change.
-                // Check if we are already on home to prevent infinite reload on home? 
-                // No, SIGNED_IN doesn't fire on every reload if session is just restored (INITIAL_SESSION does).
-                window.location.href = '/';
+                console.log('Auth State Change: SIGNED_IN. Session User:', session?.user);
+
+                // Set flag for Smart Refresh on next load (specifically for Home Page)
+                localStorage.setItem('just_logged_in', 'true');
+
+            } else if (event === 'SIGNED_OUT') {
+                console.log('Auth State Change: SIGNED_OUT');
+                localStorage.removeItem('just_logged_in');
             }
 
             if (mounted) {
+                console.log('Updating Auth Context State. User found:', !!session?.user);
                 if (session?.user) {
                     const isBanned = await verifyBanStatus(session.user.id);
                     if (isBanned) return;

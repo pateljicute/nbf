@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
                                     sameSite: 'lax',
                                     secure: process.env.NODE_ENV === 'production',
                                     path: '/',
-                                    partitioned: true, // Critical for PWA Standalone Mode (CHIPS)
+                                    ...(process.env.NODE_ENV === 'production' ? { partitioned: true } : {}), // FIXED: Partitioned requires Secure (HTTPS)
                                 })
                             )
                         } catch {

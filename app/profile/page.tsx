@@ -10,6 +10,7 @@ import { getUserProducts, deleteProduct, updateProduct } from '@/lib/api';
 import { Product } from '@/lib/types';
 import { createClient } from '@/lib/supabase/client';
 import { QRPosterModal } from '@/components/unique/qr-poster-modal'; // New Import
+import Image from 'next/image';
 
 export default function ProfilePage() {
     const { user, logout, isLoading, session } = useAuth();
@@ -142,9 +143,11 @@ export default function ProfilePage() {
                         <div className="relative flex flex-row items-end -mt-8 md:-mt-12 mb-4 md:mb-6 gap-3 md:gap-6">
                             <div className="relative w-16 h-16 md:w-32 md:h-32 rounded-full border-[3px] md:border-4 border-white bg-neutral-100 overflow-hidden shadow-md shrink-0">
                                 {user.user_metadata?.avatar_url ? (
-                                    <img
-                                        src={user.user_metadata.avatar_url}
+                                    <Image
+                                        src={user.user_metadata.avatar_url || '/placeholder-avatar.png'}
                                         alt={user.user_metadata?.full_name || 'User'}
+                                        width={128}
+                                        height={128}
                                         className="w-full h-full object-cover"
                                     />
                                 ) : (
@@ -253,10 +256,12 @@ export default function ProfilePage() {
                                                 {/* Image (Left on Mobile, Top on Desktop) */}
                                                 <div className="w-28 sm:w-full sm:aspect-square shrink-0 bg-neutral-200 relative">
                                                     {property.featuredImage && (
-                                                        <img
+                                                        <Image
                                                             src={property.featuredImage.url}
-                                                            alt={property.featuredImage.altText}
-                                                            className="h-full w-full object-cover object-center"
+                                                            alt={property.featuredImage.altText || property.title}
+                                                            fill
+                                                            className="object-cover object-center"
+                                                            sizes="(max-width: 640px) 112px, 300px"
                                                         />
                                                     )}
                                                     <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2 hidden sm:block">

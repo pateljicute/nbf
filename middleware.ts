@@ -26,12 +26,27 @@ export async function middleware(request: NextRequest) {
                         },
                     });
                     cookiesToSet.forEach(({ name, value, options }) =>
-                        response.cookies.set(name, value, options)
+                        response.cookies.set(name, value, {
+                            ...options,
+                            sameSite: 'lax',
+                            secure: process.env.NODE_ENV === 'production',
+                            path: '/',
+                            ...(process.env.NODE_ENV === 'production' ? { partitioned: true } : {}), // FIXED: Partitioned requires Secure (HTTPS)
+                        })
                     );
                 },
             },
         }
     );
+
+    // Verify auth status on ALL requests to ensure session tokens are refreshed
+    let user = null;
+    try {
+        const { data } = await supabase.auth.getUser();
+        user = data.user;
+    } catch (err) {
+        console.error("Middleware Auth Check Failed:", err);
+    }
 
     // Define protected routes
     const protectedPaths = ['/admin', '/account', '/banned'];
@@ -39,14 +54,6 @@ export async function middleware(request: NextRequest) {
 
     // Only run auth check on protected routes
     if (isProtected) {
-        let user = null;
-        try {
-            const { data } = await supabase.auth.getUser();
-            user = data.user;
-        } catch (err) {
-            console.error("Middleware Auth Check Failed:", err);
-        }
-
         // Protect Routes from Banned Users
         if (user) {
             if (!request.nextUrl.pathname.startsWith('/banned')) {

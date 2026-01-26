@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -190,7 +191,15 @@ export function AdManager() {
                         {adConfig.media_type === 'video' ? (
                             <video src={adConfig.media_url} controls className="w-full h-full object-contain" />
                         ) : (
-                            <img src={adConfig.media_url} alt="Ad Preview" className="w-full h-full object-contain" />
+                            <div className="relative w-full h-full">
+                                <Image
+                                    src={adConfig.media_url}
+                                    alt="Ad Preview"
+                                    fill
+                                    className="object-contain"
+                                    unoptimized={!!adConfig.media_type && adConfig.media_type !== 'image'} // Safety check if mixed media
+                                />
+                            </div>
                         )}
                         <Button
                             variant="destructive"

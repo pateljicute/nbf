@@ -3,6 +3,7 @@ import { QRCodeCanvas } from 'qrcode.react';
 import { X, Download, Store, Building2, ChevronRight, ArrowLeft, Palette, LayoutTemplate, Type, ScanLine, Loader2, Lock, Sun, Moon } from 'lucide-react';
 import { Product } from '@/lib/types';
 import { useToast } from "@/components/ui/use-toast";
+import Image from 'next/image';
 
 interface QRPosterModalProps {
     isOpen: boolean;
@@ -169,7 +170,16 @@ export function QRPosterModal({ isOpen, onClose, property, user }: QRPosterModal
                                     <div className={`h-full aspect-video p-1.5 rounded-md border-2 ${isDark ? 'border-amber-400/30 bg-white/5' : 'border-neutral-100 bg-white'} shadow-md`}>
                                         <div className="w-full h-full relative overflow-hidden rounded-sm">
                                             {/* eslint-disable-next-line @next/next/no-img-element */}
-                                            <img src={property.images[0].url} alt="Property" className="w-full h-full object-cover" />
+
+                                            <div className="relative w-full h-full">
+                                                <Image
+                                                    src={property.images[0].url}
+                                                    alt="Property"
+                                                    fill
+                                                    className="object-cover"
+                                                    sizes="(max-width: 768px) 100vw, 50vw"
+                                                />
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
