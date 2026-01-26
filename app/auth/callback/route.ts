@@ -20,7 +20,13 @@ export async function GET(request: NextRequest) {
                     setAll(cookiesToSet) {
                         try {
                             cookiesToSet.forEach(({ name, value, options }) =>
-                                cookieStore.set(name, value, options)
+                                cookieStore.set(name, value, {
+                                    ...options,
+                                    sameSite: 'lax',
+                                    secure: process.env.NODE_ENV === 'production',
+                                    path: '/',
+                                    partitioned: true, // Critical for PWA Standalone Mode (CHIPS)
+                                })
                             )
                         } catch {
                             // Ignored

@@ -3,6 +3,7 @@
     "short_name": "NBF Homes",
     "description": "Find verified PGs and rooms in Mandsaur, Neemuch, Ratlam with zero brokerage.",
     "start_url": "/",
+    "scope": "/",
     "display": "standalone",
     "background_color": "#ffffff",
     "theme_color": "#000000",

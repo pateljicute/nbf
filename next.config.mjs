@@ -111,10 +111,23 @@ const withPWA = withPWAInit({
     /_middleware.js.map$/,
     /middleware.js$/,
     /middleware.js.map$/
-  ], // Exclude middleware files to prevent issues
-  // Exclude auth routes from being precached (though next-pwa default is good, being explicit helps)
+  ],
+  runtimeCaching: [
+    {
+      urlPattern: /\/auth\/.*/,
+      handler: 'NetworkOnly',
+    },
+    {
+      urlPattern: /\/api\/auth\/.*/,
+      handler: 'NetworkOnly',
+    },
+    {
+      urlPattern: /^https:\/\/accounts\.google\.com\/.*/,
+      handler: 'NetworkOnly',
+    }
+  ],
   fallbacks: {
-    // document: '/offline', // Optional: create an offline page if desired
+    // document: '/offline', 
   }
 });
 

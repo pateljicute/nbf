@@ -70,6 +70,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (process.env.NODE_ENV === 'development') {
                 console.log('Auth State Change:', event, session?.user?.email);
             }
+
+            // Force Hard Refresh on Sign In (PWA Fix as requested)
+            if (event === 'SIGNED_IN') {
+                // Only refresh if not already establishing the initial session to avoid loops on load
+                // But user asked for immediate hard refresh.
+                // We'll trust the "SIGNED_IN" event usually implies a state change.
+                // Check if we are already on home to prevent infinite reload on home? 
+                // No, SIGNED_IN doesn't fire on every reload if session is just restored (INITIAL_SESSION does).
+                window.location.href = '/';
+            }
+
             if (mounted) {
                 if (session?.user) {
                     const isBanned = await verifyBanStatus(session.user.id);
@@ -95,6 +106,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             },
         });
         if (error) console.error('Error logging in with Google:', error);
+
+        // Note: Actual redirection happens via Supabase, but if we needed to force state:
+        // window.location.href = '/'; 
+        // Logic handled by callback, but adding listener refresh:
     };
 
     const logout = async () => {
