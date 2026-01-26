@@ -85,6 +85,20 @@ export default async function RootLayout({
         className={`antialiased min-h-screen overflow-y-auto`}
       >
         <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if ('${process.env.NODE_ENV}' === 'development' && 'serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                  for(let registration of registrations) {
+                    console.log('Unregistering SW:', registration);
+                    registration.unregister();
+                  }
+                });
+              }
+            `,
+          }}
+        />
+        <script
           type="application/ld+json"
           suppressHydrationWarning
           dangerouslySetInnerHTML={{

@@ -57,7 +57,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     setIsLoading(false);
                 }
             } catch (error) {
-                console.error("Auth check error:", error);
                 if (mounted) setIsLoading(false);
             } finally {
                 // Check complete
@@ -67,7 +66,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         checkUser();
 
         // Listen for auth changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            if (process.env.NODE_ENV === 'development') {
+                console.log('Auth State Change:', event, session?.user?.email);
+            }
             if (mounted) {
                 if (session?.user) {
                     const isBanned = await verifyBanStatus(session.user.id);

@@ -4,8 +4,8 @@ import { getAdSettingsAction } from '@/app/actions';
 import { Product, AdSettings } from '../lib/types';
 import { HomeClient } from '@/components/home/home-client';
 
-// Cache for 60 seconds (ISR) to ensure instant loading while keeping data fresh
-export const revalidate = 60;
+// Mark as dynamic to avoid "Dynamic server usage" errors with cookies in getAdSettingsAction
+export const dynamic = 'force-dynamic';
 
 export default async function Home() {
   let featuredProducts: Product[] = [];

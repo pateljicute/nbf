@@ -1,5 +1,8 @@
 'use client';
 
+// Force dynamic rendering to handle cookie-based auth checks
+export const dynamic = 'force-dynamic';
+
 import { useAuth } from '@/lib/auth-context';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';

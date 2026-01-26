@@ -33,51 +33,43 @@ export async function middleware(request: NextRequest) {
         }
     );
 
-    // 1. Get User
-    // 1. Get User with Error Handling
-    let user = null;
-    try {
-        const { data } = await supabase.auth.getUser();
-        user = data.user;
-    } catch (err) {
-        // Log error but allow request to proceed (treat as unauthenticated)
-        // This prevents the entire site from going down if Supabase Auth is slow/unreachable
-        console.error("Middleware Auth Check Failed:", err);
-    }
+    // Define protected routes
+    const protectedPaths = ['/admin', '/account', '/banned'];
+    const isProtected = protectedPaths.some(path => request.nextUrl.pathname.startsWith(path));
 
-    // 2. Protect Routes from Banned Users
-    if (user) {
-        // Optimization: Only check DB if on a protected route or periodically.
-        // However, user requested "Strict" enforcement.
+    // Only run auth check on protected routes
+    if (isProtected) {
+        let user = null;
+        try {
+            const { data } = await supabase.auth.getUser();
+            user = data.user;
+        } catch (err) {
+            console.error("Middleware Auth Check Failed:", err);
+        }
 
-        // Check if path is NOT already the banned page to avoid infinite loop
-        if (!request.nextUrl.pathname.startsWith('/banned')) {
+        // Protect Routes from Banned Users
+        if (user) {
+            if (!request.nextUrl.pathname.startsWith('/banned')) {
+                const { data: userData } = await supabase
+                    .from('users')
+                    .select('is_banned')
+                    .eq('id', user.id)
+                    .single();
 
-            // Fetch ban status from public.users
-            // Optimization: Select ONLY is_banned column.
-            const { data: userData } = await supabase
-                .from('users')
-                .select('is_banned')
-                .eq('id', user.id)
-                .single();
-
-            if (userData?.is_banned) {
-                // Force Sign Out logic can be tricky in middleware, better to redirect to a "Banned" page
-                // which can handle the signout or just show the message.
-                const url = request.nextUrl.clone();
-                url.pathname = '/banned';
-                return NextResponse.redirect(url);
+                if (userData?.is_banned) {
+                    const url = request.nextUrl.clone();
+                    url.pathname = '/banned';
+                    return NextResponse.redirect(url);
+                }
             }
         }
-    }
 
-    // 3. Admin Route Protection (Optional but recommended)
-    if (request.nextUrl.pathname.startsWith('/admin')) {
-        if (!user) {
-            return NextResponse.redirect(new URL('/auth', request.url));
+        // Admin Route Protection
+        if (request.nextUrl.pathname.startsWith('/admin')) {
+            if (!user) {
+                return NextResponse.redirect(new URL('/auth', request.url));
+            }
         }
-        // Note: We leave strict admin check to the page/layout to avoid double DB hit if possible,
-        // but if we already fetched user, we are good.
     }
 
     return response;
@@ -91,7 +83,6 @@ export const config = {
          * - _next/image (image optimization files)
          * - favicon.ico (favicon file)
          * - images - .svg, .png, .jpg, .jpeg, .gif, .webp
-         * Feel free to modify this pattern to include more paths.
          */
         "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
     ],

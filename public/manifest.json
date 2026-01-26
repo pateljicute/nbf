@@ -1,7 +1,7 @@
 {
     "name": "NBF Homes",
-    "short_name": "NBF",
-    "description": "Find your perfect room or PG on India's largest property marketplace.",
+    "short_name": "NBF Homes",
+    "description": "Find verified PGs and rooms in Mandsaur, Neemuch, Ratlam with zero brokerage.",
     "start_url": "/",
     "display": "standalone",
     "background_color": "#ffffff",

@@ -58,10 +58,23 @@ const nextConfig = {
       {
         source: '/api/:path*',
         headers: [
-          { key: 'Access-Control-Allow-Origin', value: '*' }, // Allow API access from anywhere (or restrict to https://nbfhomes.in)
+          { key: 'Access-Control-Allow-Origin', value: '*' },
           { key: 'Access-Control-Allow-Methods', value: 'GET,POST,PUT,DELETE,OPTIONS' },
           { key: 'Access-Control-Allow-Headers', value: 'Content-Type, Authorization' },
+          { key: 'Cache-Control', value: 'no-store, max-age=0' }, // APIs should generally not be cached unless specific
         ]
+      },
+      {
+        source: '/(.*\.(?:jpg|jpeg|gif|png|webp|svg|ico)$)',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+        ],
+      },
+      {
+        source: '/_next/static/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+        ],
       }
     ];
   },
@@ -89,9 +102,20 @@ import withPWAInit from "next-pwa";
 
 const withPWA = withPWAInit({
   dest: "public",
-  disable: process.env.NODE_ENV === "development",
+  disable: process.env.NODE_ENV === "development", // Disable in development to prevent loops
   register: true,
   skipWaiting: true,
+  buildExcludes: [
+    /middleware-manifest\.json$/,
+    /_middleware.js$/,
+    /_middleware.js.map$/,
+    /middleware.js$/,
+    /middleware.js.map$/
+  ], // Exclude middleware files to prevent issues
+  // Exclude auth routes from being precached (though next-pwa default is good, being explicit helps)
+  fallbacks: {
+    // document: '/offline', // Optional: create an offline page if desired
+  }
 });
 
 export default withPWA(nextConfig);

@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils';
 
 export const PageLayout = ({ children, className }: { children: React.ReactNode; className?: string }) => {
   return (
-    <div className={cn("pb-20 md:pb-0", className)}>
+    <div className={cn("pb-20 md:pb-0", className)} suppressHydrationWarning>
       <main>{children}</main>
       <Footer />
     </div>

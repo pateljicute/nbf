@@ -205,6 +205,186 @@ export async function getLocationSuggestions(query: string): Promise<LocationSug
   }
 }
 
+import { unstable_cache } from 'next/cache';
+
+// Cached version of the server-side logic
+const getCachedProductsServer = unstable_cache(
+  async (paramsString: string) => {
+    const params = JSON.parse(paramsString);
+    try {
+      const limit = params?.limit || 24;
+      const safeLimit = Math.max(1, Math.min(Math.floor(limit), 50));
+
+      let dbQuery = supabase
+        .from("properties")
+        .select('id,handle,title,description,price_range,featured_image,tags,available_for_sale,category_id,"contactNumber",user_id,"bathroomType","securityDeposit","electricityStatus","tenantPreference",latitude,longitude,"googleMapsLink",is_verified,status,view_count,created_at,updated_at,"price","location","address","type"')
+        .limit(safeLimit);
+
+      // Apply base filter & NO-BANNED USER FILTER
+      dbQuery = dbQuery
+        .eq('available_for_sale', true)
+        .eq('status', 'approved');
+
+      // City Filter (Case-Insensitive)
+      if (params?.city && validateInput(params.city, 'string')) {
+        const c = sanitizeInput(params.city);
+        dbQuery = dbQuery.or(`city.ilike.%${c}%, location.ilike.%${c}%`);
+      }
+
+      // Apply Filters (Logic mirrored from app/api/products/route.ts)
+      if (params?.query && validateInput(params.query, 'string')) {
+        const safeQuery = sanitizeInput(params.query).replace(/[,()]/g, ' ').trim();
+
+        // STRATEGY: Priority Search
+        // ... (Logic kept same as original, just moved inside cache)
+
+        // --- Priority 1: Explicit Column Match ---
+        const { data: strictData, error: strictError } = await supabase
+          .from("properties")
+          .select('id,handle,title,description,price_range,featured_image,tags,available_for_sale,category_id,"contactNumber",user_id,"bathroomType","securityDeposit","electricityStatus","tenantPreference",latitude,longitude,"googleMapsLink",is_verified,status,view_count,created_at,"price","location","address","type",state,city,locality')
+          .eq('available_for_sale', true)
+          .eq('status', 'approved')
+          .or(`city.ilike.%${safeQuery}%,locality.ilike.%${safeQuery}%,state.ilike.%${safeQuery}%,address.ilike.%${safeQuery}%,location.ilike.%${safeQuery}%`)
+          .limit(50);
+
+        if (!strictError && strictData && strictData.length > 0) {
+          console.log(`Server getProducts: STRICT COLUMN MATCH found ${strictData.length} for '${safeQuery}'`);
+          let results = strictData.map(mapPropertyToProduct);
+
+          if (params?.minPrice) {
+            const min = parseFloat(params.minPrice);
+            results = results.filter(p => {
+              const priceVal = p.price?.toString() || p.priceRange?.minVariantPrice?.amount || '0';
+              return parseFloat(priceVal) >= min;
+            });
+          }
+          if (params?.maxPrice) {
+            const max = parseFloat(params.maxPrice);
+            results = results.filter(p => {
+              const priceVal = p.price?.toString() || p.priceRange?.minVariantPrice?.amount || '0';
+              return parseFloat(priceVal) <= max;
+            });
+          }
+          return results;
+        }
+
+        // --- Priority 2: Strict Geocoding ---
+        try {
+          const geoUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(safeQuery)}&limit=1`;
+          const geoRes = await fetch(geoUrl, {
+            headers: { 'User-Agent': 'NBFHomes-ServerSide' },
+            next: { revalidate: 3600 } // Cache geocoding requests for 1 hour
+          });
+
+          if (geoRes.ok) {
+            const geoData = await geoRes.json();
+            if (geoData && geoData.length > 0) {
+              const { lat, lon } = geoData[0];
+              const { data: nearby, error: rpcError } = await supabase.rpc('get_nearby_properties', {
+                user_lat: parseFloat(lat),
+                user_lng: parseFloat(lon),
+                radius_meters: 20000
+              });
+
+              if (!rpcError && nearby) {
+                let results = (nearby as any[]).map(mapPropertyToProduct);
+                if (params?.minPrice) {
+                  const min = parseFloat(params.minPrice);
+                  results = results.filter(p => {
+                    const priceVal = p.price?.toString() || p.priceRange?.minVariantPrice?.amount || '0';
+                    return parseFloat(priceVal) >= min;
+                  });
+                }
+                if (params?.maxPrice) {
+                  const max = parseFloat(params.maxPrice);
+                  results = results.filter(p => {
+                    const priceVal = p.price?.toString() || p.priceRange?.minVariantPrice?.amount || '0';
+                    return parseFloat(priceVal) <= max;
+                  });
+                }
+                console.log(`Server getProducts: Strict Geocode found ${results.length} results for ${safeQuery}`);
+                return results;
+              } else {
+                return [];
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('Server getProducts geocode fail:', e);
+        }
+
+        // --- Priority 3: Fallback Text Search ---
+        const excludeStopWords = (word: string) => word.length > 0;
+        const searchTerms: string[] = params.query.trim().split(/\s+/).filter(excludeStopWords);
+
+        searchTerms.forEach((term: string) => {
+          const q = sanitizeInput(term);
+          dbQuery = dbQuery.or(`title.ilike.%${q}%,description.ilike.%${q}%,address.ilike.%${q}%,location.ilike.%${q}%`);
+        });
+      }
+
+      if (params?.location && validateInput(params?.location, 'string')) {
+        const loc = sanitizeInput(params.location);
+        dbQuery = dbQuery.contains('tags', [loc]);
+      }
+
+      if (params?.propertyType && validateInput(params.propertyType, 'string')) {
+        const pType = sanitizeInput(params.propertyType);
+        dbQuery = dbQuery.contains('tags', [pType]);
+      }
+
+      if (params?.amenities && Array.isArray(params.amenities)) {
+        for (const amenity of params.amenities) {
+          if (validateInput(amenity, 'string')) {
+            dbQuery = dbQuery.contains('tags', [sanitizeInput(amenity)]);
+          }
+        }
+      }
+
+      // Sorting
+      const sortKey = params?.sortKey;
+      const reverse = params?.reverse;
+
+      if (sortKey === 'PRICE') {
+        dbQuery = dbQuery.order('price_range->minVariantPrice->amount', { ascending: !reverse });
+      } else if (sortKey === 'CREATED_AT') {
+        dbQuery = dbQuery.order('created_at', { ascending: !reverse });
+      } else {
+        dbQuery = dbQuery.order('created_at', { ascending: false });
+      }
+
+      const { data, error } = await dbQuery;
+      if (error) throw error;
+
+      let results = data.map(mapPropertyToProduct);
+
+      // In-Memory Numeric Price Filtering
+      if (params?.minPrice) {
+        const min = parseFloat(params.minPrice);
+        results = results.filter(p => {
+          const priceVal = p.price?.toString() || p.priceRange?.minVariantPrice?.amount || '0';
+          return parseFloat(priceVal) >= min;
+        });
+      }
+      if (params?.maxPrice) {
+        const max = parseFloat(params.maxPrice);
+        results = results.filter(p => {
+          const priceVal = p.price?.toString() || p.priceRange?.minVariantPrice?.amount || '0';
+          return parseFloat(priceVal) <= max;
+        });
+      }
+
+      return results;
+
+    } catch (error) {
+      console.error("Cache Miss/Error in getProducts:", error);
+      return [];
+    }
+  },
+  ['products-list-v1'], // Cache Key
+  { revalidate: 60, tags: ['products'] } // Revalidate every 60s
+);
+
 export async function getProducts(params?: {
   sortKey?: ProductSortKey;
   reverse?: boolean;
@@ -232,195 +412,12 @@ export async function getProducts(params?: {
     }
   }
 
-  // Server-side: Direct DB access
+  // Server-side: Use Cached Logic
   try {
-    const limit = params?.limit || 24;
-    const safeLimit = Math.max(1, Math.min(Math.floor(limit), 50));
-
-    let dbQuery = supabase
-      .from("properties")
-      .select('id,handle,title,description,price_range,featured_image,tags,available_for_sale,category_id,"contactNumber",user_id,"bathroomType","securityDeposit","electricityStatus","tenantPreference",latitude,longitude,"googleMapsLink",is_verified,status,view_count,created_at,updated_at,"price","location","address","type"')
-      .limit(safeLimit);
-
-    // Apply base filter & NO-BANNED USER FILTER
-    dbQuery = dbQuery
-      .eq('available_for_sale', true)
-      .eq('status', 'approved');
-    // .eq('users.is_banned', false); // Exclude banned users - TEMPORARILY DISABLED FOR DEBUGGING
-
-    // City Filter (Case-Insensitive)
-    if (params?.city && validateInput(params.city, 'string')) {
-      // Search both 'city' column and 'location' tags/column for robustness
-      const c = sanitizeInput(params.city);
-      dbQuery = dbQuery.or(`city.ilike.%${c}%, location.ilike.%${c}%`);
-    }
-
-    // Apply Filters (Logic mirrored from app/api/products/route.ts)
-    // Apply Filters (Logic mirrored from app/api/products/route.ts)
-    if (params?.query && validateInput(params.query, 'string')) {
-      const safeQuery = sanitizeInput(params.query).replace(/[,()]/g, ' ').trim();
-
-      // STRATEGY: Priority Search
-      // 1. Explicit Column Match (City/State/Locality) - STRICT
-      // 2. Geocoding + Radius (Spatial) - PROXIMITY
-      // 3. Text Search (Title/Desc) - FALLBACK
-
-      // --- Priority 1: Explicit Column Match ---
-      // Check if the query matches a location field directly.
-      const { data: strictData, error: strictError } = await supabase
-        .from("properties")
-        .select('id,handle,title,description,price_range,featured_image,tags,available_for_sale,category_id,"contactNumber",user_id,"bathroomType","securityDeposit","electricityStatus","tenantPreference",latitude,longitude,"googleMapsLink",is_verified,status,view_count,created_at,"price","location","address","type",state,city,locality')
-        .eq('available_for_sale', true)
-        .eq('status', 'approved')
-        .or(`city.ilike.%${safeQuery}%,locality.ilike.%${safeQuery}%,state.ilike.%${safeQuery}%,address.ilike.%${safeQuery}%,location.ilike.%${safeQuery}%`)
-        .limit(50); // Safe limit
-
-      if (!strictError && strictData && strictData.length > 0) {
-        console.log(`Server getProducts: STRICT COLUMN MATCH found ${strictData.length} for '${safeQuery}'`);
-        let results = strictData.map(mapPropertyToProduct);
-
-        // Apply In-Memory Price Filter
-        if (params?.minPrice) {
-          const min = parseFloat(params.minPrice);
-          results = results.filter(p => {
-            const priceVal = p.price?.toString() || p.priceRange?.minVariantPrice?.amount || '0';
-            return parseFloat(priceVal) >= min;
-          });
-        }
-        if (params?.maxPrice) {
-          const max = parseFloat(params.maxPrice);
-          results = results.filter(p => {
-            const priceVal = p.price?.toString() || p.priceRange?.minVariantPrice?.amount || '0';
-            return parseFloat(priceVal) <= max;
-          });
-        }
-        return results;
-      }
-
-      // --- Priority 2: Strict Geocoding + Radius Search ---
-      try {
-        const geoUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(safeQuery)}&limit=1`;
-        const geoRes = await fetch(geoUrl, {
-          headers: { 'User-Agent': 'NBFHomes-ServerSide' },
-          cache: 'no-store' // Ensure fresh results
-        });
-
-        if (geoRes.ok) {
-          const geoData = await geoRes.json();
-          if (geoData && geoData.length > 0) {
-            const { lat, lon } = geoData[0];
-            // STRICT: Found a place, so we ONLY look nearby (20km).
-            const { data: nearby, error: rpcError } = await supabase.rpc('get_nearby_properties', {
-              user_lat: parseFloat(lat),
-              user_lng: parseFloat(lon),
-              radius_meters: 20000 // 20km Radius
-            });
-
-            if (!rpcError && nearby) {
-              let results = (nearby as any[]).map(mapPropertyToProduct);
-
-              // Apply In-Memory Price Filter
-              if (params?.minPrice) {
-                const min = parseFloat(params.minPrice);
-                results = results.filter(p => {
-                  const priceVal = p.price?.toString() || p.priceRange?.minVariantPrice?.amount || '0';
-                  return parseFloat(priceVal) >= min;
-                });
-              }
-              if (params?.maxPrice) {
-                const max = parseFloat(params.maxPrice);
-                results = results.filter(p => {
-                  const priceVal = p.price?.toString() || p.priceRange?.minVariantPrice?.amount || '0';
-                  return parseFloat(priceVal) <= max;
-                });
-              }
-
-              console.log(`Server getProducts: Strict Geocode found ${results.length} results for ${safeQuery}`);
-              return results;
-            } else {
-              // Place found but no data -> Strict Empty Return
-              return [];
-            }
-          }
-        }
-      } catch (e) {
-        console.warn('Server getProducts geocode fail:', e);
-      }
-
-      // --- Priority 3: Fallback Text Search ---
-      // Smart Filtering: Split query into words and search each word independently
-      // Only runs if Priority 1 and 2 yielded nothing/failed.
-      const excludeStopWords = (word: string) => word.length > 0;
-      const searchTerms = params.query.trim().split(/\s+/).filter(excludeStopWords);
-
-      searchTerms.forEach(term => {
-        const q = sanitizeInput(term);
-        // Multi-Column Search with Partial Match (ILIKE)
-        // Expanded to include Address and Location as the fallback
-        dbQuery = dbQuery.or(`title.ilike.%${q}%,description.ilike.%${q}%,address.ilike.%${q}%,location.ilike.%${q}%`);
-      });
-    }
-
-    if (params?.location && validateInput(params.location, 'string')) {
-      const loc = sanitizeInput(params.location);
-      // Using contains for exact tag match. For partial, we'd need text casting or separate search index.
-      dbQuery = dbQuery.contains('tags', [loc]);
-    }
-
-
-
-    if (params?.propertyType && validateInput(params.propertyType, 'string')) {
-      const pType = sanitizeInput(params.propertyType);
-      dbQuery = dbQuery.contains('tags', [pType]);
-    }
-
-    if (params?.amenities && Array.isArray(params.amenities)) {
-      for (const amenity of params.amenities) {
-        if (validateInput(amenity, 'string')) {
-          dbQuery = dbQuery.contains('tags', [sanitizeInput(amenity)]);
-        }
-      }
-    }
-
-    // Sorting
-    const sortKey = params?.sortKey;
-    const reverse = params?.reverse;
-
-    if (sortKey === 'PRICE') {
-      dbQuery = dbQuery.order('price_range->minVariantPrice->amount', { ascending: !reverse });
-    } else if (sortKey === 'CREATED_AT') {
-      dbQuery = dbQuery.order('created_at', { ascending: !reverse });
-    } else {
-      // Default sort: Newest First
-      dbQuery = dbQuery.order('created_at', { ascending: false });
-    }
-
-    const { data, error } = await dbQuery;
-    if (error) throw error;
-
-    let results = data.map(mapPropertyToProduct);
-
-    // In-Memory Numeric Price Filtering
-    // This is required because 'price' in DB is text, causing "10000" < "3000" errors in standard SQL
-    if (params?.minPrice) {
-      const min = parseFloat(params.minPrice);
-      results = results.filter(p => {
-        const priceVal = p.price?.toString() || p.priceRange?.minVariantPrice?.amount || '0';
-        return parseFloat(priceVal) >= min;
-      });
-    }
-    if (params?.maxPrice) {
-      const max = parseFloat(params.maxPrice);
-      results = results.filter(p => {
-        const priceVal = p.price?.toString() || p.priceRange?.minVariantPrice?.amount || '0';
-        return parseFloat(priceVal) <= max;
-      });
-    }
-
-    return results;
-
+    const paramsString = JSON.stringify(params || {});
+    return await getCachedProductsServer(paramsString);
   } catch (error) {
-    // Silent fail for build fault tolerance
+    // Fallback if cache fails severely? (Unlikely with unstable_cache, it usually re-runs)
     return [];
   }
 }
@@ -451,12 +448,15 @@ export async function getProduct(handle: string): Promise<Product | null> {
           .from("users")
           .select("*")
           .eq("id", product.userId)
-          .single();
+          .maybeSingle(); // Use maybeSingle to avoid PGRST116 or coercion errors
 
         if (usersData && !usersError) {
           userData = usersData;
         } else {
-          console.warn(`[getProduct] Failed to fetch user ${product.userId} (Error: ${usersError?.message}, Data: ${!!usersData}). AdminClient: ${!!adminClient}`);
+          // Log only if it's NOT a simple "not found"
+          if (usersError && usersError.code !== 'PGRST116') {
+            console.warn(`[getProduct] User fetch warning for ${product.userId}: ${usersError.message}. Data exists: ${!!usersData}`);
+          }
 
           // Fallback: Try Secure RPC (get_owner_name)
           // This fixes the issue where implicit RLS blocks reading the user table for "Property Owner" name
