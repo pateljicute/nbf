@@ -1,4 +1,5 @@
 import { Product, Collection, ProductSortKey, ProductCollectionSortKey } from './types';
+import { unstable_cache } from 'next/cache';
 import { apiClient } from './api-client';
 import { supabase } from './db';
 import { getAdminClient } from './supabase-admin';
@@ -205,7 +206,7 @@ export async function getLocationSuggestions(query: string): Promise<LocationSug
   }
 }
 
-import { unstable_cache } from 'next/cache';
+
 
 // Cached version of the server-side logic
 const getCachedProductsServer = unstable_cache(
