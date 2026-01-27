@@ -94,10 +94,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, [router]);
 
     const loginWithGoogle = async () => {
+        // PWA Requirement: Explicit redirect URL to avoid popup issues
+        const redirectUrl = `${window.location.origin}/auth/callback`;
+
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo: `${window.location.origin}/auth/callback`,
+                redirectTo: redirectUrl,
+                skipBrowserRedirect: false, // Ensure full redirect for PWA
             },
         });
         if (error) console.error('Error logging in with Google:', error);

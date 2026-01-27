@@ -24,10 +24,10 @@ export async function GET(request: NextRequest) {
                             cookiesToSet.forEach(({ name, value, options }) =>
                                 cookieStore.set(name, value, {
                                     ...options,
-                                    sameSite: 'lax',
-                                    secure: process.env.NODE_ENV === 'production',
+                                    sameSite: 'none', // PWA Requirement: Allow cross-site cookies
+                                    secure: true, // Required for SameSite=None
                                     path: '/',
-                                    ...(process.env.NODE_ENV === 'production' ? { partitioned: true } : {}), // FIXED: Partitioned requires Secure (HTTPS)
+                                    partitioned: true, // Modern privacy standard
                                 })
                             )
                         } catch {

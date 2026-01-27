@@ -8,6 +8,11 @@ export async function middleware(request: NextRequest) {
         },
     });
 
+    // PWA & Auth Callback Optimization: Bypass heavy checks for instant login
+    if (request.nextUrl.pathname.startsWith('/auth/callback')) {
+        return NextResponse.next();
+    }
+
     const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
