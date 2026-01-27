@@ -20,10 +20,12 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
         setError(null);
 
         // Timeout to reset state if redirect takes too long (e.g., PWA issues)
+        // Timeout to reset state if redirect takes too long (e.g., PWA issues)
+        // Optimization: Increased to 15s for slow Indian mobile networks
         const timeoutId = setTimeout(() => {
             setIsLoading(false);
             setError("Login is taking longer than expected. Please try again.");
-        }, 10000);
+        }, 15000);
 
         try {
             await loginWithGoogle();

@@ -42,13 +42,23 @@ export async function middleware(request: NextRequest) {
         }
     );
 
-    // refreshing the auth token
-    const { data: { user } } = await supabase.auth.getUser();
+    // OPTIMIZATION: Check for Supabase session cookie before querying Auth server
+    // This bypassed the "1155ms" delay for Guests (Non-logged in users)
+    const allCookies = request.cookies.getAll();
+    const hasSupabaseCookie = allCookies.some(c => c.name.includes('sb-') && c.name.includes('-auth-token'));
 
-    // Define protected routes
-    const protectedPaths = ['/admin', '/account', '/banned'];
+    let user = null;
+
+    // Only call getUser() if we suspect a session exists OR if we are on a protected route (safety net)
+    // For protected routes, we MUST check to ensure security.
+    const protectedPaths = ['/admin', '/account', '/banned', '/post-property'];
     const path = request.nextUrl.pathname;
     const isProtected = protectedPaths.some(p => path.startsWith(p));
+
+    if (hasSupabaseCookie || isProtected) {
+        const { data } = await supabase.auth.getUser();
+        user = data.user;
+    }
 
     if (user) {
         // Protect Routes from Banned Users

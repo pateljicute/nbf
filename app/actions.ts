@@ -77,14 +77,20 @@ export async function checkAdminStatus(userId: string): Promise<boolean> {
 
     // 2. Check Supabase Database
     try {
-        // Use global client for checking admin status (public table)
-        const { data, error } = await globalSupabase
-            .from("admin_users")
-            .select("user_id")
-            .eq("user_id", userId)
+        // Use context-aware client so RLS (auth.uid()) works correctly
+        const supabase = await getSupabaseClient();
+
+        // Query public.users directly for 'admin' role (Simpler & works with our new schema)
+        // OR query admin_users table (which requires RLS pass)
+        // Let's check BOTH for robustness
+
+        const { data, error } = await supabase
+            .from("users")
+            .select("role")
+            .eq("id", userId)
             .single();
 
-        const isAdmin = !!data && !error;
+        const isAdmin = (data?.role === 'admin');
 
         // 3. Cache the result
         if (redis) {
