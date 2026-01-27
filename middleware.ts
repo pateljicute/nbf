@@ -30,8 +30,6 @@ export async function middleware(request: NextRequest) {
                             ...options,
                             sameSite: 'lax',
                             secure: process.env.NODE_ENV === 'production',
-                            path: '/',
-                            ...(process.env.NODE_ENV === 'production' ? { partitioned: true } : {}), // FIXED: Partitioned requires Secure (HTTPS)
                         })
                     );
                 },
@@ -39,45 +37,39 @@ export async function middleware(request: NextRequest) {
         }
     );
 
-    // Verify auth status on ALL requests to ensure session tokens are refreshed
-    let user = null;
-    try {
-        const { data } = await supabase.auth.getUser();
-        user = data.user;
-    } catch (err) {
-        console.error("Middleware Auth Check Failed:", err);
-    }
+    // refreshing the auth token
+    const { data: { user } } = await supabase.auth.getUser();
 
     // Define protected routes
     const protectedPaths = ['/admin', '/account', '/banned'];
-    const isProtected = protectedPaths.some(path => request.nextUrl.pathname.startsWith(path));
+    const path = request.nextUrl.pathname;
+    const isProtected = protectedPaths.some(p => path.startsWith(p));
 
-    // Only run auth check on protected routes
-    if (isProtected) {
+    if (user) {
         // Protect Routes from Banned Users
-        if (user) {
-            if (!request.nextUrl.pathname.startsWith('/banned')) {
-                const { data: userData } = await supabase
-                    .from('users')
-                    .select('is_banned')
-                    .eq('id', user.id)
-                    .single();
+        if (!path.startsWith('/banned')) {
+            const { data: userData } = await supabase
+                .from('users')
+                .select('is_banned')
+                .eq('id', user.id)
+                .single();
 
-                if (userData?.is_banned) {
-                    const url = request.nextUrl.clone();
-                    url.pathname = '/banned';
-                    return NextResponse.redirect(url);
-                }
+            if (userData?.is_banned) {
+                const url = request.nextUrl.clone();
+                url.pathname = '/banned';
+                return NextResponse.redirect(url);
             }
         }
-
-        // Admin Route Protection
-        if (request.nextUrl.pathname.startsWith('/admin')) {
-            if (!user) {
-                return NextResponse.redirect(new URL('/auth', request.url));
-            }
-        }
+    } else if (isProtected) {
+        // Redirect unauthenticated users trying to access protected routes
+        const url = request.nextUrl.clone();
+        url.pathname = '/auth'; // Redirect to login
+        url.searchParams.set('next', path); // Preserve the intended destination
+        return NextResponse.redirect(url);
     }
+
+    // If accessing /banned but not banned (or not logged in), maybe redirect? 
+    // Leaving purely as is for now to avoid over-engineering.
 
     return response;
 }

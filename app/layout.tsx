@@ -17,6 +17,7 @@ import { WhatsappPopup } from '@/components/layout/whatsapp-popup';
 import { ProvidersWrapper } from '@/components/providers-wrapper';
 import { UserOnboardingManager } from '@/components/auth/user-onboarding-manager';
 import { FloatingInstallPrompt } from '@/components/pwa/floating-install-prompt';
+import PWALifecycle from '@/components/pwa/pwa-lifecycle';
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://nbfhomes.in';
 
@@ -162,6 +163,7 @@ export default async function RootLayout({
           }}
         />
         <ProvidersWrapper collections={collections}>
+          <PWALifecycle />
           <FloatingInstallPrompt />
           {children}
           <UserOnboardingManager />

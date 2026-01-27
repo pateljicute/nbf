@@ -93,6 +93,17 @@ const nextConfig = {
       },
     ];
   },
+  webpack: (config, { webpack, isServer, nextRuntime }) => {
+    // Avoid "process is not defined" in Edge Runtime (middleware)
+    if (nextRuntime === 'edge') {
+      config.plugins.push(
+        new webpack.ProvidePlugin({
+          process: 'process/browser',
+        })
+      )
+    }
+    return config
+  },
 };
 
 
@@ -105,6 +116,7 @@ const withPWA = withPWAInit({
   disable: process.env.NODE_ENV === "development", // Disable in development to prevent loops
   register: true,
   skipWaiting: true,
+  clientsClaim: true, // Claim clients immediately for instant updates
   buildExcludes: [
     /middleware-manifest\.json$/,
     /_middleware.js$/,

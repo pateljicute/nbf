@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/lib/db';
 import { User, Session } from '@supabase/supabase-js';
+import { useRouter } from 'next/navigation';
 
 interface AuthContextType {
     user: User | null;
@@ -18,21 +19,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [session, setSession] = useState<Session | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-
-
+    const router = useRouter();
 
     useEffect(() => {
-        // Smart Refresh: Check if we just logged in and are on the home page
-        if (typeof window !== 'undefined') {
-            const justLoggedIn = localStorage.getItem('just_logged_in');
-            if (justLoggedIn && window.location.pathname === '/') {
-                console.log('Smart Refresh: Triggering hard reload on Home Page to sync session...');
-                localStorage.removeItem('just_logged_in');
-                window.location.reload();
-                return; // Stop execution to allow reload
-            }
-        }
-
         let mounted = true;
 
         const verifyBanStatus = async (uid: string) => {
@@ -50,27 +39,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 }
                 return true;
             }
-
-            // Profiles check removed
             return false;
         };
 
         const checkUser = async () => {
             try {
                 const { data: { session } } = await supabase.auth.getSession();
-                if (mounted) {
-                    if (session?.user) {
-                        const isBanned = await verifyBanStatus(session.user.id);
-                        if (isBanned) return;
-                    }
+                if (mounted && session?.user) {
+                    // Check ban status only if we have a session
+                    const isBanned = await verifyBanStatus(session.user.id);
+                    if (isBanned) return;
+
                     setSession(session);
-                    setUser(session?.user ?? null);
-                    setIsLoading(false);
+                    setUser(session.user);
                 }
             } catch (error) {
-                if (mounted) setIsLoading(false);
+                console.error("Auth check failed:", error);
             } finally {
-                // Check complete
+                if (mounted) setIsLoading(false);
             }
         };
 
@@ -82,20 +68,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 console.log('Auth State Change:', event, session?.user?.email);
             }
 
-            // Force Hard Refresh on Sign In (PWA Fix as requested)
             if (event === 'SIGNED_IN') {
-                console.log('Auth State Change: SIGNED_IN. Session User:', session?.user);
-
-                // Set flag for Smart Refresh on next load (specifically for Home Page)
-                localStorage.setItem('just_logged_in', 'true');
-
+                router.refresh(); // Soft refresh to update server components
             } else if (event === 'SIGNED_OUT') {
-                console.log('Auth State Change: SIGNED_OUT');
-                localStorage.removeItem('just_logged_in');
+                router.refresh();
+                setUser(null);
+                setSession(null);
             }
 
             if (mounted) {
-                console.log('Updating Auth Context State. User found:', !!session?.user);
                 if (session?.user) {
                     const isBanned = await verifyBanStatus(session.user.id);
                     if (isBanned) return;
@@ -110,7 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             mounted = false;
             subscription.unsubscribe();
         };
-    }, []);
+    }, [router]);
 
     const loginWithGoogle = async () => {
         const { error } = await supabase.auth.signInWithOAuth({
@@ -120,22 +101,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             },
         });
         if (error) console.error('Error logging in with Google:', error);
-
-        // Note: Actual redirection happens via Supabase, but if we needed to force state:
-        // window.location.href = '/'; 
-        // Logic handled by callback, but adding listener refresh:
     };
 
     const logout = async () => {
         const { error } = await supabase.auth.signOut();
         if (error) console.error('Error logging out:', error);
 
-        // Zero Lag Cleanup
-        localStorage.clear();
-        sessionStorage.clear(); // Good practice to clear session too
-
-        // Hard Redirect to flush memory state
-        window.location.href = '/';
+        setUser(null);
+        setSession(null);
+        router.refresh();
+        router.push('/');
     };
 
     return (
