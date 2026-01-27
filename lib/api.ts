@@ -9,7 +9,7 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || (typeof window === 'undefined' ? (process.env.NEXT_PUBLIC_SITE_URL ? `${process.env.NEXT_PUBLIC_SITE_URL}/api` : 'https://www.nbfhomes.in/api') : '/api');
+const API_URL = process.env.NEXT_PUBLIC_API_URL || (typeof window === 'undefined' ? (process.env.NEXT_PUBLIC_SITE_URL ? `${process.env.NEXT_PUBLIC_SITE_URL}/api` : 'https://nbf-x-39dd7c53.vercel.app/api') : '/api');
 
 
 
