@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { supabase } from '@/lib/db';
 import { User, Session } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 
 interface AuthContextType {
     user: User | null;
@@ -94,17 +95,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, [router]);
 
     const loginWithGoogle = async () => {
+        setIsLoading(true);
         // PWA Requirement: Explicit redirect URL to avoid popup issues
         const redirectUrl = `${window.location.origin}/auth/callback`;
 
-        const { error } = await supabase.auth.signInWithOAuth({
-            provider: 'google',
-            options: {
-                redirectTo: redirectUrl,
-                skipBrowserRedirect: false, // Ensure full redirect for PWA
-            },
-        });
-        if (error) console.error('Error logging in with Google:', error);
+        const attemptLogin = async (retryCount = 0) => {
+            try {
+                // Loading Guard: 15 seconds timeout
+                const timeoutPromise = new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('TIMEOUT')), 15000)
+                );
+
+                const loginPromise = supabase.auth.signInWithOAuth({
+                    provider: 'google',
+                    options: {
+                        redirectTo: redirectUrl,
+                        skipBrowserRedirect: false, // Ensure full redirect for PWA
+                        flowType: 'pkce', // Force PKCE flow for better stability
+                    },
+                });
+
+                const result: any = await Promise.race([loginPromise, timeoutPromise]);
+                const { error } = result;
+
+                if (error) throw error;
+
+            } catch (error: any) {
+                console.error('Login attempt failed:', error);
+
+                // Timeout Error
+                if (error.message === 'TIMEOUT') {
+                    toast.error("Google Server busy, try again");
+                    setIsLoading(false);
+                    return;
+                }
+
+                // Retry Logic (one retry after 2 seconds)
+                if (retryCount < 1) {
+                    console.log('Retrying login in 2 seconds...');
+                    setTimeout(() => attemptLogin(retryCount + 1), 2000);
+                    return;
+                }
+
+                // Final Error Handling
+                toast.error(error.message || "Failed to connect to Google");
+                setIsLoading(false);
+            }
+        };
+
+        attemptLogin();
     };
 
     const logout = async () => {
