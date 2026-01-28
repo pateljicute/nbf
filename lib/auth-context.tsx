@@ -112,7 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         redirectTo: redirectUrl,
                         skipBrowserRedirect: false, // Ensure full redirect for PWA
                         flowType: 'pkce', // Force PKCE flow for better stability
-                    },
+                    } as any,
                 });
 
                 const result: any = await Promise.race([loginPromise, timeoutPromise]);
