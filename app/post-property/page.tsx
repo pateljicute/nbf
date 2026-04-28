@@ -60,12 +60,30 @@ const POPULAR_LOCATIONS = [
     'Kota', 'Ladpura', 'Sangod', 'Ramganj Mandi', 'Pipalda', 'Digod'
 ];
 
+import { useListingMode } from '@/lib/listing-mode-context';
+
+// ── Sell Mode Category Config ──────────────────────────────────────────────
+// Controls which fields are shown per property type in Sell mode
+const SELL_CATEGORY_CONFIG: Record<string, Record<string, boolean>> = {
+    House:  { bhk: true,  bathroom: true,  furnishing: true,  builtUpArea: true,  plotArea: false, dimensions: false, shutterWidth: false, roadWidth: false, amenities: true,  floor: true  },
+    Villa:  { bhk: true,  bathroom: true,  furnishing: true,  builtUpArea: true,  plotArea: true,  dimensions: false, shutterWidth: false, roadWidth: false, amenities: true,  floor: false },
+    Flat:   { bhk: true,  bathroom: true,  furnishing: true,  builtUpArea: true,  plotArea: false, dimensions: false, shutterWidth: false, roadWidth: false, amenities: true,  floor: true  },
+    Plot:   { bhk: false, bathroom: false, furnishing: false, builtUpArea: false, plotArea: true,  dimensions: true,  shutterWidth: false, roadWidth: true,  amenities: false, floor: false },
+    Shop:   { bhk: false, bathroom: false, furnishing: false, builtUpArea: true,  plotArea: true,  dimensions: true,  shutterWidth: true,  roadWidth: true,  amenities: false, floor: true  },
+};
+
+const shouldShow = (type: string, field: string): boolean => {
+    if (!SELL_CATEGORY_CONFIG[type]) return true; // Default: show for unknown types
+    return SELL_CATEGORY_CONFIG[type][field] ?? true;
+};
+
 function PostPropertyContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const editId = searchParams.get('edit');
     const { user, session, profile, isLoading: authLoading } = useAuth();
     const { showLoader, hideLoader } = useLoader();
+    const { mode } = useListingMode();
 
     // Form States
     const [step, setStep] = useState(1);
@@ -102,7 +120,7 @@ function PostPropertyContent() {
         // Step 1: Essentials
         title: '',
         description: '',
-        type: 'PG',
+        type: 'PG', // Will be 'House', 'Villa', 'Flat', 'Plot' for Sell
         state: '',
         city: '',
         locality: '',
@@ -114,6 +132,22 @@ function PostPropertyContent() {
         floorNumber: '',
         totalFloors: '',
         furnishingStatus: 'Semi-Furnished',
+        
+        // Sell Specifics
+        listing_type: mode,
+        total_area: '',
+        dimensions: '',
+        facing: '',
+        road_width: '',
+        bhk: '',
+        property_age: '',
+        registry: false,
+        diversion: false,
+        mutation: false,
+        negotiable: false,
+        original_price: '',
+        shutter_width: '',
+        main_road_distance: '',
 
         // Location Data
         latitude: null as number | null,
@@ -140,6 +174,52 @@ function PostPropertyContent() {
             loadProperty(editId);
         }
     }, [editId]);
+
+    // --- AUTO-SAVE (DRAFT) LOGIC ---
+    const DRAFT_KEY = 'nbf_property_draft';
+
+    // 1. Load Draft on Mount (Only if NOT in edit mode)
+    useEffect(() => {
+        if (!editId) {
+            const savedDraft = localStorage.getItem(DRAFT_KEY);
+            if (savedDraft) {
+                try {
+                    const parsed = JSON.parse(savedDraft);
+                    // Only restore if mode matches (rent vs sell)
+                    if (parsed.mode === mode) {
+                        // Prevent restoring if form is already heavily modified
+                        setFormData(parsed.formData);
+                        setStep(parsed.step);
+                        if (parsed.detectedCoords) {
+                            setDetectedCoords(parsed.detectedCoords);
+                            setIsMapVerified(true);
+                        }
+                        toast.success('Restored your unsaved draft', { duration: 3000 });
+                    }
+                } catch (e) {
+                    console.error('Failed to parse draft', e);
+                    localStorage.removeItem(DRAFT_KEY);
+                }
+            }
+        }
+    }, [editId, mode]);
+
+    // 2. Save Draft on Change (Only if NOT in edit mode and NOT success)
+    useEffect(() => {
+        if (!isEditMode && !isSuccess) {
+            const timer = setTimeout(() => {
+                const draftData = {
+                    formData,
+                    step,
+                    mode,
+                    detectedCoords
+                };
+                localStorage.setItem(DRAFT_KEY, JSON.stringify(draftData));
+            }, 500); // Debounce save by 500ms
+            
+            return () => clearTimeout(timer);
+        }
+    }, [formData, step, mode, isEditMode, isSuccess, detectedCoords]);
 
     // Pre-fill primary contact from user profile
     useEffect(() => {
@@ -218,8 +298,25 @@ function PostPropertyContent() {
                     electricityStatus: property.electricity_status || 'electricityStatus' in property ? property.electricityStatus : 'Separate',
 
                     price: property.price || property.priceRange?.minVariantPrice?.amount || '',
+                    original_price: property.original_price || '',
                     securityDeposit: property.security_deposit || property.securityDeposit || '',
                     contactNumber: property.contactNumber || '',
+                    shutter_width: property.shutter_width || '',
+                    main_road_distance: property.main_road_distance || '',
+
+                    // Sell-specific fields
+                    listing_type: property.listing_type || 'rent',
+                    total_area: property.total_area || '',
+                    dimensions: property.dimensions || '',
+                    facing: property.facing || '',
+                    road_width: property.road_width || '',
+                    bhk: property.bhk || '',
+                    property_age: property.property_age || '',
+                    registry: property.registry || false,
+                    diversion: property.diversion || false,
+                    mutation: property.mutation || false,
+                    negotiable: property.negotiable || false,
+
                     images: existingImages
                 });
                 setCitySearch(property.city || property.location || '');
@@ -406,6 +503,25 @@ function PostPropertyContent() {
                 return false;
             }
         }
+
+        if (currentStep === 2 && mode === 'sell') {
+            const type = formData.type;
+            // Plot: total_area + dimensions mandatory
+            if (type === 'Plot') {
+                if (!formData.total_area) { toast.error('Please enter Plot Area (total area)'); return false; }
+                if (!formData.dimensions) { toast.error('Please enter Plot Dimensions (L×W)'); return false; }
+            }
+            // Shop: shutter_width + main_road_distance mandatory
+            if (type === 'Shop') {
+                if (!formData.shutter_width) { toast.error('Please enter Shutter Width'); return false; }
+                if (!formData.main_road_distance) { toast.error('Please enter Distance from Main Road'); return false; }
+            }
+            // House/Villa/Flat: total_area mandatory
+            if (['House', 'Villa', 'Flat'].includes(type)) {
+                if (!formData.total_area) { toast.error('Please enter Total / Plot Area'); return false; }
+            }
+        }
+
         return true;
     };
 
@@ -427,18 +543,28 @@ function PostPropertyContent() {
             return;
         }
 
+        if (mode === 'sell' && !formData.total_area && formData.type !== 'Shop') {
+            toast.error("Please fill in Total Area / Plot Area");
+            return;
+        }
+
+        if (mode === 'sell' && formData.type === 'Shop' && !formData.total_area && !formData.builtUpArea) {
+            toast.error("Please fill in Total Area or Built-up Area for the Shop");
+            return;
+        }
+
         if (!user) {
             toast.error("You must be logged in to post a property");
             return;
         }
 
-        if (!formData.bathroomType) {
+        if (mode === 'rent' && !formData.bathroomType) {
             toast.error("Please select a bathroom type");
             return;
         }
 
-        if (formData.images.length === 0) {
-            toast.error("Photo upload is mandatory. Please add at least one photo.");
+        if (formData.images.length < 3) {
+            toast.error("Photo upload is mandatory. Please add at least 3 photos (e.g. Front, Inside, Street view).");
             return;
         }
 
@@ -466,6 +592,7 @@ function PostPropertyContent() {
                 result = await createProduct(payload, session?.access_token);
                 setCreatedProduct({ ...formData, handle: result?.handle || 'new-property' }); // Mock handle if not returned immediately
                 setIsSuccess(true);
+                localStorage.removeItem(DRAFT_KEY); // Clear draft on successful submission
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             }
         } catch (error: any) {
@@ -494,7 +621,20 @@ function PostPropertyContent() {
         // Using a fallback or the returned handle if available
         const url = `${window.location.origin}/product/${createdProduct.handle}`;
 
-        const message = `Check out this property on NBF Homes! 🏡\n\nProperty: ${title}\nRent: ₹${price}/month\nLocation: ${location}\n\nView all details and photos here: ${url}`;
+        const isSell = createdProduct.listing_type === 'sell';
+        const typeLabel = isSell ? 'Asking Price' : 'Rent';
+        const priceSuffix = isSell ? '' : '/month';
+        const type = createdProduct.type || 'Property';
+
+        let message = `🏠 NBF HOMES - ${type} ${isSell ? 'For Sale' : 'For Rent'}
+
+📝 Title: ${title}
+💰 ${typeLabel}: ₹${price}${priceSuffix}
+📍 Address: ${location}
+
+Aur adhik jankari aur property ki photos dekhne ke liye niche di gayi link par click karein 👇
+
+🔗 Link: ${url}`;
         const encodedText = encodeURIComponent(message);
 
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
@@ -667,25 +807,49 @@ function PostPropertyContent() {
                             {/* Category Selection */}
                             <div>
                                 <label className="block text-sm font-medium text-neutral-700 mb-3">Select Category / कैटेगरी चुनें</label>
-                                <div className="grid grid-cols-3 gap-3">
-                                    {[
-                                        { id: 'PG', label: 'PG' },
-                                        { id: 'Hostel', label: 'Hostel' },
-                                        { id: 'Apartment', label: 'Room / Flat' }
-                                    ].map(cat => (
-                                        <button
-                                            key={cat.id}
-                                            type="button"
-                                            onClick={() => setFormData(prev => ({ ...prev, type: cat.id }))}
-                                            className={`py-3 px-2 rounded-xl border-2 transition-all font-bold text-sm ${formData.type === cat.id
-                                                ? 'bg-neutral-900 text-white border-neutral-900 shadow-md'
-                                                : 'bg-white text-neutral-500 border-neutral-100 hover:border-neutral-300'
-                                                }`}
-                                        >
-                                            {cat.label}
-                                        </button>
-                                    ))}
-                                </div>
+                                {mode === 'rent' ? (
+                                    <div className="grid grid-cols-3 gap-3">
+                                        {[
+                                            { id: 'PG', label: 'PG' },
+                                            { id: 'Hostel', label: 'Hostel' },
+                                            { id: 'Apartment', label: 'Room / Flat' }
+                                        ].map(cat => (
+                                            <button
+                                                key={cat.id}
+                                                type="button"
+                                                onClick={() => setFormData(prev => ({ ...prev, type: cat.id }))}
+                                                className={`py-3 px-2 rounded-xl border-2 transition-all font-bold text-sm ${formData.type === cat.id
+                                                    ? 'bg-neutral-900 text-white border-neutral-900 shadow-md'
+                                                    : 'bg-white text-neutral-500 border-neutral-100 hover:border-neutral-300'
+                                                    }`}
+                                            >
+                                                {cat.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-wrap gap-3">
+                                        {[
+                                            { id: 'House', label: 'House / मकान' },
+                                            { id: 'Villa', label: 'Villa / विला' },
+                                            { id: 'Flat', label: 'Flat / फ्लैट' },
+                                            { id: 'Plot', label: 'Plot / जमीन' },
+                                            { id: 'Shop', label: 'Shop / दुकान' }
+                                        ].map(cat => (
+                                            <button
+                                                key={cat.id}
+                                                type="button"
+                                                onClick={() => setFormData(prev => ({ ...prev, type: cat.id }))}
+                                                className={`flex-1 min-w-[100px] py-3 px-2 rounded-xl border-2 transition-all font-bold text-sm ${formData.type === cat.id
+                                                    ? 'bg-[#e8202a] text-white border-[#e8202a] shadow-md'
+                                                    : 'bg-white text-neutral-500 border-neutral-100 hover:border-neutral-300'
+                                                    }`}
+                                            >
+                                                {cat.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
 
                             <div>
@@ -920,45 +1084,49 @@ function PostPropertyContent() {
                                     <p className="text-[10px] text-neutral-400 mt-1">Required for map location</p>
                                 </div>
 
-                                {/* Built-up Area */}
-                                <div>
-                                    <label className="block text-sm font-medium text-neutral-700 mb-1">Built-up Area (sq.ft)</label>
-                                    <input
-                                        type="number"
-                                        name="builtUpArea"
-                                        value={formData.builtUpArea}
-                                        onChange={handleInputChange}
-                                        placeholder="e.g. 1200"
-                                        className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black outline-none"
-                                    />
-                                </div>
+                                {/* Built-up Area (Hide for Sell mode, asked in Step 2) */}
+                                {mode === 'rent' && (
+                                    <div>
+                                        <label className="block text-sm font-medium text-neutral-700 mb-1">Built-up Area (sq.ft)</label>
+                                        <input
+                                            type="number"
+                                            name="builtUpArea"
+                                            value={formData.builtUpArea}
+                                            onChange={handleInputChange}
+                                            placeholder="e.g. 1200"
+                                            className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black outline-none"
+                                        />
+                                    </div>
+                                )}
                             </div>
 
                             {/* Floor Info */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-neutral-700 mb-1">Floor No.</label>
-                                    <input
-                                        type="number"
-                                        name="floorNumber"
-                                        value={formData.floorNumber}
-                                        onChange={handleInputChange}
-                                        placeholder="e.g. 2"
-                                        className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black outline-none"
-                                    />
+                            {formData.type !== 'Plot' && formData.type !== 'House' && formData.type !== 'Villa' && (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-neutral-700 mb-1">Floor No.</label>
+                                        <input
+                                            type="number"
+                                            name="floorNumber"
+                                            value={formData.floorNumber}
+                                            onChange={handleInputChange}
+                                            placeholder="e.g. 2"
+                                            className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black outline-none"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-neutral-700 mb-1">Total Floors</label>
+                                        <input
+                                            type="number"
+                                            name="totalFloors"
+                                            value={formData.totalFloors}
+                                            onChange={handleInputChange}
+                                            placeholder="e.g. 5"
+                                            className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black outline-none"
+                                        />
+                                    </div>
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-neutral-700 mb-1">Total Floors</label>
-                                    <input
-                                        type="number"
-                                        name="totalFloors"
-                                        value={formData.totalFloors}
-                                        onChange={handleInputChange}
-                                        placeholder="e.g. 5"
-                                        className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black outline-none"
-                                    />
-                                </div>
-                            </div>
+                            )}
 
 
 
@@ -995,6 +1163,214 @@ function PostPropertyContent() {
 
                     {/* STEP 2: FEATURES */}
                     {step === 2 && (
+                        mode === 'sell' ? (
+                            <div className="space-y-8 animate-in slide-in-from-right-4 duration-300">
+                                <h2 className="text-xl font-semibold mb-6">Property Specifics</h2>
+                                {formData.type === 'Plot' ? (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                        <div>
+                                            <label className="block text-sm font-medium text-neutral-700 mb-1">Total Plot Area (sq.ft / Gaj) *</label>
+                                            <input type="text" name="total_area" value={formData.total_area} onChange={handleInputChange} placeholder="e.g. 1000 sq.ft or 120 Gaj" className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black outline-none" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-neutral-700 mb-1">Dimensions L×W *</label>
+                                            <input type="text" name="dimensions" value={formData.dimensions} onChange={handleInputChange} placeholder="e.g. 25x40 or 30x60" className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black outline-none" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-neutral-700 mb-1">Facing (Vastu)</label>
+                                            <select name="facing" value={formData.facing} onChange={handleInputChange} className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black outline-none">
+                                                <option value="">Select Facing</option>
+                                                <option value="East">East (पूर्व)</option>
+                                                <option value="West">West (पश्चिम)</option>
+                                                <option value="North">North (उत्तर)</option>
+                                                <option value="South">South (दक्षिण)</option>
+                                                <option value="North-East">North-East (ईशान)</option>
+                                                <option value="North-West">North-West (वायव्य)</option>
+                                                <option value="South-East">South-East (आग्नेय)</option>
+                                                <option value="South-West">South-West (नैऋत्य)</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-neutral-700 mb-1">Road Width</label>
+                                            <input type="text" name="road_width" value={formData.road_width} onChange={handleInputChange} placeholder="e.g. 30 ft, 40 ft" className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black outline-none" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-neutral-700 mb-1">Boundary Wall</label>
+                                            <select name="shutter_width" value={formData.shutter_width} onChange={handleInputChange} className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black outline-none">
+                                                <option value="">Select</option>
+                                                <option value="Yes - Complete">Yes – Complete</option>
+                                                <option value="Yes - Partial">Yes – Partial</option>
+                                                <option value="No">No</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-neutral-700 mb-1">Development Status</label>
+                                            <select name="main_road_distance" value={formData.main_road_distance} onChange={handleInputChange} className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black outline-none">
+                                                <option value="">Select</option>
+                                                <option value="Diverted">Diverted (डायवर्टेड)</option>
+                                                <option value="RERA Approved">RERA Approved</option>
+                                                <option value="NA / Residential">NA / Residential</option>
+                                                <option value="Agricultural">Agricultural (खेती)</option>
+                                                <option value="Unfinished Colony">Unfinished Colony</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                ) : formData.type === 'Shop' ? (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                        <div>
+                                            <label className="block text-sm font-medium text-neutral-700 mb-1">Total Area (sq.ft) *</label>
+                                            <input type="text" name="total_area" value={formData.total_area} onChange={handleInputChange} placeholder="e.g. 500 sq.ft" className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black outline-none" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-neutral-700 mb-1">Built-up Area (sq.ft)</label>
+                                            <input type="text" name="builtUpArea" value={formData.builtUpArea} onChange={handleInputChange} placeholder="e.g. 450 sq.ft" className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black outline-none" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-neutral-700 mb-1">Dimensions</label>
+                                            <input type="text" name="dimensions" value={formData.dimensions} onChange={handleInputChange} placeholder="e.g. 10x50" className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black outline-none" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-neutral-700 mb-1">Shutter Width (ft) *</label>
+                                            <input type="text" name="shutter_width" value={formData.shutter_width} onChange={handleInputChange} placeholder="e.g. 10 ft" className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black outline-none" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-neutral-700 mb-1">Distance from Main Road *</label>
+                                            <input type="text" name="main_road_distance" value={formData.main_road_distance} onChange={handleInputChange} placeholder="e.g. On main road / 50m away" className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black outline-none" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-neutral-700 mb-1">Property Age</label>
+                                            <select name="property_age" value={formData.property_age} onChange={handleInputChange} className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black outline-none">
+                                                <option value="">Select Age</option>
+                                                <option value="New (0-1 years)">New (0-1 years)</option>
+                                                <option value="1-5 years">1-5 years</option>
+                                                <option value="5-10 years">5-10 years</option>
+                                                <option value="10+ years">10+ years</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-neutral-700 mb-1">Suitable For</label>
+                                            <select name="facing" value={formData.facing} onChange={handleInputChange} className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black outline-none">
+                                                <option value="">Select Business Type</option>
+                                                <option value="General Store">General Store / Kirana</option>
+                                                <option value="Office">Office / Agency</option>
+                                                <option value="Clinic">Clinic / Medical</option>
+                                                <option value="Salon">Salon / Parlour</option>
+                                                <option value="Restaurant">Restaurant / Dhaba</option>
+                                                <option value="Showroom">Showroom</option>
+                                                <option value="Any">Any Business</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-neutral-700 mb-1">Road Width</label>
+                                            <input type="text" name="road_width" value={formData.road_width} onChange={handleInputChange} placeholder="e.g. 30 ft" className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black outline-none" />
+                                        </div>
+                                    </div>
+                                ) : (
+                                    // House / Villa / Flat — Conditional Fields via SELL_CATEGORY_CONFIG
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                        {/* Total Area — mandatory for all */}
+                                        <div>
+                                            <label className="block text-sm font-medium text-neutral-700 mb-1">Total / Plot Area *</label>
+                                            <input type="text" name="total_area" value={formData.total_area} onChange={handleInputChange} placeholder="e.g. 1000 sq.ft" className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black outline-none" />
+                                        </div>
+
+                                        {/* Built-up Area — House, Villa, Flat, Shop */}
+                                        {shouldShow(formData.type, 'builtUpArea') && (
+                                            <div>
+                                                <label className="block text-sm font-medium text-neutral-700 mb-1">Built-up Area (sq.ft)</label>
+                                                <input type="text" name="builtUpArea" value={formData.builtUpArea} onChange={handleInputChange} placeholder="e.g. 800 sq.ft" className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black outline-none" />
+                                            </div>
+                                        )}
+
+                                        {/* BHK — House, Villa, Flat only */}
+                                        {shouldShow(formData.type, 'bhk') && (
+                                            <div>
+                                                <label className="block text-sm font-medium text-neutral-700 mb-1">BHK</label>
+                                                <select name="bhk" value={formData.bhk} onChange={handleInputChange} className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black outline-none">
+                                                    <option value="">Select BHK</option>
+                                                    <option value="1 BHK">1 BHK</option>
+                                                    <option value="2 BHK">2 BHK</option>
+                                                    <option value="3 BHK">3 BHK</option>
+                                                    <option value="4+ BHK">4+ BHK</option>
+                                                </select>
+                                            </div>
+                                        )}
+
+                                        {/* Bathrooms — House, Villa, Flat only */}
+                                        {shouldShow(formData.type, 'bathroom') && (
+                                            <div>
+                                                <label className="block text-sm font-medium text-neutral-700 mb-1">Bathrooms</label>
+                                                <select name="bathroomType" value={formData.bathroomType} onChange={handleInputChange} className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black outline-none">
+                                                    <option value="">Select</option>
+                                                    <option value="1">1 Bathroom</option>
+                                                    <option value="2">2 Bathrooms</option>
+                                                    <option value="3">3 Bathrooms</option>
+                                                    <option value="4+">4+ Bathrooms</option>
+                                                </select>
+                                            </div>
+                                        )}
+
+                                        {/* Floor No. — House, Flat, Shop (not Villa, Plot) */}
+                                        {shouldShow(formData.type, 'floor') && (
+                                            <div>
+                                                <label className="block text-sm font-medium text-neutral-700 mb-1">Floor No.</label>
+                                                <input type="number" name="floorNumber" value={formData.floorNumber} onChange={handleInputChange} placeholder="e.g. 2" className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black outline-none" />
+                                            </div>
+                                        )}
+
+                                        {/* Facing */}
+                                        <div>
+                                            <label className="block text-sm font-medium text-neutral-700 mb-1">Facing</label>
+                                            <select name="facing" value={formData.facing} onChange={handleInputChange} className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black outline-none">
+                                                <option value="">Select Facing</option>
+                                                <option value="East">East</option>
+                                                <option value="West">West</option>
+                                                <option value="North">North</option>
+                                                <option value="South">South</option>
+                                                <option value="North-East">North-East</option>
+                                                <option value="North-West">North-West</option>
+                                                <option value="South-East">South-East</option>
+                                                <option value="South-West">South-West</option>
+                                            </select>
+                                        </div>
+
+                                        {/* Property Age */}
+                                        <div>
+                                            <label className="block text-sm font-medium text-neutral-700 mb-1">Property Age</label>
+                                            <select name="property_age" value={formData.property_age} onChange={handleInputChange} className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black outline-none">
+                                                <option value="">Select Age</option>
+                                                <option value="New (0-1 years)">New (0-1 years)</option>
+                                                <option value="1-5 years">1-5 years</option>
+                                                <option value="5-10 years">5-10 years</option>
+                                                <option value="10+ years">10+ years</option>
+                                            </select>
+                                        </div>
+
+                                        {/* Furnishing Status — House, Villa, Flat only (full-width) */}
+                                        {shouldShow(formData.type, 'furnishing') && (
+                                            <div className="col-span-1 sm:col-span-2">
+                                                <label className="block text-sm font-medium text-neutral-700 mb-3">Furnishing Status</label>
+                                                <div className="flex flex-wrap gap-3">
+                                                    {['Fully Furnished', 'Semi-Furnished', 'Unfurnished'].map(status => (
+                                                        <button
+                                                            key={status}
+                                                            type="button"
+                                                            onClick={() => setFormData(prev => ({ ...prev, furnishingStatus: status }))}
+                                                            className={`px-4 py-2 rounded-full border transition-all ${formData.furnishingStatus === status
+                                                                ? 'bg-black text-white border-black'
+                                                                : 'bg-white text-neutral-600 border-neutral-200 hover:border-neutral-400'
+                                                            }`}
+                                                        >
+                                                            {status}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
                         <div className="space-y-8 animate-in slide-in-from-right-4 duration-300">
                             <h2 className="text-xl font-semibold mb-6">Features & Amenities</h2>
 
@@ -1133,68 +1509,158 @@ function PostPropertyContent() {
                                 <p className="text-[10px] text-neutral-400 mt-2">Maximum 10 amenities allowed. Click an active amenity to remove it.</p>
                             </div>
                         </div>
+                        )
                     )}
 
                     {/* STEP 3: FINANCIALS & MEDIA */}
                     {step === 3 && (
                         <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
-                            <h2 className="text-xl font-semibold mb-6">Financials & Photos</h2>
+                            <h2 className="text-xl font-semibold mb-6">Legal, Pricing & Photos</h2>
+                            {mode === 'sell' ? (
+                                <>
+                                    {/* Legal Status */}
+                                    <div className="bg-neutral-50 p-5 rounded-xl border border-neutral-200">
+                                        <h3 className="text-sm font-bold text-neutral-800 mb-4">Legal Status / कानूनी जानकारी</h3>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <label className="flex items-center gap-3 cursor-pointer p-3 rounded-lg hover:bg-neutral-100 transition-colors">
+                                                <input type="checkbox" name="registry" checked={formData.registry} onChange={(e) => setFormData(prev => ({ ...prev, registry: e.target.checked }))} className="w-5 h-5 accent-black rounded" />
+                                                <div>
+                                                    <span className="text-sm font-semibold block">Registry (रजिस्ट्री)</span>
+                                                    <span className="text-xs text-neutral-500">Property registered in owner's name</span>
+                                                </div>
+                                            </label>
+                                            <label className="flex items-center gap-3 cursor-pointer p-3 rounded-lg hover:bg-neutral-100 transition-colors">
+                                                <input type="checkbox" name="diversion" checked={formData.diversion} onChange={(e) => setFormData(prev => ({ ...prev, diversion: e.target.checked }))} className="w-5 h-5 accent-black rounded" />
+                                                <div>
+                                                    <span className="text-sm font-semibold block">Diversion (डायवर्सन)</span>
+                                                    <span className="text-xs text-neutral-500">Land converted for residential use</span>
+                                                </div>
+                                            </label>
+                                            <label className="flex items-center gap-3 cursor-pointer p-3 rounded-lg hover:bg-neutral-100 transition-colors">
+                                                <input type="checkbox" name="mutation" checked={formData.mutation} onChange={(e) => setFormData(prev => ({ ...prev, mutation: e.target.checked }))} className="w-5 h-5 accent-black rounded" />
+                                                <div>
+                                                    <span className="text-sm font-semibold block">Mutation / नामांतरण</span>
+                                                    <span className="text-xs text-neutral-500">Revenue records updated in owner's name</span>
+                                                </div>
+                                            </label>
+                                            <label className="flex items-center gap-3 cursor-pointer p-3 rounded-lg hover:bg-neutral-100 transition-colors">
+                                                <input type="checkbox" name="negotiable" checked={formData.negotiable} onChange={(e) => setFormData(prev => ({ ...prev, negotiable: e.target.checked }))} className="w-5 h-5 accent-black rounded" />
+                                                <div>
+                                                    <span className="text-sm font-semibold block">Loan Available (लोन सुविधा)</span>
+                                                    <span className="text-xs text-neutral-500">Bank loan possible on this property</span>
+                                                </div>
+                                            </label>
+                                        </div>
+                                    </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                                <div>
-                                    <label className="block text-sm font-medium text-neutral-700 mb-1">Monthly Rent (₹)</label>
-                                    <input
-                                        type="number"
-                                        name="price"
-                                        value={formData.price}
-                                        onChange={handleInputChange}
-                                        placeholder="e.g. 12000"
-                                        className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black outline-none"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-neutral-700 mb-1">Security Deposit (₹)</label>
-                                    <input
-                                        type="number"
-                                        name="securityDeposit"
-                                        value={formData.securityDeposit}
-                                        onChange={handleInputChange}
-                                        placeholder="e.g. 50000 (Optional)"
-                                        className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black outline-none"
-                                    />
-                                </div>
-                            </div>
+                                    {/* Pricing */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-end">
+                                        <div>
+                                            <label className="block text-sm font-medium text-neutral-700 mb-1">Asking Price (₹) *</label>
+                                            <input
+                                                type="number"
+                                                name="price"
+                                                value={formData.price}
+                                                onChange={handleInputChange}
+                                                placeholder="e.g. 5000000"
+                                                className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black outline-none"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-neutral-700 mb-1">Original Price (₹) (Optional)</label>
+                                            <input
+                                                type="number"
+                                                name="original_price"
+                                                value={formData.original_price}
+                                                onChange={handleInputChange}
+                                                placeholder="e.g. 6000000"
+                                                className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black outline-none"
+                                            />
+                                        </div>
+                                        <div className="pb-3 sm:col-span-2">
+                                            <label className="flex items-center gap-3 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    name="negotiable"
+                                                    checked={formData.negotiable}
+                                                    onChange={(e) => setFormData(prev => ({ ...prev, negotiable: e.target.checked }))}
+                                                    className="w-5 h-5 accent-black rounded"
+                                                />
+                                                <span className="text-sm font-medium text-neutral-700">Price Negotiable / मोल-भाव हो सकता है</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    
+                                    <div>
+                                        <label className="block text-sm font-medium text-neutral-700 mb-1">Contact Number</label>
+                                        <input
+                                            type="tel"
+                                            name="contactNumber"
+                                            value={formData.contactNumber}
+                                            onChange={handleInputChange}
+                                            placeholder="+91 98765 43210"
+                                            className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black outline-none"
+                                        />
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                        <div>
+                                            <label className="block text-sm font-medium text-neutral-700 mb-1">Monthly Rent (₹)</label>
+                                            <input
+                                                type="number"
+                                                name="price"
+                                                value={formData.price}
+                                                onChange={handleInputChange}
+                                                placeholder="e.g. 12000"
+                                                className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black outline-none"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-neutral-700 mb-1">Security Deposit (₹)</label>
+                                            <input
+                                                type="number"
+                                                name="securityDeposit"
+                                                value={formData.securityDeposit}
+                                                onChange={handleInputChange}
+                                                placeholder="e.g. 50000 (Optional)"
+                                                className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black outline-none"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-neutral-700 mb-1">Contact Number</label>
+                                        <input
+                                            type="tel"
+                                            name="contactNumber"
+                                            value={formData.contactNumber}
+                                            onChange={handleInputChange}
+                                            placeholder="+91 98765 43210"
+                                            className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black outline-none"
+                                        />
+                                    </div>
+                                </>
+                            )}
 
                             <div>
-                                <label className="block text-sm font-medium text-neutral-700 mb-1">Contact Number</label>
-                                <input
-                                    type="tel"
-                                    name="contactNumber"
-                                    value={formData.contactNumber}
-                                    onChange={handleInputChange}
-                                    placeholder="+91 98765 43210"
-                                    className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:ring-2 focus:ring-black outline-none"
-                                // Make field read-only if desired, or let users edit their pre-filled number
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-neutral-700 mb-2">Property Images</label>
+                                <label className="block text-sm font-medium text-neutral-700 mb-2">Property Images (Min 3 required) *</label>
                                 <MultiImageUpload
                                     images={formData.images}
                                     onImagesChange={(images) => {
-                                        if (images.length > 5) {
-                                            toast.error("You can only upload a maximum of 5 photos.");
-                                            setFormData(prev => ({ ...prev, images: images.slice(0, 5) }));
+                                        if (images.length > 6) {
+                                            toast.error("You can only upload a maximum of 6 photos.");
+                                            setFormData(prev => ({ ...prev, images: images.slice(0, 6) }));
                                         } else {
                                             setFormData(prev => ({ ...prev, images }));
                                         }
                                     }}
-                                    maxImages={5}
+                                    maxImages={6}
                                 />
                                 <p className="text-xs text-neutral-500 mt-2 flex items-center gap-1">
                                     <span role="img" aria-label="info">ℹ️</span>
-                                    For a better experience, please upload clear photos of your property.
+                                    Minimum 3 photos required for a good listing (Front view, Inside view, Street view).
                                 </p>
                                 {formData.images.length === 0 && (
                                     <p className="text-red-500 text-xs mt-2 font-medium">

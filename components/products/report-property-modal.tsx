@@ -4,13 +4,15 @@ import { useState } from 'react';
 import { Flag, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { Product } from '@/lib/types';
 import { toast } from 'sonner';
-import { submitPropertyReportAction } from '@/app/actions';
+import { submitPropertyReportAction, checkPropertyReportCooldownAction } from '@/app/actions';
+import { useAuth } from '@/lib/auth-context';
 
 interface ReportPropertyModalProps {
     product: Product;
+    isIconOnly?: boolean;
 }
 
-export function ReportPropertyModal({ product }: ReportPropertyModalProps) {
+export function ReportPropertyModal({ product, isIconOnly = false }: ReportPropertyModalProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     
@@ -18,6 +20,52 @@ export function ReportPropertyModal({ product }: ReportPropertyModalProps) {
     const [details, setDetails] = useState('');
     const [reporterName, setReporterName] = useState('');
     const [reporterPhone, setReporterPhone] = useState('');
+    
+    // Cooldown state
+    const [isCooldown, setIsCooldown] = useState(false);
+    const [cooldownRemaining, setCooldownRemaining] = useState({ hours: 0, minutes: 0 });
+    const { user } = useAuth(); // If they are logged in, we can auto-fill some things
+
+    // Client-side phone tracking for unauthenticated users
+    const getStoredPhone = () => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('nbf_reporter_phone') || '';
+        }
+        return '';
+    };
+
+    // Auto-fill and check cooldown on open
+    useState(() => {
+        if (isOpen) {
+            let phone = getStoredPhone();
+            if (user?.user_metadata?.phone) {
+                phone = user.user_metadata.phone.replace('+91', '');
+            }
+            if (user?.user_metadata?.name) {
+                 setReporterName(user.user_metadata.name);
+            }
+            if (phone) {
+                setReporterPhone(phone);
+                // Check cooldown immediately if we have a phone
+                checkPropertyReportCooldownAction(phone).then(res => {
+                    if (res.isCooldown) {
+                        setIsCooldown(true);
+                        setCooldownRemaining({ hours: res.remainingHours, minutes: res.remainingMinutes });
+                    }
+                });
+            }
+        }
+    });
+
+    const checkCooldown = async (phone: string) => {
+        const res = await checkPropertyReportCooldownAction(phone);
+        if (res.isCooldown) {
+            setIsCooldown(true);
+            setCooldownRemaining({ hours: res.remainingHours, minutes: res.remainingMinutes });
+            return true;
+        }
+        return false;
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -28,6 +76,12 @@ export function ReportPropertyModal({ product }: ReportPropertyModalProps) {
         }
 
         setIsLoading(true);
+        // Double check cooldown before submit
+        const isLocked = await checkCooldown(reporterPhone);
+        if (isLocked) {
+             setIsLoading(false);
+             return;
+        }
         try {
             const ownerName = product.contactNumber ? "Protected Owner" : "Unknown"; // In case phone is masked
             const id = product.id.toString();
@@ -43,10 +97,17 @@ export function ReportPropertyModal({ product }: ReportPropertyModalProps) {
 
             if (res.success) {
                 toast.success('Report submitted successfully. Our team will investigate within 24 hours.');
+                // Save phone to track cooldown locally as well
+                localStorage.setItem('nbf_reporter_phone', reporterPhone);
                 setIsOpen(false);
                 setDetails('');
+                setIsCooldown(true);
+                setCooldownRemaining({ hours: 23, minutes: 59 });
             } else {
                 toast.error(res.error || 'Failed to submit report. Please try again.');
+                if (res.error?.includes('wait')) {
+                    checkCooldown(reporterPhone); // Refresh cooldown UI
+                }
             }
         } catch (err) {
             toast.error('An unexpected error occurred.');
@@ -56,6 +117,18 @@ export function ReportPropertyModal({ product }: ReportPropertyModalProps) {
     };
 
     if (!isOpen) {
+        if (isIconOnly) {
+             return (
+                <button 
+                    onClick={() => setIsOpen(true)}
+                    className="flex flex-col items-center justify-center p-2 text-red-500 hover:text-red-700 active:scale-95 transition-all shrink-0"
+                    aria-label="Report Property"
+                >
+                    <AlertTriangle className="w-4 h-4" />
+                </button>
+             );
+        }
+
         return (
             <button 
                 onClick={() => setIsOpen(true)}
@@ -98,69 +171,98 @@ export function ReportPropertyModal({ product }: ReportPropertyModalProps) {
                         </div>
                     </div>
 
-                    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-                        
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="text-xs font-bold text-neutral-500 uppercase mb-1 block">Your Name *</label>
-                                <input 
-                                    type="text" 
-                                    required 
-                                    className="w-full border-neutral-200 rounded-xl p-3 focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all outline-none" 
-                                    placeholder="John Doe"
-                                    value={reporterName}
-                                    onChange={(e) => setReporterName(e.target.value)}
-                                />
+                    {isCooldown ? (
+                        <div className="flex flex-col items-center justify-center p-8 bg-amber-50 rounded-2xl border-2 border-amber-200 shadow-inner text-center">
+                            <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mb-4 shadow-sm relative overflow-hidden">
+                                <div className="absolute inset-0 bg-amber-100 opacity-50 animate-pulse"></div>
+                                <span className="text-3xl relative z-10">⏳</span>
                             </div>
-                            <div>
-                                <label className="text-xs font-bold text-neutral-500 uppercase mb-1 block">Your Phone *</label>
-                                <input 
-                                    type="tel" 
-                                    required 
-                                    maxLength={10}
-                                    className="w-full border-neutral-200 rounded-xl p-3 focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all outline-none" 
-                                    placeholder="9876543210"
-                                    value={reporterPhone}
-                                    onChange={(e) => setReporterPhone(e.target.value.replace(/\D/g, ''))}
-                                />
+                            <h3 className="text-lg font-bold text-amber-900 mb-2">Report Submitted</h3>
+                            <p className="text-sm text-amber-700 font-medium mb-4 leading-relaxed">
+                                You have already submitted a property report recently. To prevent spam, please wait before submitting another one.
+                            </p>
+                            
+                            <div className="bg-white px-5 py-3 rounded-xl shadow-sm border border-amber-100 flex items-center gap-4">
+                                <div className="flex flex-col items-center">
+                                    <span className="text-2xl font-black text-amber-600">{String(cooldownRemaining.hours).padStart(2, '0')}</span>
+                                    <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest">Hours</span>
+                                </div>
+                                <span className="text-2xl font-black text-amber-200 animate-pulse">:</span>
+                                <div className="flex flex-col items-center">
+                                    <span className="text-2xl font-black text-amber-600">{String(cooldownRemaining.minutes).padStart(2, '0')}</span>
+                                    <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest">Mins</span>
+                                </div>
                             </div>
                         </div>
+                    ) : (
+                        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+                            
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-xs font-bold text-neutral-500 uppercase mb-1 block">Your Name *</label>
+                                    <input 
+                                        type="text" 
+                                        required 
+                                        className="w-full border-neutral-200 rounded-xl p-3 focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all outline-none" 
+                                        placeholder="John Doe"
+                                        value={reporterName}
+                                        onChange={(e) => setReporterName(e.target.value)}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-bold text-neutral-500 uppercase mb-1 block">Your Phone *</label>
+                                    <input 
+                                        type="tel" 
+                                        required 
+                                        maxLength={10}
+                                        className="w-full border-neutral-200 rounded-xl p-3 focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all outline-none" 
+                                        placeholder="9876543210"
+                                        value={reporterPhone}
+                                        onChange={(e) => {
+                                            const val = e.target.value.replace(/\D/g, '');
+                                            setReporterPhone(val);
+                                            if (val.length === 10) checkCooldown(val); // Auto-check when valid phone entered
+                                        }}
+                                    />
+                                </div>
+                            </div>
 
-                        <div>
-                            <label className="text-xs font-bold text-neutral-500 uppercase mb-1 block">Select Reason *</label>
-                            <select 
-                                value={reason} 
-                                onChange={(e) => setReason(e.target.value)}
-                                className="w-full border-neutral-200 rounded-xl p-3 focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all outline-none bg-white font-medium"
+                            <div>
+                                <label className="text-xs font-bold text-neutral-500 uppercase mb-1 block">Select Reason *</label>
+                                <select 
+                                    value={reason} 
+                                    onChange={(e) => setReason(e.target.value)}
+                                    className="w-full border-neutral-200 rounded-xl p-3 focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all outline-none bg-white font-medium"
+                                >
+                                    <option value="Fake / Scam Listing">Fake / Scam Listing</option>
+                                    <option value="Property Already Rented Out">Property Already Rented Out</option>
+                                    <option value="Broker Demanding Money">Broker Demanding Money</option>
+                                    <option value="Wrong Contact Number">Wrong Contact Number</option>
+                                    <option value="Fraudulent Owner Behavior">Fraudulent Owner Behavior</option>
+                                    <option value="Other">Other Issues</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="text-xs font-bold text-neutral-500 uppercase mb-1 block">Additional Details (Optional)</label>
+                                <textarea 
+                                    className="w-full border-neutral-200 rounded-xl p-3 focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all outline-none min-h-[100px] resize-none" 
+                                    placeholder="Explain what happened..."
+                                    value={details}
+                                    onChange={(e) => setDetails(e.target.value)}
+                                />
+                            </div>
+
+                            <button 
+                                type="submit" 
+                                disabled={isLoading}
+                                className="mt-2 w-full bg-red-600 text-white font-bold uppercase tracking-widest py-4 rounded-xl shadow-lg shadow-red-600/20 hover:bg-red-700 hover:-translate-y-1 transition-all disabled:opacity-50 disabled:hover:translate-y-0 flex items-center justify-center gap-2"
                             >
-                                <option value="Fake / Scam Listing">Fake / Scam Listing</option>
-                                <option value="Property Already Rented Out">Property Already Rented Out</option>
-                                <option value="Broker Demanding Money">Broker Demanding Money</option>
-                                <option value="Wrong Contact Number">Wrong Contact Number</option>
-                                <option value="Fraudulent Owner Behavior">Fraudulent Owner Behavior</option>
-                                <option value="Other">Other Issues</option>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label className="text-xs font-bold text-neutral-500 uppercase mb-1 block">Additional Details (Optional)</label>
-                            <textarea 
-                                className="w-full border-neutral-200 rounded-xl p-3 focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all outline-none min-h-[100px] resize-none" 
-                                placeholder="Explain what happened..."
-                                value={details}
-                                onChange={(e) => setDetails(e.target.value)}
-                            />
-                        </div>
-
-                        <button 
-                            type="submit" 
-                            disabled={isLoading}
-                            className="mt-2 w-full bg-red-600 text-white font-bold uppercase tracking-widest py-4 rounded-xl shadow-lg shadow-red-600/20 hover:bg-red-700 hover:-translate-y-1 transition-all disabled:opacity-50 disabled:hover:translate-y-0 flex items-center justify-center gap-2"
-                        >
-                            {isLoading ? <span className="animate-spin border-2 border-white/30 border-t-white h-5 w-5 rounded-full" /> : <Flag size={18} />}
-                            {isLoading ? 'Submitting...' : 'Submit Report'}
-                        </button>
-                    </form>
+                                {isLoading ? <span className="animate-spin border-2 border-white/30 border-t-white h-5 w-5 rounded-full" /> : <Flag size={18} />}
+                                {isLoading ? 'Submitting...' : 'Submit Report'}
+                            </button>
+                        </form>
+                    )}
                 </div>
 
             </div>

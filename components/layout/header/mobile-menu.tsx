@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Collection } from '@/lib/types';
 import { useBodyScrollLock } from '@/lib/hooks/use-body-scroll-lock';
-import { Plus, User, Shield, Home, Building2, LogIn } from 'lucide-react';
+import { Plus, User, Shield, Home, Building2, LogIn, Flag } from 'lucide-react';
 import { InstallAppButton } from '@/components/layout/install-app-button';
 import { useAuth } from '@/lib/auth-context';
 import AuthModal from '@/components/auth/auth-modal';
@@ -158,6 +158,17 @@ export default function MobileMenu({ collections, isAdmin }: MobileMenuProps) {
                       <User className="w-5 h-5 text-neutral-500" />
                       Profile
                     </button>
+
+                    {/* My Reports — requires login */}
+                    {user && (
+                      <button
+                        onClick={() => handleProtectedNav('/profile/reports')}
+                        className="w-full flex items-center gap-4 px-2 py-3.5 text-base font-medium text-orange-600 hover:text-orange-700 rounded-lg active:bg-orange-50 text-left"
+                      >
+                        <Flag className="w-5 h-5 text-orange-500" />
+                        My Reports
+                      </button>
+                    )}
 
                     {isAdmin && (
                       <Link

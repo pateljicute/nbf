@@ -208,6 +208,7 @@ export async function getProducts(params?: {
   lat?: number;
   lng?: number;
   radius?: number;
+  listing_type?: string;
 }): Promise<Product[]> {
   // Client-side: use API
   if (typeof window !== 'undefined') {
@@ -240,11 +241,17 @@ export async function getProducts(params?: {
       if (!rpcError && nearby && (nearby as any[]).length > 0) {
         // RPC doesn't return all columns — fetch complete data by IDs
         const ids = (nearby as any[]).map((p: any) => p.id);
-        const { data: fullData, error: fullError } = await supabase
+        let fullDataQuery = supabase
           .from('properties')
-          .select('id,handle,title,description,price_range,featured_image,tags,available_for_sale,category_id,"contactNumber",user_id,"bathroomType","securityDeposit","electricityStatus","tenantPreference",latitude,longitude,"googleMapsLink",is_verified,status,view_count,created_at,"price","location","address","type","amenities","built_up_area","furnishing_status","floor_number","total_floors","state","city","locality","pincode"')
+          .select('id,handle,title,description,price_range,featured_image,tags,available_for_sale,category_id,"contactNumber",user_id,"bathroomType","securityDeposit","electricityStatus","tenantPreference",latitude,longitude,"googleMapsLink",is_verified,status,view_count,created_at,"price","location","address","type","amenities","built_up_area","furnishing_status","floor_number","total_floors","state","city","locality","pincode",listing_type')
           .in('id', ids)
           .eq('available_for_sale', true);
+          
+        if (params?.listing_type) {
+            fullDataQuery = fullDataQuery.eq('listing_type', params.listing_type);
+        }
+
+        const { data: fullData, error: fullError } = await fullDataQuery;
 
         if (!fullError && fullData) {
           console.log(`Server getProducts: Coordinate search found ${fullData.length} results within ${radius/1000}km`);
@@ -259,11 +266,14 @@ export async function getProducts(params?: {
 
     let dbQuery = supabase
       .from("properties")
-      .select('id,handle,title,description,price_range,featured_image,tags,available_for_sale,category_id,"contactNumber",user_id,"bathroomType","securityDeposit","electricityStatus","tenantPreference",latitude,longitude,"googleMapsLink",is_verified,status,view_count,created_at,"price","location","address","type","amenities","built_up_area","furnishing_status","floor_number","total_floors","state","city","locality","pincode"')
+      .select('id,handle,title,description,price_range,featured_image,tags,available_for_sale,category_id,"contactNumber",user_id,"bathroomType","securityDeposit","electricityStatus","tenantPreference",latitude,longitude,"googleMapsLink",is_verified,status,view_count,created_at,"price","location","address","type","amenities","built_up_area","furnishing_status","floor_number","total_floors","state","city","locality","pincode",listing_type')
       .limit(safeLimit);
 
     // Apply base filter
     dbQuery = dbQuery.eq('available_for_sale', true).eq('status', 'approved');
+    if (params?.listing_type) {
+      dbQuery = dbQuery.eq('listing_type', params.listing_type);
+    }
 
     // Apply Filters (Logic mirrored from app/api/products/route.ts)
     // Apply Filters (Logic mirrored from app/api/products/route.ts)
@@ -277,11 +287,17 @@ export async function getProducts(params?: {
 
       // --- Priority 1: Explicit Column Match ---
       // Check if the query matches a location field directly.
-      const { data: strictData, error: strictError } = await supabase
+      let strictQuery = supabase
         .from("properties")
-        .select('id,handle,title,description,price_range,featured_image,tags,available_for_sale,category_id,"contactNumber",user_id,"bathroomType","securityDeposit","electricityStatus","tenantPreference",latitude,longitude,"googleMapsLink",is_verified,status,view_count,created_at,"price","location","address","type",state,city,locality,"amenities","built_up_area","furnishing_status","floor_number","total_floors"')
+        .select('id,handle,title,description,price_range,featured_image,tags,available_for_sale,category_id,"contactNumber",user_id,"bathroomType","securityDeposit","electricityStatus","tenantPreference",latitude,longitude,"googleMapsLink",is_verified,status,view_count,created_at,"price","location","address","type",state,city,locality,"amenities","built_up_area","furnishing_status","floor_number","total_floors",listing_type')
         .eq('available_for_sale', true)
-        .eq('status', 'approved')
+        .eq('status', 'approved');
+        
+      if (params?.listing_type) {
+          strictQuery = strictQuery.eq('listing_type', params.listing_type);
+      }
+
+      const { data: strictData, error: strictError } = await strictQuery
         // Phase 2: Thinking (Server SQL Multi-Column)
         // Checks City, Area (Locality), State, and Address simultaneously
         .or(`city.ilike.%${safeQuery}%,locality.ilike.%${safeQuery}%,state.ilike.%${safeQuery}%,address.ilike.%${safeQuery}%`)
@@ -501,7 +517,7 @@ export async function getUserProducts(userId: string): Promise<Product[]> {
   try {
     const { data, error } = await supabase
       .from("properties")
-      .select('id,handle,title,description,price_range,featured_image,tags,available_for_sale,category_id,"contactNumber",user_id,"bathroomType","securityDeposit","electricityStatus","tenantPreference",latitude,longitude,"googleMapsLink",is_verified,status,"price","location","address","type",view_count,created_at,"amenities","built_up_area","furnishing_status","floor_number","total_floors","state","city","locality","pincode"')
+      .select('id,handle,title,description,price_range,featured_image,tags,available_for_sale,category_id,"contactNumber",user_id,"bathroomType","securityDeposit","electricityStatus","tenantPreference",latitude,longitude,"googleMapsLink",is_verified,status,"price","location","address","type",view_count,created_at,"amenities","built_up_area","furnishing_status","floor_number","total_floors","state","city","locality","pincode",listing_type,total_area,dimensions,facing,road_width,bhk,property_age,registry,diversion,mutation,negotiable,original_price,shutter_width,main_road_distance')
       .eq('user_id', userId)
       .order('created_at', { ascending: false }); // Ensure Newest First
 
@@ -689,7 +705,21 @@ export async function createProduct(data: any, token?: string): Promise<Product>
       built_up_area: data.builtUpArea !== '' && data.builtUpArea !== undefined ? Number(data.builtUpArea) : null,
       furnishing_status: data.furnishingStatus || null,
       floor_number: data.floorNumber !== '' && data.floorNumber !== undefined ? Number(data.floorNumber) : null,
-      total_floors: data.totalFloors !== '' && data.totalFloors !== undefined ? Number(data.totalFloors) : null
+      total_floors: data.totalFloors !== '' && data.totalFloors !== undefined ? Number(data.totalFloors) : null,
+      listing_type: data.listing_type || 'rent',
+      total_area: data.total_area || null,
+      dimensions: data.dimensions || null,
+      facing: data.facing || null,
+      road_width: data.road_width || null,
+      bhk: data.bhk || null,
+      property_age: data.property_age || null,
+      registry: data.registry || false,
+      diversion: data.diversion || false,
+      mutation: data.mutation || false,
+      negotiable: data.negotiable || false,
+      original_price: data.original_price || null,
+      shutter_width: data.shutter_width || null,
+      main_road_distance: data.main_road_distance || null
     };
 
     // 3. Insert directly into Supabase (bypassing CSRF/API)
@@ -768,6 +798,20 @@ export async function updateProduct(id: string, data: any, token?: string): Prom
       furnishing_status: data.furnishingStatus || null,
       floor_number: data.floorNumber !== '' && data.floorNumber !== undefined ? Number(data.floorNumber) : null,
       total_floors: data.totalFloors !== '' && data.totalFloors !== undefined ? Number(data.totalFloors) : null,
+      listing_type: data.listing_type || 'rent',
+      total_area: data.total_area || null,
+      dimensions: data.dimensions || null,
+      facing: data.facing || null,
+      road_width: data.road_width || null,
+      bhk: data.bhk || null,
+      property_age: data.property_age || null,
+      registry: data.registry || false,
+      diversion: data.diversion || false,
+      mutation: data.mutation || false,
+      negotiable: data.negotiable || false,
+      original_price: data.original_price || null,
+      shutter_width: data.shutter_width || null,
+      main_road_distance: data.main_road_distance || null,
       // RESET APPROVAL ON UPDATE
       status: 'pending',
       available_for_sale: false
@@ -884,7 +928,8 @@ export async function getAdminProducts(
   status: string = 'all',
   city: string = '',
   minPrice?: number,
-  maxPrice?: number
+  maxPrice?: number,
+  listingType?: string
 ): Promise<{ products: Product[]; total: number; page: number; limit: number }> {
   try {
     let query = supabase.from('properties').select('*', { count: 'exact' });
@@ -899,6 +944,10 @@ export async function getAdminProducts(
       query = query.eq('status', 'inactive');
     } else if (status === 'pending') {
       query = query.eq('status', 'pending');
+    }
+
+    if (listingType && listingType !== 'all') {
+      query = query.eq('listing_type', listingType);
     }
 
     // Advanced Filters
@@ -1568,7 +1617,59 @@ export async function getSupportRequests(page: number = 1, limit: number = 10) {
     return { requests: [], total: 0 };
   }
 }
-// ... existing code ...
+
+// ── Property Reports ───────────────────────────────────────────────────────
+// Property reports are stored in the `inquiries` table with email pattern:
+// `report-{propertyId}@nbfhomes.in` and subject containing "PROPERTY REPORT"
+export async function getPropertyReports(page: number = 1, limit: number = 10, statusFilter: string = 'all') {
+  try {
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+
+    let query = supabase
+      .from('inquiries')
+      .select('*', { count: 'exact' })
+      .like('email', 'report-%@nbfhomes.in')
+      .order('created_at', { ascending: false })
+      .range(from, to);
+
+    if (statusFilter === 'pending') {
+      query = query.or('status.eq.new,status.eq.reviewed,status.is.null');
+    } else if (statusFilter !== 'all') {
+      query = query.eq('status', statusFilter);
+    }
+
+    const { data, count, error } = await query;
+
+    if (error) {
+      console.error('Error fetching property reports:', error);
+      return { reports: [], total: 0 };
+    }
+
+    // Parse property ID from email (format: report-{id}@nbfhomes.in)
+    const enriched = (data || []).map((item: any) => {
+      const match = item.email?.match(/^report-(.+)@nbfhomes\.in$/);
+      const propertyId = match ? match[1] : null;
+
+      // Parse reason and reporter details from message
+      const messageLines = (item.message || '').split('\n');
+      const reasonLine = messageLines.find((l: string) => l.includes('Reason:')) || '';
+      const reason = reasonLine.replace('Reason:', '').trim() || 'Unknown';
+
+      return {
+        ...item,
+        property_id: propertyId,
+        parsed_reason: reason,
+      };
+    });
+
+    return { reports: enriched, total: count || 0 };
+  } catch (error) {
+    console.error('Error in getPropertyReports:', error);
+    return { reports: [], total: 0 };
+  }
+}
+
 
 export async function getDashboardStats() {
   try {
@@ -1665,7 +1766,7 @@ export async function getUserEnquiries(userId: string) {
     // 1. Fetch properties owned by this user
     const { data: ownedProperties } = await supabase
       .from('properties')
-      .select('id, title, handle, location')
+      .select('id, title, handle, location, listing_type, price, built_up_area, type, bhk')
       .eq('user_id', userId);
 
     const ownedPropertyIds = (ownedProperties || []).map(p => p.id);
@@ -1725,7 +1826,12 @@ export async function getUserEnquiries(userId: string) {
         
         property_id: lead.property_id,
         property_title: property?.title || 'Unknown',
-        property_handle: property?.handle || property?.id
+        property_handle: property?.handle || property?.id,
+        property_listing_type: property?.listing_type || 'rent',
+        property_price: property?.price,
+        property_area: property?.built_up_area,
+        property_type: property?.type,
+        property_bhk: property?.bhk
       };
     });
 

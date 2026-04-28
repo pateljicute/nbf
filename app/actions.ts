@@ -109,20 +109,36 @@ export async function checkAdminStatus(legacyUserId?: string): Promise<boolean> 
  * Fetches unique cities that have at least one approved property.
  * Used for the dynamic search dropdown.
  */
-export async function getApprovedCitiesAction() {
+export async function getApprovedCitiesAction(listing_type?: string) {
     try {
-        const { data, error } = await globalSupabase
-            .rpc('get_active_cities');
+        let query = globalSupabase
+            .from('properties')
+            .select('city')
+            .eq('available_for_sale', true)
+            .not('city', 'is', null);
 
+        if (listing_type) {
+            query = query.eq('listing_type', listing_type);
+        }
+
+        const { data, error } = await query;
         if (error) throw error;
 
-        return {
-            success: true,
-            cities: (data as any[] || []).map(item => ({
-                name: item.city_names,
-                count: item.property_count
-            }))
-        };
+        // Group by city and count
+        const cityMap = new Map<string, number>();
+        for (const row of (data || [])) {
+            const city = row.city?.trim();
+            if (city) {
+                cityMap.set(city, (cityMap.get(city) || 0) + 1);
+            }
+        }
+
+        const cities = Array.from(cityMap.entries())
+            .sort((a, b) => b[1] - a[1]) // Sort by count descending
+            .slice(0, 10)
+            .map(([name, count]) => ({ name, count }));
+
+        return { success: true, cities };
     } catch (error: any) {
         console.error('Error fetching approved cities:', error);
         return { success: false, cities: [], error: error.message };
@@ -173,6 +189,45 @@ export async function updateProductStatusAction(
     }
 }
 
+// Check Property Report Cooldown
+export async function checkPropertyReportCooldownAction(phone: string): Promise<{ isCooldown: boolean; remainingHours: number; remainingMinutes: number }> {
+    try {
+        const supabase = await getSupabaseClient();
+        
+        // Find latest property report by this phone number
+        const { data, error } = await supabase
+            .from('inquiries')
+            .select('created_at')
+            .eq('phone_number', phone)
+            .like('email', 'report-%@nbfhomes.in')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        if (error) {
+            console.error('Error checking property report cooldown:', error);
+            return { isCooldown: false, remainingHours: 0, remainingMinutes: 0 };
+        }
+
+        if (data && data.created_at) {
+            const lastSubmissionTime = new Date(data.created_at).getTime();
+            const currentTime = new Date().getTime();
+            const hoursDifference = (currentTime - lastSubmissionTime) / (1000 * 60 * 60);
+
+            if (hoursDifference < 24) {
+                const remainingTimeMs = (24 * 60 * 60 * 1000) - (currentTime - lastSubmissionTime);
+                const remainingHours = Math.floor(remainingTimeMs / (1000 * 60 * 60));
+                const remainingMinutes = Math.floor((remainingTimeMs % (1000 * 60 * 60)) / (1000 * 60));
+                return { isCooldown: true, remainingHours, remainingMinutes };
+            }
+        }
+        return { isCooldown: false, remainingHours: 0, remainingMinutes: 0 };
+    } catch (error) {
+        console.error('Exception in checkPropertyReportCooldownAction:', error);
+        return { isCooldown: false, remainingHours: 0, remainingMinutes: 0 };
+    }
+}
+
 // Property Form Reporting Action
 export async function submitPropertyReportAction(
     propertyId: string,
@@ -185,6 +240,12 @@ export async function submitPropertyReportAction(
     try {
         const supabase = await getSupabaseClient();
         
+        // Anti-spam 24-hour server lock
+        const cooldownCheck = await checkPropertyReportCooldownAction(reporterData.phone);
+        if (cooldownCheck.isCooldown) {
+            return { success: false, error: `You must wait ${cooldownCheck.remainingHours}h ${cooldownCheck.remainingMinutes}m before reporting another property.` };
+        }
+
         const subject = `[FLAGGED PROPERTY] ${propertyTitle} (ID: ${propertyId})`;
         const messageBody = `
 ⚠️ PROPERTY REPORT ⚠️
@@ -215,6 +276,54 @@ ${details || 'No additional details provided.'}
     } catch (error: any) {
         console.error('Action error in submitPropertyReportAction:', error);
         return { success: false, error: 'Unexpected error occurred.' };
+    }
+}
+
+// Get User Reports for Profile
+export async function getUserReportsAction(userId: string, email?: string, phone?: string): Promise<{ supportRequests: any[], propertyReports: any[] }> {
+    try {
+        const supabase = await getSupabaseClient();
+        
+        // 1. Fetch Support Requests (Account Issues)
+        // If they are logged in, we have user_id, but let's also check email just in case
+        const { data: supportData, error: supportError } = await supabase
+            .from('support_requests')
+            .select('*')
+            .or(`user_id.eq.${userId}${email ? `,email.eq.${email}` : ''}`)
+            .order('created_at', { ascending: false });
+
+        if (supportError) {
+            console.error("Error fetching user support requests:", supportError);
+        }
+
+        // 2. Fetch Property Reports from inquiries table
+        // We match via phone or a specific format
+        let propertyQuery = supabase
+            .from('inquiries')
+            .select('*')
+            .like('email', 'report-%@nbfhomes.in')
+            .order('created_at', { ascending: false });
+            
+        if (phone) {
+            propertyQuery = propertyQuery.eq('phone_number', phone);
+        } else if (email) {
+            // Unlikely to match exact email for property reports since we use a placeholder, but we might have matched via phone previously
+             propertyQuery = propertyQuery.eq('phone_number', '0000000000'); // Dummy filter if no phone
+        }
+
+        const { data: propertyData, error: propertyError } = await propertyQuery;
+
+        if (propertyError) {
+            console.error("Error fetching user property reports:", propertyError);
+        }
+
+        return {
+            supportRequests: supportData || [],
+            propertyReports: propertyData || []
+        };
+    } catch (error) {
+        console.error('Exception in getUserReportsAction:', error);
+        return { supportRequests: [], propertyReports: [] };
     }
 }
 
@@ -434,6 +543,12 @@ export async function toggleUserVerifiedAction(userId: string, isVerified: boole
 
     const supabase = await getSupabaseClient();
     const { error } = await supabase.from('users').update({ is_verified: isVerified }).eq('id', userId);
+    
+    // Also update all properties owned by this user
+    if (!error) {
+        await supabase.from('properties').update({ is_verified: isVerified }).eq('user_id', userId);
+    }
+    
     return { success: !error, error: error?.message };
 }
 
@@ -976,6 +1091,7 @@ export async function getReviewsAction(page: number = 1, limit: number = 20) {
     const start = (page - 1) * limit;
     const end = start + limit - 1;
 
+    // Try with FK join first
     const { data, error, count } = await supabase
         .from('reviews')
         .select(`
@@ -990,8 +1106,35 @@ export async function getReviewsAction(page: number = 1, limit: number = 20) {
         .range(start, end);
 
     if (error) {
-        console.error('Error fetching reviews:', error);
-        return { success: false, error: error.message, reviews: [] };
+        console.error('Error fetching reviews (with join):', JSON.stringify(error, null, 2));
+
+        // Fallback: fetch without FK join in case FK constraint doesn't exist
+        const { data: fallbackData, error: fallbackError, count: fallbackCount } = await supabase
+            .from('reviews')
+            .select('*', { count: 'exact' })
+            .eq('status', 'approved')
+            .order('created_at', { ascending: false })
+            .range(start, end);
+
+        if (fallbackError) {
+            console.error('Error fetching reviews (fallback):', JSON.stringify(fallbackError, null, 2));
+            return { success: false, error: fallbackError.message || 'reviews table not found or inaccessible', reviews: [] };
+        }
+
+        // Fetch user data separately for each review
+        const reviewsWithUsers = await Promise.all(
+            (fallbackData || []).map(async (review: any) => {
+                if (!review.user_id) return { ...review, user: null };
+                const { data: userData } = await supabase
+                    .from('users')
+                    .select('full_name, avatar_url')
+                    .eq('id', review.user_id)
+                    .single();
+                return { ...review, user: userData || null };
+            })
+        );
+
+        return { success: true, reviews: reviewsWithUsers, total: fallbackCount || 0 };
     }
 
     return { success: true, reviews: data || [], total: count || 0 };
@@ -1060,6 +1203,27 @@ export async function updateReviewStatusAction(reviewId: string, status: 'approv
         return { success: false, error: error.message };
     }
 }
+// Update Inquiry/Property Report Status
+export async function updateInquiryStatusAction(id: number, status: string): Promise<{ success: boolean; error?: string }> {
+    try {
+        const isAdmin = await checkAdminStatus();
+        if (!isAdmin) return { success: false, error: 'Unauthorized' };
+
+        const supabase = await getSupabaseClient();
+        const { error } = await supabase
+            .from('inquiries')
+            .update({ status })
+            .eq('id', id);
+
+        if (error) {
+            console.error('Error updating inquiry status:', error);
+            return { success: false, error: error.message };
+        }
+        return { success: true };
+    } catch (error: any) {
+        return { success: false, error: error.message };
+    }
+}
 
 export async function getReviewsAdminAction(page: number = 1, limit: number = 50) {
     try {
@@ -1109,8 +1273,8 @@ export async function getAdvertisementsAction() {
         if (error) throw error;
         return { success: true, data };
     } catch (error: any) {
-        console.error('getAdvertisementsAction err:', error);
-        return { success: false, error: error.message };
+        console.error('getAdvertisementsAction err:', error?.message || error);
+        return { success: false, error: error?.message || 'Unknown error fetching ads' };
     }
 }
 

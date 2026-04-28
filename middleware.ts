@@ -1,23 +1,45 @@
-import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+// Routes that REQUIRE an authenticated user
+const PROTECTED_ROUTES = ['/dashboard', '/admin', '/sell', '/profile']
+
+// Routes that DON'T need a Supabase network call at all
+// (public pages - skip getUser() to avoid fetch spam)
+const ALWAYS_PUBLIC_ROUTES = [
+    '/auth/callback',
+    '/login',
+    '/register',
+    '/forgot-password',
+]
+
 export async function middleware(request: NextRequest) {
-    // 0. Skip Middleware for Auth Callback (Crucial for OAuth)
-    if (request.nextUrl.pathname.startsWith('/auth/callback')) {
+    const { pathname } = request.nextUrl
+
+    // 0. Skip entirely for auth callback
+    if (pathname.startsWith('/auth/callback')) {
         return NextResponse.next()
     }
 
-    // 1. Setup Response
+    // 1. Determine if this route needs auth checking
+    const isProtectedRoute = PROTECTED_ROUTES.some(r => pathname.startsWith(r))
+    const isLoginPage = pathname.startsWith('/login')
+
+    // If it's neither protected nor the login page, skip Supabase call entirely
+    // This stops the fetch-failed spam for every public page visit
+    if (!isProtectedRoute && !isLoginPage) {
+        return NextResponse.next()
+    }
+
+    // 2. Setup Response
     let response = NextResponse.next({
-        request: {
-            headers: request.headers,
-        },
+        request: { headers: request.headers },
     })
 
-    // 2. Clear known bad cookies if they exist to prevent 400/429
-    // (Optional: proactive cleanup list)
-    const allCookies = request.cookies.getAll()
-    const hasBadCookie = allCookies.some(c => c.name.includes('nbf_v5_final') && c.value === 'undefined')
+    // 3. Clear known bad cookies
+    const hasBadCookie = request.cookies.getAll().some(
+        c => c.name.includes('nbf_v5_final') && c.value === 'undefined'
+    )
     if (hasBadCookie) {
         request.cookies.getAll().forEach(c => {
             if (c.name.includes('nbf_v5_final')) {
@@ -27,7 +49,7 @@ export async function middleware(request: NextRequest) {
         })
     }
 
-    // 3. Create Supabase Client
+    // 4. Create Supabase Client (only for protected/login routes)
     const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -45,105 +67,89 @@ export async function middleware(request: NextRequest) {
                 },
                 setAll(cookiesToSet) {
                     cookiesToSet.forEach(({ name, value, options }) => {
-                        request.cookies.set({
-                            name,
-                            value,
-                            ...options,
-                        })
+                        request.cookies.set({ name, value, ...options })
                     })
                     response = NextResponse.next({
-                        request: {
-                            headers: request.headers,
-                        },
+                        request: { headers: request.headers },
                     })
                     cookiesToSet.forEach(({ name, value, options }) => {
-                        const secureOptions = {
+                        response.cookies.set(name, value, {
                             ...options,
                             domain: process.env.NODE_ENV === 'production' ? '.nbfhomes.in' : undefined,
                             path: '/',
                             secure: request.nextUrl.protocol === 'https:',
                             sameSite: 'lax' as const,
-                        }
-                        response.cookies.set(name, value, secureOptions)
+                        })
                     })
                 },
             },
         }
     )
 
-    // 4. Check Session (Safe Method)
+    // 5. Check Session
     let user = null
     try {
         const { data: { user: supabaseUser }, error } = await supabase.auth.getUser()
         if (error) throw error
         user = supabaseUser
     } catch (error: any) {
-        // Aggressive cleanup ONLY on actual refresh token failure (which means session is invalid/stolen/expired)
-        const isRefreshError = error?.code === 'refresh_token_not_found' ||
+        const isRefreshError =
+            error?.code === 'refresh_token_not_found' ||
             error?.code === 'refresh_token_already_used' ||
             error?.message?.includes('Already Used') ||
-            error?.message?.includes('Refresh Token Not Found');
+            error?.message?.includes('Refresh Token Not Found')
 
-        const isSessionMissing = error?.message === 'Auth session missing!' || error?.message?.includes('Auth session missing');
+        const isSessionMissing =
+            error?.message === 'Auth session missing!' ||
+            error?.message?.includes('Auth session missing')
 
-        // If it's just "Auth session missing", it simply means user is not logged in.
-        // We should NOT wipe cookies or log error unless looking for a session specifically.
+        const isFetchError =
+            error?.message === 'fetch failed' ||
+            error?.name === 'AuthRetryableFetchError'
 
-        if (!isSessionMissing) {
+        if (!isSessionMissing && !isFetchError) {
             if (error?.code === 'UND_ERR_CONNECT_TIMEOUT') {
-                console.warn('Proxy Auth: Supabase Connection Timed Out (Review Network)');
+                console.warn('Proxy Auth: Supabase Connection Timed Out')
             } else if (isRefreshError) {
-                // SILENT FAILURE: Do not log "Invalid Refresh Token" to console.
-                console.log('Session Expired - Resetting');
-                // Just proceed to clean cookies below.
+                console.log('Session Expired - Resetting')
             } else if (error?.status === 429 || error?.code === 'over_request_rate_limit') {
-                // SILENT/QUIET FAILURE: Rate limit reached.
-                // Do not log "Proxy Auth Error" with stack trace.
-                console.warn(`Proxy Auth: Rate limit reached. Backing off.`);
+                console.warn('Proxy Auth: Rate limit reached. Backing off.')
             } else {
-                console.error(`Proxy Auth Error: ${error?.message || 'Unknown'}`);
+                console.error(`Proxy Auth Error: ${error?.message || 'Unknown'}`)
             }
         }
 
-        // Only wipe cookies if the Refresh Token is explicitly invalid (security risk or stale)
+        // Wipe cookies only if refresh token is explicitly invalid
         if (isRefreshError) {
-            const cookieNames = request.cookies.getAll().map(c => c.name)
-            cookieNames.forEach(name => {
+            request.cookies.getAll().forEach(({ name }) => {
                 if (name.startsWith('sb-') || name.includes('auth') || name.includes('nbf_v5_final')) {
                     response.cookies.set(name, '', { maxAge: 0, domain: '.nbfhomes.in' })
                 }
             })
-
-            // Force signOut to sync server state
             await supabase.auth.signOut()
         }
 
         user = null
 
-        // Force strict redirect ONLY for Already Used Token to break loop immediately
-        if (isRefreshError && request.nextUrl.pathname !== '/') {
+        if (isRefreshError && pathname !== '/') {
             return NextResponse.redirect(new URL('/', request.url))
+        }
+
+        // If fetch failed (network issue), don't block the user — just pass through
+        if (isFetchError) {
+            return response
         }
     }
 
-    // 5. Protected Routes Logic
-    const isProtectedRoute =
-        request.nextUrl.pathname.startsWith('/dashboard') ||
-        request.nextUrl.pathname.startsWith('/admin') ||
-        request.nextUrl.pathname.startsWith('/sell') ||
-        request.nextUrl.pathname.startsWith('/profile')
-
-    // Redirects
+    // 6. Redirect Logic
     if (!user && isProtectedRoute) {
-        // Redirect to Login page
         const url = request.nextUrl.clone()
         url.pathname = '/login'
-        url.searchParams.set('redirectTo', request.nextUrl.pathname)
+        url.searchParams.set('redirectTo', pathname)
         return NextResponse.redirect(url)
     }
 
-    // If user is logged in but tries to access a login page
-    if (user && request.nextUrl.pathname.startsWith('/login')) {
+    if (user && isLoginPage) {
         return NextResponse.redirect(new URL('/', request.url))
     }
 
@@ -152,6 +158,7 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
     matcher: [
+        // Run on all routes except static files
         '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
     ],
 }

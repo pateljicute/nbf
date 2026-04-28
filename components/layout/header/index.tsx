@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { LogoSvg } from './logo-svg';
 import Image from 'next/image';
+import { useListingMode } from '@/lib/listing-mode-context';
 import { NavItem } from '@/lib/types';
 import { Collection } from '@/lib/types';
 import { User, ChevronDown, Shield } from 'lucide-react';
@@ -34,6 +35,7 @@ export function Header({ collections }: HeaderProps) {
   const { user } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const { mode, setMode } = useListingMode();
 
   useEffect(() => {
     setMounted(true);
@@ -55,12 +57,39 @@ export function Header({ collections }: HeaderProps) {
             isAdmin={isAdmin}
           />
         </div>
-        <Link href="/" className="md:col-span-3 xl:col-span-2 flex justify-center md:block pt-0" prefetch>
-          <div className="md:hidden bg-white/20 backdrop-blur-md rounded-full px-2 py-0.5">
-            <LogoSvg className="w-auto h-5" />
+        
+        {/* CENTER: Rent/Sell Toggle (Mobile) + Logo (Desktop) */}
+        <div className="md:col-span-3 xl:col-span-2 flex justify-center md:justify-start items-center gap-4">
+          <Link href="/" className="hidden md:block" prefetch>
+            <LogoSvg className="w-full h-auto max-w-[160px]" />
+          </Link>
+          
+          {/* Zomato-Style Toggle Switch */}
+          <div className="flex bg-neutral-100/80 backdrop-blur-md rounded-full p-1 border border-neutral-200/50 shadow-inner">
+            <button
+              onClick={() => setMode('rent')}
+              className={cn(
+                "px-4 py-1.5 text-xs font-bold uppercase tracking-wider rounded-full transition-all duration-300",
+                mode === 'rent' 
+                  ? "bg-white text-neutral-900 shadow-sm" 
+                  : "text-neutral-500 hover:text-neutral-700"
+              )}
+            >
+              Rent
+            </button>
+            <button
+              onClick={() => setMode('sell')}
+              className={cn(
+                "px-4 py-1.5 text-xs font-bold uppercase tracking-wider rounded-full transition-all duration-300",
+                mode === 'sell' 
+                  ? "bg-[#e8202a] text-white shadow-sm" 
+                  : "text-neutral-500 hover:text-neutral-700"
+              )}
+            >
+              Buy
+            </button>
           </div>
-          <LogoSvg className="hidden md:block w-full h-auto max-w-[160px]" />
-        </Link>
+        </div>
         <nav className="flex justify-end items-center md:col-span-9 xl:col-span-10 pointer-events-none">
           <div className="pointer-events-auto hidden md:flex items-center gap-1 p-1.5 bg-white/60 backdrop-blur-xl border border-white/20 shadow-lg rounded-full transition-all hover:bg-white/95">
             <ul className="flex items-center gap-2">

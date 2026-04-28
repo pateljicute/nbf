@@ -2,7 +2,7 @@
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Phone, MessageCircle, User } from 'lucide-react';
+import { Phone, MessageCircle, User, BadgeCheck } from 'lucide-react';
 import { Product } from '@/lib/types';
 
 interface ContactOptionsModalProps {
@@ -53,8 +53,15 @@ Please let me know more.`;
                             <User className="w-10 h-10 text-neutral-400" />
                         </div>
                         <div>
-                            <h3 className="text-lg font-bold text-neutral-900">{ownerName}</h3>
-                            <p className="text-xs text-neutral-500 uppercase tracking-wider font-medium mb-1">Verified Seller</p>
+                            <div className="flex items-center justify-center gap-1.5 mb-1">
+                                <h3 className="text-lg font-bold text-neutral-900">{ownerName}</h3>
+                                {(product as any).is_verified && (
+                                    <BadgeCheck className="w-5 h-5 text-blue-500 fill-blue-50" />
+                                )}
+                            </div>
+                            <p className="text-xs text-neutral-500 uppercase tracking-wider font-medium mb-1">
+                                {(product as any).is_verified ? 'Verified Owner' : 'Owner'}
+                            </p>
                             {contactNumber && (
                                 <p className="text-sm font-mono text-neutral-600 bg-neutral-50 px-2 py-1 rounded inline-block">
                                     {contactNumber}

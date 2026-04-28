@@ -9,11 +9,12 @@ const HERO_SRC = '/hero-new.jpg';
 
 const HeroSearch = dynamic(() => import('./hero-search').then(m => m.HeroSearch), {
     ssr: false,
-    loading: () => <div className="h-14 w-full max-w-xl bg-white/10 rounded-full animate-pulse" />
+    loading: () => <div className="h-14 w-full max-w-xl bg-white/10 rounded-full animate-pulse" />,
 });
 
 import { useState, useEffect } from 'react';
 import { getApprovedCitiesAction } from '@/app/actions';
+import { useListingMode } from '@/lib/listing-mode-context';
 
 // Define Prop Type to include onSearch
 interface HeroProps {
@@ -22,14 +23,22 @@ interface HeroProps {
 
 export function Hero({ onSearch }: HeroProps) {
     const [cities, setCities] = useState<{name: string, count: number}[]>([]);
+    const [mounted, setMounted] = useState(false);
+    const { mode } = useListingMode();
 
     useEffect(() => {
-        getApprovedCitiesAction().then(res => {
+        setMounted(true);
+    }, []);
+
+    useEffect(() => {
+        if (!mounted) return;
+        // Re-fetch cities whenever mode changes so Popular list matches current mode
+        getApprovedCitiesAction(mode === 'sell' ? 'sell' : 'rent').then(res => {
             if (res.success) {
                 setCities(res.cities);
             }
         });
-    }, []);
+    }, [mode, mounted]);
 
     return (
         <div suppressHydrationWarning className="relative min-h-[50vh] h-auto pb-10 md:min-h-[80vh] w-full overflow-hidden group">
@@ -59,18 +68,25 @@ export function Hero({ onSearch }: HeroProps) {
                     </div>
 
                     {/* Hero Title */}
-                    <h1 className="text-2xl md:text-4xl lg:text-5xl font-medium text-white tracking-tight leading-tight drop-shadow-lg px-2">
-                        Find Your Perfect Home – Zero Brokerage, Zero Stress.
+                    <h1
+                        suppressHydrationWarning
+                        className="text-2xl md:text-4xl lg:text-5xl font-medium text-white tracking-tight leading-tight drop-shadow-lg px-2"
+                    >
+                        {mounted && mode === 'sell'
+                            ? 'Buy Your Dream Property – Zero Brokerage, Zero Stress.'
+                            : 'Find Your Perfect Home – Zero Brokerage, Zero Stress.'}
                     </h1>
 
                     {/* Description */}
-                    <p className="text-sm md:text-lg text-white/80 max-w-2xl font-light leading-relaxed drop-shadow-md px-4 mb-6">
-                        Discover verified rooms, PGs, and shared flats in Mandsaur. Connect directly with owners.
+                    <p suppressHydrationWarning className="text-sm md:text-lg text-white/80 max-w-2xl font-light leading-relaxed drop-shadow-md px-4 mb-6">
+                        {mounted && mode === 'sell'
+                            ? 'Discover verified properties for sale in Mandsaur. Connect directly with owners.'
+                            : 'Discover verified rooms, PGs, and shared flats in Mandsaur. Connect directly with owners.'}
                     </p>
 
                     {/* Functional Search Bar */}
                     <div className="w-[92%] md:w-full flex justify-center mt-8 md:mt-10">
-                        <HeroSearch cities={cities} onSearch={onSearch} />
+                        <HeroSearch cities={cities} onSearch={onSearch} mode={mode} />
                     </div>
                 </div>
             </div>

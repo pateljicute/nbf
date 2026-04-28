@@ -52,6 +52,7 @@ export async function Footer() {
               <h4 className="font-serif text-lg font-medium">Properties</h4>
               <ul className="flex flex-col gap-4 text-neutral-400">
                 <li><Link href="/properties" className="hover:text-white transition-colors">All Properties</Link></li>
+                <li><Link href="/locations" className="hover:text-white transition-colors">Property Directory</Link></li>
                 {collections.slice(0, 4).map((collection) => (
                   <li key={collection.handle}>
                     <Link href={`/properties?type=${encodeURIComponent(collection.title)}`} className="hover:text-white transition-colors capitalize">

@@ -1,7 +1,7 @@
 -- Create support_requests table for banned user appeals
 CREATE TABLE IF NOT EXISTS public.support_requests (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-    user_id uuid REFERENCES public.users(id), -- Optional: Link to user if available
+    user_id uuid, -- Optional: Link to user if available
     first_name text NOT NULL,
     last_name text NOT NULL,
     email text NOT NULL,
@@ -15,14 +15,14 @@ CREATE TABLE IF NOT EXISTS public.support_requests (
 -- RLS Policies
 ALTER TABLE public.support_requests ENABLE ROW LEVEL SECURITY;
 
--- Allow anyone to create a request (banned users may not be fully authenticated in some contexts, but ideally they are)
--- If we require auth:
+-- Allow anyone to create a request
+DROP POLICY IF EXISTS "Allow authenticated users to insert support requests" ON public.support_requests;
 CREATE POLICY "Allow authenticated users to insert support requests" 
 ON public.support_requests FOR INSERT 
-TO authenticated 
 WITH CHECK (true);
 
 -- Allow admins to view all
+DROP POLICY IF EXISTS "Allow admins to view all support requests" ON public.support_requests;
 CREATE POLICY "Allow admins to view all support requests"
 ON public.support_requests FOR SELECT
 TO authenticated

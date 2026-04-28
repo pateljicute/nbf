@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
         const lng = parseFloat(searchParams.get('lng') || '');
         const radius = parseFloat(searchParams.get('radius') || '20'); // Default 20km
         const mode = searchParams.get('mode');
+        const listing_type = searchParams.get('listing_type');
 
         // 1. Popular Areas Mode (Grouped by Locality)
         if (mode === 'areas' && !isNaN(lat) && !isNaN(lng)) {
@@ -68,11 +69,17 @@ export async function GET(request: NextRequest) {
             if (!rpcError && rpcData && rpcData.length > 0) {
                 // RPC doesn't return all columns — fetch full data for these IDs
                 const ids = (rpcData as any[]).map((p: any) => p.id);
-                const { data: fullData, error: fullError } = await supabase
+                let fullDataQuery = supabase
                     .from('properties')
-                    .select('id,handle,title,description,price_range,currency_code,featured_image,tags,available_for_sale,category_id,"contactNumber",user_id,seo,"bathroomType","securityDeposit","electricityStatus","tenantPreference",latitude,longitude,"googleMapsLink",is_verified,status,view_count,created_at,"price","location","address","type",state,city,locality,amenities,built_up_area,furnishing_status,floor_number,total_floors')
+                    .select('id,handle,title,description,price_range,currency_code,featured_image,tags,available_for_sale,category_id,"contactNumber",user_id,seo,"bathroomType","securityDeposit","electricityStatus","tenantPreference",latitude,longitude,"googleMapsLink",is_verified,status,view_count,created_at,"price","location","address","type",state,city,locality,amenities,built_up_area,furnishing_status,floor_number,total_floors,listing_type')
                     .in('id', ids)
                     .eq('available_for_sale', true);
+                    
+                if (listing_type) {
+                    fullDataQuery = fullDataQuery.eq('listing_type', listing_type);
+                }
+
+                const { data: fullData, error: fullError } = await fullDataQuery;
 
                 if (!fullError && fullData) {
                     return NextResponse.json(fullData.map(mapPropertyToProduct));
@@ -91,10 +98,16 @@ export async function GET(request: NextRequest) {
             return NextResponse.json(cached);
         }
 
-        const { data, error } = await supabase
+        let dbQuery = supabase
             .from("properties")
-            .select('id,handle,title,description,price_range,currency_code,featured_image,tags,available_for_sale,category_id,"contactNumber",user_id,seo,"bathroomType","securityDeposit","electricityStatus","tenantPreference",latitude,longitude,"googleMapsLink",is_verified,status,view_count,created_at,"price","location","address","type",state,city,locality,amenities,built_up_area,furnishing_status,floor_number,total_floors')
-            .eq('available_for_sale', true)
+            .select('id,handle,title,description,price_range,currency_code,featured_image,tags,available_for_sale,category_id,"contactNumber",user_id,seo,"bathroomType","securityDeposit","electricityStatus","tenantPreference",latitude,longitude,"googleMapsLink",is_verified,status,view_count,created_at,"price","location","address","type",state,city,locality,amenities,built_up_area,furnishing_status,floor_number,total_floors,listing_type')
+            .eq('available_for_sale', true);
+            
+        if (listing_type) {
+            dbQuery = dbQuery.eq('listing_type', listing_type);
+        }
+
+        const { data, error } = await dbQuery
             .order('created_at', { ascending: false })
             .limit(50);
         if (error) throw error;
@@ -117,7 +130,7 @@ export async function POST(request: NextRequest) {
         console.log('POST /products body:', body);
 
         // Validate and sanitize inputs
-        let { query, limit, sortKey, reverse, minPrice, maxPrice, location, propertyType, amenities, lat, lng, radius } = body;
+        let { query, limit, sortKey, reverse, minPrice, maxPrice, location, propertyType, amenities, lat, lng, radius, listing_type } = body;
 
         const safeLimit = limit && validateInput(limit, 'number')
             ? Math.max(1, Math.min(Math.floor(limit), 50))
@@ -138,8 +151,30 @@ export async function POST(request: NextRequest) {
                     radius_meters: searchRadius
                 });
 
-                if (!rpcError && nearby) {
-                    let results = (nearby as any[]).map(mapPropertyToProduct);
+                if (!rpcError && nearby && (nearby as any[]).length > 0) {
+                    const ids = (nearby as any[]).map((p: any) => p.id);
+                    let fullDataQuery = supabase
+                        .from('properties')
+                        .select('id,handle,title,description,price_range,currency_code,featured_image,tags,available_for_sale,category_id,"contactNumber",user_id,seo,"bathroomType","securityDeposit","electricityStatus","tenantPreference",latitude,longitude,"googleMapsLink",is_verified,status,view_count,created_at,"price","location","address","type",state,city,locality,amenities,built_up_area,furnishing_status,floor_number,total_floors,listing_type')
+                        .in('id', ids)
+                        .eq('available_for_sale', true);
+                        
+                    if (listing_type) {
+                        fullDataQuery = fullDataQuery.eq('listing_type', listing_type);
+                    }
+
+                    const { data: fullData, error: fullError } = await fullDataQuery;
+
+                    let results = [];
+                    if (!fullError && fullData) {
+                        results = fullData.map(mapPropertyToProduct);
+                    } else {
+                        // Fallback but with basic memory filter
+                        results = (nearby as any[]).map(mapPropertyToProduct);
+                        if (listing_type) {
+                            results = results.filter(p => (p.listing_type || 'rent') === listing_type);
+                        }
+                    }
                     
                     // Apply common filters to nearby results
                     if (minPrice !== undefined) {
@@ -200,11 +235,14 @@ export async function POST(request: NextRequest) {
 
         let dbQuery = supabase
             .from("properties")
-            .select('id,handle,title,description,price_range,currency_code,featured_image,tags,available_for_sale,category_id,"contactNumber",user_id,seo,"bathroomType","securityDeposit","electricityStatus","tenantPreference",latitude,longitude,"googleMapsLink",is_verified,status,view_count,created_at,"price","location","address","type",state,city,locality,amenities,built_up_area,furnishing_status,floor_number,total_floors')
+            .select('id,handle,title,description,price_range,currency_code,featured_image,tags,available_for_sale,category_id,"contactNumber",user_id,seo,"bathroomType","securityDeposit","electricityStatus","tenantPreference",latitude,longitude,"googleMapsLink",is_verified,status,view_count,created_at,"price","location","address","type",state,city,locality,amenities,built_up_area,furnishing_status,floor_number,total_floors,listing_type')
             .limit(safeLimit);
 
         // Apply base filter
         dbQuery = dbQuery.eq('available_for_sale', true);
+        if (listing_type) {
+            dbQuery = dbQuery.eq('listing_type', listing_type);
+        }
 
         // Apply search and filtering
         // Apply search and filtering
@@ -218,10 +256,16 @@ export async function POST(request: NextRequest) {
 
             // --- Priority 1: Explicit Column Match ---
             // Check if the query matches a location field directly.
-            const { data: strictData, error: strictError } = await supabase
+            let strictQuery = supabase
                 .from("properties")
-                .select('id,handle,title,description,price_range,currency_code,featured_image,tags,available_for_sale,category_id,"contactNumber",user_id,seo,"bathroomType","securityDeposit","electricityStatus","tenantPreference",latitude,longitude,"googleMapsLink",is_verified,status,view_count,created_at,"price","location","address","type",state,city,locality,amenities,built_up_area,furnishing_status,floor_number,total_floors')
-                .eq('available_for_sale', true)
+                .select('id,handle,title,description,price_range,currency_code,featured_image,tags,available_for_sale,category_id,"contactNumber",user_id,seo,"bathroomType","securityDeposit","electricityStatus","tenantPreference",latitude,longitude,"googleMapsLink",is_verified,status,view_count,created_at,"price","location","address","type",state,city,locality,amenities,built_up_area,furnishing_status,floor_number,total_floors,listing_type')
+                .eq('available_for_sale', true);
+                
+            if (listing_type) {
+                strictQuery = strictQuery.eq('listing_type', listing_type);
+            }
+
+            const { data: strictData, error: strictError } = await strictQuery
                 // Phase 2: Thinking (Server SQL - City, Area, Address)
                 .or(`city.ilike.%${safeQuery}%,locality.ilike.%${safeQuery}%,state.ilike.%${safeQuery}%,address.ilike.%${safeQuery}%`)
                 .limit(50); // Safe limit

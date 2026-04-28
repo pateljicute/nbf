@@ -3,7 +3,7 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
-// Helper to create context-aware Supabase client (Duplicated helper to avoid import cycle with actions.ts)
+// Helper to create context-aware Supabase client
 async function getSupabaseClient() {
     const cookieStore = await cookies();
 
@@ -16,24 +16,62 @@ async function getSupabaseClient() {
                     return cookieStore.get(name)?.value;
                 },
                 set(name: string, value: string, options: CookieOptions) {
-                    try {
-                        cookieStore.set({ name, value, ...options });
-                    } catch (error) {
-                        // Handle cookie setting error
-                    }
+                    try { cookieStore.set({ name, value, ...options }); } catch {}
                 },
                 remove(name: string, options: CookieOptions) {
-                    try {
-                        cookieStore.set({ name, value: '', ...options });
-                    } catch (error) {
-                        // Handle cookie removal error
-                    }
+                    try { cookieStore.set({ name, value: '', ...options }); } catch {}
                 },
             },
         }
     );
 }
 
+// ── Check if user can submit (24h cooldown) ────────────────────────────────
+export async function checkSupportCooldownAction(email: string, userId?: string): Promise<{
+    canSubmit: boolean;
+    hoursRemaining?: number;
+    minutesRemaining?: number;
+}> {
+    try {
+        const supabase = await getSupabaseClient();
+
+        // Build query — check by email OR user_id (whichever is available)
+        let query = supabase
+            .from('support_requests')
+            .select('created_at')
+            .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+        if (userId) {
+            query = query.or(`email.eq.${email},user_id.eq.${userId}`);
+        } else {
+            query = query.eq('email', email);
+        }
+
+        const { data, error } = await query;
+
+        if (error || !data || data.length === 0) {
+            return { canSubmit: true };
+        }
+
+        // Found a recent request — calculate remaining time
+        const lastSubmission = new Date(data[0].created_at).getTime();
+        const cooldownEnd = lastSubmission + 24 * 60 * 60 * 1000;
+        const remainingMs = cooldownEnd - Date.now();
+
+        if (remainingMs <= 0) return { canSubmit: true };
+
+        const hoursRemaining = Math.floor(remainingMs / (60 * 60 * 1000));
+        const minutesRemaining = Math.floor((remainingMs % (60 * 60 * 1000)) / (60 * 1000));
+
+        return { canSubmit: false, hoursRemaining, minutesRemaining };
+    } catch {
+        return { canSubmit: true }; // Fail open (don't block user on error)
+    }
+}
+
+// ── Submit Support Request ─────────────────────────────────────────────────
 export async function submitSupportRequestAction(data: {
     firstName: string;
     lastName: string;
@@ -46,6 +84,21 @@ export async function submitSupportRequestAction(data: {
     try {
         const supabase = await getSupabaseClient();
 
+        // Server-side 24h cooldown check
+        const cooldown = await checkSupportCooldownAction(data.email, data.userId);
+        if (!cooldown.canSubmit) {
+            const timeMsg = cooldown.hoursRemaining
+                ? `${cooldown.hoursRemaining}h ${cooldown.minutesRemaining}m`
+                : `${cooldown.minutesRemaining} minutes`;
+            return {
+                success: false,
+                error: `You have already submitted a request recently. Please wait ${timeMsg} before sending another.`,
+                cooldown: true,
+                hoursRemaining: cooldown.hoursRemaining,
+                minutesRemaining: cooldown.minutesRemaining,
+            };
+        }
+
         // Insert into support_requests
         const { error } = await supabase.from('support_requests').insert({
             first_name: data.firstName,
@@ -54,7 +107,7 @@ export async function submitSupportRequestAction(data: {
             phone_number: data.phoneNumber,
             subject: data.subject,
             message: data.message,
-            user_id: data.userId
+            user_id: data.userId || null,
         });
 
         if (error) {
@@ -62,17 +115,16 @@ export async function submitSupportRequestAction(data: {
             return { success: false, error: error.message };
         }
 
-        // Trigger Notification to Admin
+        // Notify Admin
         try {
-            // Dynamic import to keep dependencies light and isolated
             const { sendAdminPushNotification } = await import('@/lib/notifications');
             await sendAdminPushNotification({
-                title: `New Support Appeal: ${data.firstName}`,
+                title: `📩 New Appeal: ${data.firstName}`,
                 body: `Subject: ${data.subject}`,
                 url: `/admin`
             });
         } catch (notifError) {
-            console.warn('Failed to send admin notification for support request:', notifError);
+            console.warn('Admin notification failed:', notifError);
         }
 
         return { success: true };

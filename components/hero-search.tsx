@@ -7,9 +7,10 @@ import { useState } from 'react';
 interface HeroSearchProps {
     onSearch?: (query: string) => void;
     cities?: { name: string; count: number }[];
+    mode?: string;
 }
 
-export function HeroSearch({ onSearch, cities = [] }: HeroSearchProps) {
+export function HeroSearch({ onSearch, cities = [], mode = 'rent' }: HeroSearchProps) {
     const router = useRouter();
     const [query, setQuery] = useState('');
 
@@ -26,6 +27,8 @@ export function HeroSearch({ onSearch, cities = [] }: HeroSearchProps) {
         }
     };
 
+    const isSell = mode === 'sell';
+
     return (
         <div className="mt-4 w-full md:w-full max-w-2xl relative z-50 mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 flex flex-col gap-4">
             <form
@@ -38,7 +41,9 @@ export function HeroSearch({ onSearch, cities = [] }: HeroSearchProps) {
                         type="text"
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
-                        placeholder="Search by City, Locality or Project..."
+                        placeholder={isSell
+                            ? 'Search by City, Area or Property Type...'
+                            : 'Search by City, Locality or Project...'}
                         className="w-full bg-transparent text-sm md:text-base font-medium text-neutral-800 placeholder:text-neutral-400 focus:outline-none py-2"
                     />
                 </div>
@@ -53,7 +58,9 @@ export function HeroSearch({ onSearch, cities = [] }: HeroSearchProps) {
             {/* Dynamic City Selector */}
             {cities.length > 0 && (
                 <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-2 px-1">
-                    <span className="text-white/60 text-xs font-bold uppercase tracking-wider shrink-0 mr-1">Popular:</span>
+                    <span className="text-white/60 text-xs font-bold uppercase tracking-wider shrink-0 mr-1">
+                        {isSell ? 'Buy In:' : 'Popular:'}
+                    </span>
                     {cities.map((city) => (
                         <button
                             key={city.name}

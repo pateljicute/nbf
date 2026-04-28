@@ -3,7 +3,7 @@
 import { useAuth } from '@/lib/auth-context';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useMemo } from 'react';
-import { User, LogOut, MapPin, Phone, Mail, Building, Edit, Trash2, Download, EyeOff, Eye, XCircle, Hash, MessageCircle } from 'lucide-react';
+import { User, LogOut, MapPin, Phone, Mail, Building, Edit, Trash2, Download, EyeOff, Eye, XCircle, Hash, MessageCircle, Flag } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'motion/react';
 import { getUserProducts, deleteProduct, updateProduct, getUserEnquiries, getSiteSettings } from '@/lib/api';
@@ -20,6 +20,11 @@ export default function ProfilePage() {
     const [qrPosterProperty, setQrPosterProperty] = useState<Product | null>(null); // New State
     const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
     const [togglingPropertyId, setTogglingPropertyId] = useState<string | null>(null);
+    const [activeTab, setActiveTab] = useState<'rent' | 'sell'>('rent');
+
+    const filteredProperties = useMemo(() => {
+        return properties.filter(p => (p.listing_type || 'rent') === activeTab);
+    }, [properties, activeTab]);
 
     const [enquiriesCount, setEnquiriesCount] = useState(0);
     const [howToVideoUrl, setHowToVideoUrl] = useState<string | null>(null);
@@ -290,12 +295,20 @@ export default function ProfilePage() {
                                     href={howToVideoUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="bg-blue-50/50 rounded-lg p-3 border border-blue-100 flex flex-col justify-center gap-1 col-span-2 group"
+                                    className="bg-blue-50/50 rounded-lg p-3 border border-blue-100 flex flex-col justify-center gap-1 col-span-1 group"
                                 >
                                     <p className="text-[10px] font-bold uppercase text-blue-600 tracking-wider flex items-center gap-1">Tutorial Video <Eye className="w-3 h-3 group-hover:scale-110 transition-transform" /></p>
                                     <p className="text-sm font-bold text-blue-900 leading-none">How to Upload Property</p>
                                 </a>
                             )}
+
+                            <button 
+                                onClick={() => router.push('/profile/reports')}
+                                className="bg-orange-50/50 rounded-lg p-3 border border-orange-100 flex flex-col justify-center gap-1 col-span-1 group text-left"
+                            >
+                                <p className="text-[10px] font-bold uppercase text-orange-600 tracking-wider flex items-center gap-1">My Reports <Flag className="w-3 h-3 group-hover:scale-110 transition-transform" /></p>
+                                <p className="text-sm font-bold text-orange-900 leading-none">Track Status</p>
+                            </button>
                         </div>
 
                         {/* Desktop Stats (Hidden on Mobile) */}
@@ -357,6 +370,10 @@ export default function ProfilePage() {
                                     <MapPin className="w-4 h-4" />
                                     Saved Locations
                                 </button>
+                                <button onClick={() => router.push('/profile/reports')} className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-orange-600 bg-orange-50 hover:bg-orange-100 hover:text-orange-700 rounded-lg transition-colors mt-1">
+                                    <Flag className="w-4 h-4" />
+                                    My Reports
+                                </button>
                                 <button className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-50 hover:text-black rounded-lg transition-colors">
                                     <Phone className="w-4 h-4" />
                                     Contact Support
@@ -374,11 +391,27 @@ export default function ProfilePage() {
                     {/* Main Content - My Properties */}
                     <div className="lg:col-span-2 space-y-4">
                         <div className="bg-white rounded-xl shadow-sm border border-neutral-200 p-4 md:p-6">
-                            <div className="flex items-center justify-between mb-4 md:mb-6">
-                                <h2 className="text-base md:text-lg font-bold text-neutral-900">My Properties</h2>
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 md:mb-6">
+                                <div className="flex items-center flex-wrap gap-2">
+                                    <h2 className="text-base md:text-lg font-bold text-neutral-900 mr-2">My Properties</h2>
+                                    <div className="flex bg-neutral-100 p-1 rounded-lg">
+                                        <button
+                                            onClick={() => setActiveTab('rent')}
+                                            className={`px-4 py-1.5 text-xs font-bold rounded-md transition-colors ${activeTab === 'rent' ? 'bg-black text-white shadow-sm' : 'text-neutral-600 hover:text-black'}`}
+                                        >
+                                            Rent
+                                        </button>
+                                        <button
+                                            onClick={() => setActiveTab('sell')}
+                                            className={`px-4 py-1.5 text-xs font-bold rounded-md transition-colors ${activeTab === 'sell' ? 'bg-[#e8202a] text-white shadow-sm' : 'text-neutral-600 hover:text-black'}`}
+                                        >
+                                            Sell
+                                        </button>
+                                    </div>
+                                </div>
                                 <button
                                     onClick={() => router.push('/post-property')}
-                                    className="text-xs md:text-sm font-medium text-black hover:underline bg-neutral-100 px-3 py-1.5 rounded-full"
+                                    className="text-xs md:text-sm font-medium text-black hover:underline bg-neutral-100 px-3 py-1.5 rounded-full w-fit shrink-0"
                                 >
                                     + Post New
                                 </button>
@@ -388,9 +421,9 @@ export default function ProfilePage() {
                                 <div className="flex justify-center py-12">
                                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black"></div>
                                 </div>
-                            ) : properties.length > 0 ? (
+                            ) : filteredProperties.length > 0 ? (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    {properties.map((property) => (
+                                    {filteredProperties.map((property) => (
                                         <div key={property.id} className="group relative border border-neutral-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
                                             <div className="flex sm:block h-28 sm:h-auto">
                                                 {/* Image (Left on Mobile, Top on Desktop) */}
@@ -531,13 +564,13 @@ export default function ProfilePage() {
                                 /* Empty State */
                                 <div className="text-center py-12 bg-neutral-50 rounded-lg border border-dashed border-neutral-200">
                                     <Building className="w-12 h-12 text-neutral-300 mx-auto mb-3" />
-                                    <h3 className="text-sm font-medium text-neutral-900">No properties listed yet</h3>
+                                    <h3 className="text-sm font-medium text-neutral-900">No {activeTab} properties listed yet</h3>
                                     <p className="text-sm text-neutral-500 mt-1 mb-4">Start earning by listing your property today.</p>
                                     <button
-                                        onClick={() => router.push('/post-property')}
+                                        onClick={() => router.push(`/post-property?mode=${activeTab}`)}
                                         className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-black hover:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
                                     >
-                                        Post Property
+                                        Post {activeTab === 'rent' ? 'Property for Rent' : 'Property for Sale'}
                                     </button>
                                 </div>
                             )}

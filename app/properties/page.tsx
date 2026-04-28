@@ -6,10 +6,24 @@ import { Suspense } from 'react';
 import { ProductGrid } from './components/product-grid';
 import { ProductCardSkeleton } from './components/product-card-skeleton';
 
-export const metadata: Metadata = {
-  title: 'NBFHOMES | All Properties',
-  description: 'Browse our collection of verified PGs, rooms, and apartments.',
-};
+export async function generateMetadata(props: { searchParams?: Promise<{ [key: string]: string | string[] | undefined }> }): Promise<Metadata> {
+  const searchParams = await props.searchParams;
+  const q = searchParams?.q ? String(searchParams.q).trim() : '';
+  const city = q || 'Mandsaur & Nearby';
+  const mode = searchParams?.mode === 'sell' ? 'Sale' : 'Rent';
+  
+  const title = `Properties for ${mode} in ${city} | NBF Homes`;
+  const description = `Browse our collection of verified properties for ${mode.toLowerCase()} in ${city}. Find houses, flats, PGs and more with 0% brokerage.`;
+
+  return {
+    title,
+    description,
+    keywords: [`Properties for ${mode}`, `Real Estate in ${city}`, `Buy flat in ${city}`, `Rent PG in ${city}`, 'Zero Brokerage'],
+    alternates: {
+      canonical: `https://www.nbfhomes.in/properties?mode=${searchParams?.mode || 'rent'}${q ? `&q=${q}` : ''}`,
+    }
+  };
+}
 
 export const viewport: Viewport = {
   width: 'device-width',

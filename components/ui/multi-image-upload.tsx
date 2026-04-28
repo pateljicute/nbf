@@ -3,9 +3,67 @@
 import { useState, useRef, ChangeEvent, DragEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Upload, X, AlertCircle } from 'lucide-react';
+import { Upload, X, AlertCircle, Loader2 } from 'lucide-react';
 import { uploadImage, validateImageDimensions, getOptimizedImageUrl } from '@/lib/cloudinary-utils';
 import { cn } from '@/lib/utils';
+
+// ── Canvas-based Image Compression ──────────────────────────────────────────
+// No external library needed — pure browser Canvas API
+async function compressImage(file: File, maxWidth = 1200, quality = 0.82): Promise<File> {
+  return new Promise((resolve, reject) => {
+    const img = new window.Image();
+    const objectUrl = URL.createObjectURL(file);
+
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl); // Free memory
+
+      let { width, height } = img;
+
+      // Only downscale — never upscale small images
+      if (width > maxWidth) {
+        height = Math.round((height * maxWidth) / width);
+        width = maxWidth;
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        resolve(file); // Fallback: return original if canvas not available
+        return;
+      }
+
+      ctx.drawImage(img, 0, 0, width, height);
+
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            resolve(file); // Fallback
+            return;
+          }
+          // Keep original filename but mark as jpeg
+          const compressedFile = new File(
+            [blob],
+            file.name.replace(/\.[^.]+$/, '.jpg'),
+            { type: 'image/jpeg', lastModified: Date.now() }
+          );
+          resolve(compressedFile);
+        },
+        'image/jpeg',
+        quality
+      );
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(file); // Fallback: return original on error
+    };
+
+    img.src = objectUrl;
+  });
+}
 
 interface MultiImageUploadProps {
   images: string[];
@@ -27,6 +85,7 @@ export function MultiImageUpload({
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isCompressing, setIsCompressing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -45,34 +104,60 @@ export function MultiImageUpload({
     const filesToUpload = Array.from(files).slice(0, remainingSlots);
     const newUrls: string[] = [];
 
+    // Step 1: Validate file types
+    for (const file of filesToUpload) {
+      if (!allowedTypes.includes(file.type)) {
+        setError(`Invalid file type: ${file.name}. Only JPG, PNG, WebP allowed.`);
+        return;
+      }
+      // 20MB raw limit before compression (compression will reduce it further)
+      if (file.size > 20 * 1024 * 1024) {
+        setError(`File too large: ${file.name}. Maximum 20MB per image.`);
+        return;
+      }
+    }
+
+    // Step 2: Compress all images first
+    setIsCompressing(true);
+    const compressedFiles: File[] = [];
+    for (let i = 0; i < filesToUpload.length; i++) {
+      try {
+        const compressed = await compressImage(filesToUpload[i]);
+        compressedFiles.push(compressed);
+        console.log(`[Compress] ${filesToUpload[i].name}: ${(filesToUpload[i].size / 1024).toFixed(0)}KB → ${(compressed.size / 1024).toFixed(0)}KB`);
+      } catch {
+        compressedFiles.push(filesToUpload[i]); // Fallback to original
+      }
+    }
+    setIsCompressing(false);
+
+    // Step 3: Validate compressed size (should be under maxFileSize MB)
+    for (const file of compressedFiles) {
+      if (file.size > maxFileSize * 1024 * 1024) {
+        setError(`Image still too large after compression: ${file.name}. Try a smaller image.`);
+        return;
+      }
+    }
+
+    // Step 4: Upload compressed images
     setIsUploading(true);
     setUploadProgress(0);
 
-    for (let i = 0; i < filesToUpload.length; i++) {
-      const file = filesToUpload[i];
-
-      if (!allowedTypes.includes(file.type)) {
-        setError(`Invalid file type: ${file.name}`);
-        continue;
-      }
-
-      if (file.size > maxFileSize * 1024 * 1024) {
-        setError(`File too large: ${file.name}`);
-        continue;
-      }
+    for (let i = 0; i < compressedFiles.length; i++) {
+      const file = compressedFiles[i];
 
       try {
         const { valid } = await validateImageDimensions(file);
         if (!valid) {
-          setError(`Image too small: ${file.name}`);
+          setError(`Image too small: ${filesToUpload[i].name}. Minimum 200x200px.`);
           continue;
         }
 
         const url = await uploadImage(file);
         newUrls.push(url);
-        setUploadProgress(((i + 1) / filesToUpload.length) * 100);
+        setUploadProgress(((i + 1) / compressedFiles.length) * 100);
       } catch (err: any) {
-        setError(err.message || `Failed to upload ${file.name}`);
+        setError(err.message || `Failed to upload ${filesToUpload[i].name}`);
       }
     }
 
@@ -133,13 +218,16 @@ export function MultiImageUpload({
         </div>
       )}
 
-      {isUploading && (
+      {(isCompressing || isUploading) && (
         <div className="space-y-2">
           <div className="flex justify-between text-sm">
-            <span>Uploading...</span>
-            <span>{Math.round(uploadProgress)}%</span>
+            <span className="flex items-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              {isCompressing ? 'Compressing images...' : 'Uploading...'}
+            </span>
+            {isUploading && <span>{Math.round(uploadProgress)}%</span>}
           </div>
-          <Progress value={uploadProgress} className="h-2" />
+          {isUploading && <Progress value={uploadProgress} className="h-2" />}
         </div>
       )}
 

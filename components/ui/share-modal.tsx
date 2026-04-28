@@ -51,28 +51,54 @@ export function ShareModal({ isOpen, onClose, product }: ShareModalProps) {
     incrementLeadsCountAction(product.id);
 
     // Data Collection with Fallbacks
-    const rent = Number(product.price || product.priceRange?.minVariantPrice?.amount || 0).toLocaleString('en-IN');
+    const priceStr = Number(product.price || product.priceRange?.minVariantPrice?.amount || 0).toLocaleString('en-IN');
+    const isSell = product.listing_type === 'sell';
+    
     const tenant = product.tenantPreference || 'Any';
-    const bathroom = product.bathroom_type || 'Standard';
-    const electricity = product.electricityStatus || 'Standard';
-    const type = product.type || 'Flat';
-    // const amenities = product.amenities?.length ? product.amenities.join(', ') : 'Contact for details';
-    // Shorten amenities for better formatting if needed, but user asked for "amenities"
+    const bathroom = product.bathroom_type || 'Not specified';
+    const type = product.type || 'Property';
+    const area = product.builtUpArea || product.total_area || '';
+    const bhk = product.bhk ? `${product.bhk} BHK` : '';
+    const furnishing = product.furnishingStatus || 'Not specified';
+    const title = product.title || 'Property';
+    
     const amenities = product.amenities?.slice(0, 5).join(', ') + (product.amenities && product.amenities.length > 5 ? '...' : '') || 'Contact for details';
     const address = product.address || product.location || 'Ask for full address';
-    // const mapLink = product.googleMapsLink || 'Ask for location'; 
-    // User requested "Link Copied!" for copy, but for WA message we need the actual link in the text.
 
-    // Professional Formatting
-    const message = `🏠 NBF HOMES - Property Details
+    const areaBhkStr = [bhk, area].filter(Boolean).join(' | ') || 'Contact for Area';
 
-    💰 Rent: ₹${rent} | 👥 Tenant: ${tenant}
-    
-    🚿 Bath: ${bathroom} | 🛋️ Amenities: ${amenities}
-    
-    📍 Address: ${address}
-    
-    🔗 Link: ${fullUrl}`;
+    // Professional Formatting based on Mode
+    let message = '';
+    if (isSell) {
+      message = `🏠 NBF HOMES - ${type} For Sale
+      
+📝 Title: ${title}
+💰 Budget/Price: ₹${priceStr}
+📏 Area/BHK: ${areaBhkStr}
+🛋️ Furnishing: ${furnishing.replace('_', ' ')}
+🚿 Bath: ${bathroom}
+✨ Amenities: ${amenities}
+📍 Address: ${address}
+
+Aur adhik jankari aur property ki photos dekhne ke liye niche di gayi link par click karein 👇
+
+🔗 Link: ${fullUrl}`;
+    } else {
+      message = `🏠 NBF HOMES - ${type} For Rent
+      
+📝 Title: ${title}
+💰 Rent: ₹${priceStr}/month
+📏 Area/BHK: ${areaBhkStr}
+🛋️ Furnishing: ${furnishing.replace('_', ' ')}
+👥 Tenant: ${tenant}
+🚿 Bath: ${bathroom}
+✨ Amenities: ${amenities}
+📍 Address: ${address}
+
+Aur adhik jankari aur property ki photos dekhne ke liye niche di gayi link par click karein 👇
+
+🔗 Link: ${fullUrl}`;
+    }
 
     // Clean up extra spaces/newlines
     const cleanMessage = message.replace(/^\s+/gm, '').trim();

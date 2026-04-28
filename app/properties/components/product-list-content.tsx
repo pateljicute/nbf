@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Product, Collection } from '@/lib/types';
 import { LatestProductCard } from '@/components/products/latest-product-card';
 import { Search } from 'lucide-react';
+import { useListingMode } from '@/lib/listing-mode-context';
 
 import { useProducts } from '../providers/products-provider';
 import { useQueryState, parseAsArrayOf, parseAsString } from 'nuqs';
@@ -18,17 +19,18 @@ interface ProductListContentProps {
 }
 
 // Client-side filtering function (simplified, removed color logic)
-function filterProducts(products: Product[]): Product[] {
-  return products;
+function filterProducts(products: Product[], mode: string): Product[] {
+  return products.filter(p => (p.listing_type || 'rent') === mode);
 }
 
 export function ProductListContent({ products, collections, searchQuery }: ProductListContentProps) {
   const { setProducts, setOriginalProducts } = useProducts();
+  const { mode } = useListingMode();
 
   // Apply client-side filtering whenever products change (currently pass-through)
   const filteredProducts = useMemo(() => {
-    return filterProducts(products);
-  }, [products]);
+    return filterProducts(products, mode);
+  }, [products, mode]);
 
   // Set both original and filtered products in the provider whenever they change
   useEffect(() => {

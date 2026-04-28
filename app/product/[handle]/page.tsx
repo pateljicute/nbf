@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/breadcrumb';
 import Link from 'next/link';
 import { ContactOwner } from '@/components/products/contact-owner';
+import { SharePropertyButton } from '@/components/products/share-property-button';
 import { ReportPropertyModal } from '@/components/products/report-property-modal';
 import { storeCatalog } from '@/lib/constants';
 import Prose from '@/components/prose';
@@ -26,7 +27,7 @@ import { DesktopGallery } from './components/desktop-gallery';
 import {
   Wifi, Car, Shield, Waves, Zap, Utensils, Shirt, PersonStanding, MapPin, Navigation, ExternalLink, AlertTriangle,
   Droplets, Bath, Armchair, Monitor, BookOpen, Warehouse, Trees, CheckCircle, Video, ArrowUpFromDot, Users, Home,
-  Smartphone, ShieldCheck, Scaling
+  Smartphone, ShieldCheck, Scaling, BadgeCheck
 } from 'lucide-react';
 import { ViewTracker } from '@/components/products/view-tracker';
 
@@ -65,11 +66,43 @@ export async function generateMetadata(props: { params: Promise<{ handle: string
   const city = product.city || product.tags?.[1] || 'Mandsaur';
   const area = product.locality || product.tags?.[2] || 'City';
   const state = product.state || 'Madhya Pradesh';
-  const alt = `Room for rent in ${area}, ${city}, ${state} - ${product.title} NBF Homes`;
+  const isSell = product.listing_type === 'sell';
+  const typeLabel = product.type || 'Property';
+
+  const alt = isSell 
+    ? `${typeLabel} for sale in ${area}, ${city}, ${state} - ${product.title} NBF Homes`
+    : `Room for rent in ${area}, ${city}, ${state} - ${product.title} NBF Homes`;
+
+  const metaTitle = isSell 
+    ? `${product.title} in ${area}, ${city} | Buy ${typeLabel} | NBF Homes`
+    : `${product.title} in ${area}, ${city} | No Brokerage | NBF Homes`;
+
+  const metaDesc = isSell
+    ? `Looking to buy a ${typeLabel} in ${city}? Check out ${product.title} in ${area}. Direct owner contact, 0% brokerage.`
+    : `Looking for a room in ${city}? Check out ${product.title} in ${area}. Direct owner contact, 0% brokerage.`;
+
+  const metaKeywords = isSell ? [
+      `Buy ${typeLabel} in ${city}`,
+      `${typeLabel} for sale in ${city}`,
+      `Real Estate in ${city}`,
+      `Property in ${area}`,
+      'No brokerage',
+      city,
+      area,
+      typeLabel
+  ] : [
+      'Room for rent',
+      `PG in ${city}`,
+      'Flat for rent',
+      'No brokerage',
+      city,
+      area,
+      typeLabel
+  ];
 
   return {
-    title: `${product.title} in ${area}, ${city} | No Brokerage | NBF Homes`,
-    description: `Looking for a room in ${city}? Check out ${product.title} in ${area}. Direct owner contact, 0% brokerage.`,
+    title: metaTitle,
+    description: metaDesc,
     robots: {
       index: indexable,
       follow: indexable,
@@ -93,15 +126,7 @@ export async function generateMetadata(props: { params: Promise<{ handle: string
     alternates: {
       canonical: `https://nbfhomes.in/product/${product.handle}`,
     },
-    keywords: [
-      'Room for rent',
-      'PG in Mandsaur',
-      'Flat for rent',
-      'No brokerage',
-      city,
-      area,
-      product.tags?.[0] || 'Property'
-    ].filter(Boolean),
+    keywords: metaKeywords.filter(Boolean),
   };
 }
 
@@ -113,18 +138,23 @@ export default async function ProductPage(props: { params: Promise<{ handle: str
 
   const collection = product.categoryId ? await getCollection(product.categoryId) : null;
 
+  const isSell = product.listing_type === 'sell';
+  
+  let schemaType = 'RealEstateListing';
+  if (product.type === 'House' || product.type === 'Villa') schemaType = 'SingleFamilyResidence';
+  if (product.type === 'Flat' || product.type === 'Apartment') schemaType = 'Apartment';
+
   const productJsonLd = {
     '@context': 'https://schema.org',
-    '@type': 'Product',
+    '@type': schemaType,
     name: product.title,
     description: product.description,
     image: product.featuredImage?.url,
     offers: {
-      '@type': 'AggregateOffer',
+      '@type': 'Offer',
       availability: product.availableForSale ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
       priceCurrency: product.currencyCode,
-      highPrice: product.priceRange?.maxVariantPrice?.amount || product.price || '0',
-      lowPrice: product.priceRange?.minVariantPrice?.amount || product.price || '0',
+      price: product.price || '0',
     },
   };
 
@@ -268,7 +298,12 @@ export default async function ProductPage(props: { params: Promise<{ handle: str
 
             {/* Title (Mobile Only) */}
             <div className="lg:hidden">
-              <h1 className="text-2xl font-medium text-neutral-800 mb-2">{product.title}</h1>
+              <h1 className="text-2xl font-medium text-neutral-800 mb-2 flex items-start gap-2">
+                {product.title}
+                {(product as any).is_verified && (
+                  <BadgeCheck className="w-6 h-6 text-blue-500 fill-blue-50 shrink-0 mt-0.5" />
+                )}
+              </h1>
               <div className="flex items-center text-black text-sm mb-6 font-bold">
                 <MapPin className="w-4 h-4 mr-1 stroke-[2.5]" />
                 {(() => {
@@ -288,7 +323,7 @@ export default async function ProductPage(props: { params: Promise<{ handle: str
               <div className="bg-white p-4 rounded-xl shadow-sm border border-neutral-200 mb-6">
                 <div className="flex justify-between items-start mb-4">
                   <div>
-                    <p className="text-xs text-neutral-500 font-bold uppercase tracking-wider mb-1">Monthly Rent</p>
+                    <p className="text-xs text-neutral-500 font-bold uppercase tracking-wider mb-1">{product.listing_type === 'sell' ? 'Asking Price' : 'Monthly Rent'}</p>
                     <span className="text-3xl font-bold text-neutral-900">
                       {formatPrice(product.price || product.priceRange?.minVariantPrice?.amount || '0', product.priceRange?.minVariantPrice?.currencyCode || 'INR')}
                     </span>
@@ -301,7 +336,7 @@ export default async function ProductPage(props: { params: Promise<{ handle: str
                   </div>
                 </div>
 
-                {product.securityDeposit && (
+                {product.securityDeposit && product.listing_type !== 'sell' && (
                   <div className="flex items-center justify-between pt-3 border-t border-neutral-100">
                     <div className="flex items-center text-neutral-500 text-xs font-medium">
                       <ShieldCheck className="w-3.5 h-3.5 mr-1.5 opacity-70" />
@@ -405,14 +440,102 @@ export default async function ProductPage(props: { params: Promise<{ handle: str
               </div>
             </div>
 
-            {/* Amenities Section (Refined UI: Active Only Grid) */}
-            <div className="bg-white p-6 md:p-8 rounded-2xl border border-neutral-200 shadow-sm">
-              <h2 className="text-xl font-bold text-neutral-900 mb-6 flex items-center">
-                <CheckCircle className="w-5 h-5 mr-2 text-neutral-900" />
-                Amenities & Features
-              </h2>
+            {/* Property Facts Section (Only for Buy/Sell) */}
+            {product.listing_type === 'sell' && (
+              <div className="bg-white p-6 md:p-8 rounded-2xl border border-neutral-200 shadow-sm my-6">
+                <h2 className="text-xl font-bold text-neutral-900 mb-6 flex items-center">
+                  <Scaling className="w-5 h-5 mr-2 text-neutral-900" />
+                  Property Facts
+                </h2>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+                  <div>
+                    <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider mb-1">Type</p>
+                    <p className="text-sm font-bold text-neutral-900">{product.type || 'Property'}</p>
+                  </div>
+                  {product.builtUpArea && (
+                    <div>
+                      <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider mb-1">Built-up Area</p>
+                      <p className="text-sm font-bold text-neutral-900">{product.builtUpArea} sq.ft</p>
+                    </div>
+                  )}
+                  {product.total_area && (
+                    <div>
+                      <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider mb-1">Total Area</p>
+                      <p className="text-sm font-bold text-neutral-900">{product.total_area}</p>
+                    </div>
+                  )}
+                  {product.dimensions && (
+                    <div>
+                      <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider mb-1">Dimensions</p>
+                      <p className="text-sm font-bold text-neutral-900">{product.dimensions}</p>
+                    </div>
+                  )}
+                  {product.facing && (
+                    <div>
+                      <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider mb-1">Facing</p>
+                      <p className="text-sm font-bold text-neutral-900">{product.facing}</p>
+                    </div>
+                  )}
+                  {product.bhk && (
+                    <div>
+                      <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider mb-1">BHK / Floor</p>
+                      <p className="text-sm font-bold text-neutral-900">{product.bhk}</p>
+                    </div>
+                  )}
+                  {product.property_age && (
+                    <div>
+                      <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider mb-1">Property Age</p>
+                      <p className="text-sm font-bold text-neutral-900">{product.property_age}</p>
+                    </div>
+                  )}
+                  {product.road_width && (
+                    <div>
+                      <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider mb-1">Road Width</p>
+                      <p className="text-sm font-bold text-neutral-900">{product.road_width}</p>
+                    </div>
+                  )}
+                  {product.shutter_width && (
+                    <div>
+                      <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider mb-1">Shutter Width</p>
+                      <p className="text-sm font-bold text-neutral-900">{product.shutter_width}</p>
+                    </div>
+                  )}
+                  {product.main_road_distance && (
+                    <div>
+                      <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider mb-1">Main Road Distance</p>
+                      <p className="text-sm font-bold text-neutral-900">{product.main_road_distance}</p>
+                    </div>
+                  )}
+                  
+                  {/* Legal Status for Sell Properties */}
+                  <div>
+                    <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider mb-1">Registry</p>
+                    <p className="text-sm font-bold text-neutral-900">{product.registry ? 'Yes' : 'No'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider mb-1">Diversion</p>
+                    <p className="text-sm font-bold text-neutral-900">{product.diversion ? 'Yes' : 'No'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider mb-1">Mutation (Namantaran)</p>
+                    <p className="text-sm font-bold text-neutral-900">{product.mutation ? 'Yes' : 'No'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider mb-1">Price Negotiable</p>
+                    <p className="text-sm font-bold text-neutral-900">{product.negotiable ? 'Yes' : 'No'}</p>
+                  </div>
+                </div>
+              </div>
+            )}
 
-              {activeAmenities.length > 0 || customAmenities.length > 0 ? (
+            {/* Amenities Section (Refined UI: Active Only Grid) */}
+            {hasAnyAmenity && (
+              <div className="bg-white p-6 md:p-8 rounded-2xl border border-neutral-200 shadow-sm my-6">
+                <h2 className="text-xl font-bold text-neutral-900 mb-6 flex items-center">
+                  <CheckCircle className="w-5 h-5 mr-2 text-neutral-900" />
+                  Amenities & Features
+                </h2>
+
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {activeAmenities.map((item) => {
                     const Icon = item.icon;
@@ -438,12 +561,8 @@ export default async function ProductPage(props: { params: Promise<{ handle: str
                     </div>
                   ))}
                 </div>
-              ) : (
-                <p className="text-neutral-500 text-sm italic py-4">
-                  No specific amenities listed for this property.
-                </p>
-              )}
-            </div>
+              </div>
+            )}
 
 
             {/* Location & Map Section (Expanded) */}
@@ -522,8 +641,11 @@ export default async function ProductPage(props: { params: Promise<{ handle: str
 
               {/* Title */}
               <div>
-                <h1 className="text-3xl font-medium font-serif text-neutral-800 mb-2 leading-tight">
+                <h1 className="text-3xl font-medium font-serif text-neutral-800 mb-2 leading-tight flex items-start gap-3">
                   {product.title}
+                  {(product as any).is_verified && (
+                    <BadgeCheck className="w-8 h-8 text-blue-500 fill-blue-50 shrink-0 mt-0.5" aria-label="Verified Owner" />
+                  )}
                 </h1>
                 <div className="flex items-center text-black text-sm mb-4 font-bold">
                   <MapPin className="w-4 h-4 mr-1 stroke-[2.5]" />
@@ -545,7 +667,7 @@ export default async function ProductPage(props: { params: Promise<{ handle: str
               <div className="bg-white p-6 rounded-2xl border border-neutral-200 shadow-sm">
                 <div className="flex justify-between items-start mb-6">
                   <div>
-                    <p className="text-sm text-neutral-500 font-medium mb-1">Monthly Rent</p>
+                    <p className="text-sm text-neutral-500 font-medium mb-1">{product.listing_type === 'sell' ? 'Asking Price' : 'Monthly Rent'}</p>
                     <div className="flex items-baseline gap-1">
                       <span className="text-3xl font-bold text-neutral-900">
                         {formatPrice(product.price || product.priceRange?.minVariantPrice?.amount || '0', product.priceRange?.minVariantPrice?.currencyCode || 'INR')}
@@ -561,7 +683,7 @@ export default async function ProductPage(props: { params: Promise<{ handle: str
                 </div>
 
                 {/* Security Deposit */}
-                {product.securityDeposit && (
+                {product.securityDeposit && product.listing_type !== 'sell' && (
                   <div className="flex items-center justify-between py-3 border-t border-neutral-100 mb-6">
                     <div className="flex items-center text-neutral-600 text-sm">
                       <ShieldCheck className="w-4 h-4 mr-2 text-neutral-400" />
@@ -571,11 +693,19 @@ export default async function ProductPage(props: { params: Promise<{ handle: str
                   </div>
                 )}
 
-                {/* Contact Button */}
+                {/* Contact + Share row */}
                 <ContactOwner
                   product={product}
-                  className="w-full py-4 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl font-bold uppercase tracking-widest transition-all shadow-lg shadow-neutral-900/10 flex items-center justify-center gap-2"
+                  className="w-full"
                 />
+
+                <div className="flex items-center gap-2 mt-2">
+                  <SharePropertyButton 
+                    product={product}
+                    variant="outline"
+                    className="flex-1 py-2.5 rounded-xl text-xs font-bold uppercase tracking-widest transition-all text-neutral-500 border-neutral-200 hover:border-neutral-400 hover:text-neutral-700"
+                  />
+                </div>
 
                 <p className="text-xs text-center text-neutral-500 mt-4 font-medium">
                   No Booking Fees. Directly contact the owner and visit the property for free.
@@ -591,27 +721,34 @@ export default async function ProductPage(props: { params: Promise<{ handle: str
         </div>
       </div>
 
-      {/* MOBILE STICKY FOOTER (Fixed Bottom Code) */}
-      <div className="fixed bottom-0 left-0 w-full bg-white border-t border-neutral-200 p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] lg:hidden z-50 flex items-center justify-between gap-4 safe-area-bottom">
-        <div>
-          <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider mb-0.5">Rent</p>
-          <div className="flex items-baseline gap-1">
-            <span className="text-xl font-bold text-neutral-900">
+      {/* MOBILE STICKY FOOTER */}
+      <div className="fixed bottom-0 left-0 w-full bg-white border-t border-neutral-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.08)] lg:hidden z-50 safe-area-bottom">
+        <div className="flex items-center gap-2 px-3 py-2.5">
+          {/* Price pill */}
+          <div className="flex flex-col min-w-0 shrink-0">
+            <p className="text-[9px] text-neutral-400 font-bold uppercase tracking-wider leading-none mb-0.5">{product.listing_type === 'sell' ? 'Price' : 'Rent'}</p>
+            <span className="text-base font-black text-neutral-900 leading-none">
               {formatPrice(product.price || product.priceRange?.minVariantPrice?.amount || '0', product.priceRange?.minVariantPrice?.currencyCode || 'INR')}
             </span>
           </div>
+
+          <div className="flex-1 flex items-center gap-1.5">
+            <ContactOwner
+              product={product}
+              className="flex-1 py-0"
+            />
+          </div>
+
+          {/* Share icon button */}
+          <SharePropertyButton
+            product={product}
+            variant="outline"
+            className="p-2 h-auto w-auto aspect-square shrink-0 border-neutral-200 text-neutral-500 hover:text-neutral-800 rounded-xl"
+          />
+
+          {/* Report icon */}
+          <ReportPropertyModal product={product} isIconOnly />
         </div>
-        <ContactOwner
-          product={product}
-          className="flex-1 py-1"
-        />
-        <Link
-          href={`/contact?propertyId=${product.id}&handle=${encodeURIComponent(product.handle)}`}
-          className="flex flex-col items-center justify-center p-2 text-red-600 hover:text-red-700 active:scale-95 transition-all"
-        >
-          <AlertTriangle className="w-5 h-5 mb-0.5" />
-          <span className="text-[9px] font-bold uppercase tracking-wider">Report</span>
-        </Link>
       </div>
 
     </PageLayout>

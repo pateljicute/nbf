@@ -1,6 +1,6 @@
 -- Create advertisements table
 CREATE TABLE IF NOT EXISTS advertisements (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     title VARCHAR(255) NOT NULL,
     desktop_media_url TEXT NOT NULL,
     desktop_media_type VARCHAR(50) NOT NULL CHECK (desktop_media_type IN ('image', 'video')),
@@ -17,11 +17,17 @@ CREATE TABLE IF NOT EXISTS advertisements (
 ALTER TABLE advertisements ENABLE ROW LEVEL SECURITY;
 
 -- Policy: Anyone can read active ads
+DROP POLICY IF EXISTS "Public can view active advertisements" ON advertisements;
 CREATE POLICY "Public can view active advertisements" 
 ON advertisements FOR SELECT 
 USING (is_active = true);
 
 -- Policy: Admins can do everything
+DROP POLICY IF EXISTS "Admins have full access to advertisements" ON advertisements;
 CREATE POLICY "Admins have full access to advertisements" 
 ON advertisements FOR ALL 
-USING (auth.uid() IN (SELECT id FROM users WHERE role = 'admin'));
+USING (
+    EXISTS (
+        SELECT 1 FROM admin_users WHERE user_id = auth.uid()
+    )
+);

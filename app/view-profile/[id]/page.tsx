@@ -91,11 +91,29 @@ export default async function ViewProfilePage({ params }: { params: Promise<{ id
                                                 className="object-cover group-hover:scale-105 transition-transform duration-500"
                                             />
                                         )}
-                                        <div className="absolute top-2 right-2 bg-black/70 text-white px-3 py-1 rounded-full text-xs font-bold backdrop-blur-sm">
-                                            ₹ {property.price}
+                                        <div className="absolute top-2 left-2 z-10 flex flex-col gap-1">
+                                            {property.listing_type === 'sell' ? (
+                                                <span className="bg-[#e8202a] text-white px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider shadow-sm flex items-center gap-1 w-max">
+                                                    For Sale
+                                                </span>
+                                            ) : (
+                                                <span className="bg-black text-white px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider shadow-sm flex items-center gap-1 w-max">
+                                                    For Rent
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="absolute top-2 right-2 flex flex-col items-end gap-1 z-10">
+                                            <span className="bg-white/95 text-neutral-900 px-3 py-1 rounded-full text-xs font-bold shadow-sm backdrop-blur-sm">
+                                                ₹ {Number(property.price).toLocaleString('en-IN')}{property.listing_type !== 'sell' && '/month'}
+                                            </span>
+                                            {property.original_price && property.listing_type === 'sell' && (
+                                                <span className="bg-white/80 text-neutral-500 px-2 py-0.5 rounded-full text-[10px] font-bold line-through backdrop-blur-sm">
+                                                    ₹ {Number(property.original_price).toLocaleString('en-IN')}
+                                                </span>
+                                            )}
                                         </div>
                                     </div>
-                                    <div className="p-4">
+                                    <div className="p-4 relative">
                                         <h3 className="font-bold text-lg mb-1 line-clamp-1 group-hover:text-blue-600 transition-colors">
                                             {property.title}
                                         </h3>

@@ -128,9 +128,12 @@ export function LatestProductCard({
             />
           </Link>
           {/* Tag */}
-          <div className="absolute top-3 right-3">
-            <span className="px-3 py-1 bg-black/80 text-white text-[10px] font-bold uppercase tracking-wider rounded-full backdrop-blur-sm">
-              {product.tags?.[0] || 'New'}
+          <div className="absolute top-3 right-3 flex flex-col gap-1 items-end">
+            <span className={cn(
+              "px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-full backdrop-blur-sm",
+              product.listing_type === 'sell' ? 'bg-[#e8202a] text-white' : 'bg-black/80 text-white'
+            )}>
+              {product.listing_type === 'sell' ? 'FOR SALE' : 'FOR RENT'}
             </span>
           </div>
         </div>
@@ -139,8 +142,13 @@ export function LatestProductCard({
         <div className="flex flex-col p-4 gap-3">
           <div className="space-y-1">
             <Link href={`/product/${product.handle}`} className="block" onClick={handleProductClick}>
-              <h3 className="font-serif text-lg font-bold text-neutral-900 line-clamp-1 group-hover:text-black transition-colors">
+              <h3 className="font-serif text-lg font-bold text-neutral-900 line-clamp-1 group-hover:text-black transition-colors flex items-center gap-1.5">
                 {product.title}
+                {product.is_verified && (
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-blue-500 shrink-0" aria-label="Verified Owner">
+                    <path fillRule="evenodd" d="M8.603 3.799A4.49 4.49 0 0 1 12 2.25c1.357 0 2.573.6 3.397 1.549a4.49 4.49 0 0 1 3.498 1.307 4.491 4.491 0 0 1 1.307 3.497A4.49 4.49 0 0 1 21.75 12a4.49 4.49 0 0 1-1.549 3.397 4.491 4.491 0 0 1-1.307 3.497 4.491 4.491 0 0 1-3.497 1.307A4.49 4.49 0 0 1 12 21.75a4.49 4.49 0 0 1-3.397-1.549 4.49 4.49 0 0 1-3.498-1.306 4.491 4.491 0 0 1-1.307-3.498A4.49 4.49 0 0 1 2.25 12c0-1.357.6-2.573 1.549-3.397a4.49 4.49 0 0 1 1.307-3.497 4.49 4.49 0 0 1 3.497-1.307Zm7.007 6.387a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clipRule="evenodd" />
+                  </svg>
+                )}
               </h3>
             </Link>
 
@@ -209,17 +217,20 @@ export function LatestProductCard({
                 <span>Available</span>
               </div>
             )}
-            {product.is_verified && (
-               <span className="text-green-600 text-xs font-bold flex items-center ml-auto">
-                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-0.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
-                 Verified
-               </span>
-            )}
           </div>
 
-          <div className="text-xl font-bold text-neutral-900">
-            ₹{Number(product.price || product.priceRange?.minVariantPrice?.amount || 0).toLocaleString('en-IN')}
-            <span className="text-sm font-normal text-neutral-500 ml-1">/month</span>
+          <div className="flex flex-col">
+            {product.original_price && (
+              <span className="text-xs text-neutral-400 line-through font-medium">
+                ₹{Number(product.original_price).toLocaleString('en-IN')}
+              </span>
+            )}
+            <div className="text-xl font-bold text-neutral-900">
+              ₹{Number(product.price || product.priceRange?.minVariantPrice?.amount || 0).toLocaleString('en-IN')}
+              {product.listing_type !== 'sell' && (
+                <span className="text-sm font-normal text-neutral-500 ml-1">/month</span>
+              )}
+            </div>
           </div>
 
           {/* Footer Actions */}

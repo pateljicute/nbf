@@ -7,14 +7,16 @@ import { LatestProductCard } from '@/components/products/latest-product-card';
 import { SmartAdsSlider } from '@/components/home/SmartAdsSlider';
 import Link from 'next/link';
 import { AutoScroll } from '@/components/ui/auto-scroll';
-import { MessageCircle } from 'lucide-react';
+import { MessageCircle, MapPin, Navigation, Loader2 } from 'lucide-react';
 import { getLabelPosition } from '@/lib/utils';
 import { INDIAN_CITIES } from '@/constants/cities';
 import { useAuth } from '@/lib/auth-context';
 import { BannedView } from '@/components/common/banned-view';
 import { useLocationDiscovery } from '@/hooks/use-location-discovery';
 import { getProducts } from '@/lib/api';
-import { MapPin, Navigation, Loader2 } from 'lucide-react';
+import { useListingMode } from '@/lib/listing-mode-context';
+import AuthModal from '@/components/auth/auth-modal';
+
 
 interface HomeClientProps {
     initialProducts: Product[];
@@ -25,7 +27,9 @@ const DISCOVERY_CACHE_KEY = 'nbf_discovery_cache_v1';
 const DISCOVERY_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
 export function HomeClient({ initialProducts, ads = [] }: HomeClientProps) {
-    const { profile, isLoading } = useAuth();
+    const { user, profile, isLoading } = useAuth();
+    const { mode } = useListingMode();
+    const [showWelcomeModal, setShowWelcomeModal] = useState(false);
     
     // --- HYDRATION-SAFE INITIALIZATION ---
     // We MUST initialize with server-safe defaults (initialProducts) 
@@ -36,6 +40,16 @@ export function HomeClient({ initialProducts, ads = [] }: HomeClientProps) {
     const [isSearchingNearby, setIsSearchingNearby] = useState(false);
     const [isError, setIsError] = useState(false);
     const { location, loading: locationLoading, permissionState, updateLocation } = useLocationDiscovery();
+
+    // Mode-switch detector to force fresh fetches
+    const [lastFetchMode, setLastFetchMode] = useState(mode);
+    useEffect(() => {
+        if (mode !== lastFetchMode) {
+            setLastFetchMode(mode);
+            setLastFetchCoords(null); // Bypass distance throttle
+            localStorage.removeItem(DISCOVERY_CACHE_KEY);
+        }
+    }, [mode, lastFetchMode]);
 
     const [mounted, setMounted] = useState(false);
     useEffect(() => {
@@ -48,15 +62,28 @@ export function HomeClient({ initialProducts, ads = [] }: HomeClientProps) {
             const stored = localStorage.getItem(DISCOVERY_CACHE_KEY);
             if (stored) {
                 const parsed = JSON.parse(stored);
-                if (Date.now() - parsed.timestamp < DISCOVERY_TTL_MS) {
+                if (Date.now() - parsed.timestamp < DISCOVERY_TTL_MS && parsed.mode === mode) {
                     setFilteredProducts(parsed.products);
                     setNearbyLocationName(parsed.locationName);
                     setLastFetchCoords(parsed.coords);
-                    console.log(`Sticky Discovery: Restored ${parsed.locationName} from cache.`);
+                    console.log(`Sticky Discovery: Restored ${parsed.locationName} from cache for mode: ${mode}`);
+                } else {
+                    // Cache is for a different mode or expired, ignore it
+                    localStorage.removeItem(DISCOVERY_CACHE_KEY);
                 }
             }
         } catch (e) {
             console.error("Discovery cache hydration error", e);
+        }
+
+        // Auto-popup for guest users: show login modal after 3s if not dismissed this session
+        const dismissed = sessionStorage.getItem('nbf_welcome_dismissed');
+        if (!dismissed) {
+            const timer = setTimeout(() => {
+                // Check user at popup time, not at mount time
+                setShowWelcomeModal(true);
+            }, 3000);
+            return () => clearTimeout(timer);
         }
     }, []);
 
@@ -111,9 +138,9 @@ export function HomeClient({ initialProducts, ads = [] }: HomeClientProps) {
     // 3. Sync state with Server Props (Essential for router.refresh() to work)
     useEffect(() => {
         if (initialProducts) {
-            setFilteredProducts(initialProducts);
+            setFilteredProducts(initialProducts.filter(p => (p.listing_type || 'rent') === mode));
         }
-    }, [initialProducts]);
+    }, [initialProducts, mode]);
 
     const handleLocationDiscovery = useCallback(async () => {
         if (!location?.lat || !location?.lon) return;
@@ -138,7 +165,8 @@ export function HomeClient({ initialProducts, ads = [] }: HomeClientProps) {
             let results = await getProducts({ 
                 lat: location.lat, 
                 lng: location.lon, 
-                radius: 60000 
+                radius: 60000,
+                listing_type: mode
             });
 
             if (results && results.length > 0) {
@@ -150,7 +178,8 @@ export function HomeClient({ initialProducts, ads = [] }: HomeClientProps) {
                     products: results,
                     locationName: radiusLabel,
                     coords: { lat: location.lat, lon: location.lon },
-                    timestamp: Date.now()
+                    timestamp: Date.now(),
+                    mode: mode
                 };
                 setLastFetchCoords(freshCache.coords);
                 localStorage.setItem(DISCOVERY_CACHE_KEY, JSON.stringify(freshCache));
@@ -165,7 +194,7 @@ export function HomeClient({ initialProducts, ads = [] }: HomeClientProps) {
         } finally {
             setIsSearchingNearby(false);
         }
-    }, [location, lastFetchCoords]);
+    }, [location, lastFetchCoords, mode]);
 
     // 3. Smart Discovery Effect
     useEffect(() => {
@@ -176,21 +205,27 @@ export function HomeClient({ initialProducts, ads = [] }: HomeClientProps) {
 
     const handleSearch = useCallback(async (query: string) => {
         if (!query.trim()) {
-            setFilteredProducts(initialProducts);
+            setFilteredProducts(initialProducts.filter(p => (p.listing_type || 'rent') === mode));
             setNearbyLocationName(location?.city || null);
             return;
         }
 
         setIsSearchingNearby(true);
-        // ... rest of handleSearch logic remains the same
-        const lowerQuery = query.toLowerCase();
+        const lowerQuery = query.toLowerCase().trim();
 
-        // 1. CLIENT-SIDE Filter (Instant)
+        // 1. CLIENT-SIDE Filter (Instant) — mode-strict, check all relevant fields
         const filtered = initialProducts.filter(product => {
-            const titleMatch = product.title.toLowerCase().includes(lowerQuery);
-            const cityMatch = product.tags?.some(tag => tag.toLowerCase().includes(lowerQuery));
-            const addressMatch = product.description.toLowerCase().includes(lowerQuery);
-            return titleMatch || cityMatch || addressMatch;
+            const modeMatch = (product.listing_type || 'rent') === mode;
+            if (!modeMatch) return false;
+
+            const titleMatch = product.title?.toLowerCase().includes(lowerQuery);
+            const cityMatch = product.city?.toLowerCase().includes(lowerQuery);
+            const localityMatch = product.locality?.toLowerCase().includes(lowerQuery);
+            const addressMatch = product.address?.toLowerCase().includes(lowerQuery);
+            const tagMatch = product.tags?.some((tag: string) => tag.toLowerCase().includes(lowerQuery));
+            const descMatch = product.description?.toLowerCase().includes(lowerQuery);
+
+            return titleMatch || cityMatch || localityMatch || addressMatch || tagMatch || descMatch;
         });
 
         if (filtered.length > 0) {
@@ -200,42 +235,29 @@ export function HomeClient({ initialProducts, ads = [] }: HomeClientProps) {
             return;
         }
 
-        // 2. SERVER-SIDE Query (Fallback)
+        // 2. SERVER-SIDE Query (Fallback) — always with mode filter
         try {
-            console.log(`No client-side matches for "${query}". Checking server...`);
-            const serverResults = await getProducts({ query: lowerQuery });
+            console.log(`No client-side matches for "${query}". Checking server with mode=${mode}...`);
+            const serverResults = await getProducts({ query: lowerQuery, listing_type: mode });
             
             if (serverResults && serverResults.length > 0) {
-                setFilteredProducts(serverResults);
+                // Extra safety: enforce mode on server results too
+                const modeFiltered = serverResults.filter((p: any) => (p.listing_type || 'rent') === mode);
+                setFilteredProducts(modeFiltered);
                 setNearbyLocationName(query);
             } else {
-                // 3. NEARBY Fallback (Discovery)
-                if (location?.lat && location?.lon) {
-                    console.log(`Truly no results for "${query}". Showing nearby properties for user instead.`);
-                    const nearby = await getProducts({ 
-                        lat: location.lat, 
-                        lng: location.lon, 
-                        radius: 10000 
-                    });
-                    if (nearby && nearby.length > 0) {
-                        setFilteredProducts(nearby);
-                        setNearbyLocationName(`nearby area (Results for "${query}" not found)`);
-                    } else {
-                        setFilteredProducts([]); // truly empty
-                        setNearbyLocationName(null);
-                    }
-                } else {
-                    setFilteredProducts([]);
-                    setNearbyLocationName(null);
-                }
+                // NO RESULTS — show empty state, NOT all properties
+                setFilteredProducts([]);
+                setNearbyLocationName(`"${query}" – No ${mode === 'sell' ? 'properties for sale' : 'rental properties'} found`);
             }
         } catch (error) {
             console.error('Search fallback error:', error);
             setFilteredProducts([]);
+            setNearbyLocationName(null);
         } finally {
             setIsSearchingNearby(false);
         }
-    }, [initialProducts, location]);
+    }, [initialProducts, location, mode]);
 
     // Removed blocking isLoading check so that SSR HTML paints immediately!
     // Banned check will still gracefully take over once auth resolves in the background.
@@ -246,6 +268,17 @@ export function HomeClient({ initialProducts, ads = [] }: HomeClientProps) {
 
     return (
         <div className="flex flex-col gap-10 md:gap-24 pb-20 md:pb-0 overflow-y-auto overflow-x-hidden w-full">
+            {/* Welcome Login Popup - shows after 3s for new/guest users */}
+            {!user && (
+                <AuthModal
+                    isOpen={showWelcomeModal}
+                    onClose={() => {
+                        setShowWelcomeModal(false);
+                        sessionStorage.setItem('nbf_welcome_dismissed', '1');
+                    }}
+                />
+            )}
+
             {/* Hero Section */}
             <div className="relative top-0 z-40 bg-white/80 backdrop-blur-md md:sticky md:top-auto md:bg-transparent md:backdrop-blur-none transition-all">
                 {/* Pass handleSearch to Hero -> HeroSearch */}
@@ -366,9 +399,9 @@ export function HomeClient({ initialProducts, ads = [] }: HomeClientProps) {
                         <p className="text-neutral-500">Try searching for a different city or area.</p>
                         <button
                             onClick={() => {
-                                setFilteredProducts(initialProducts);
-                                // Optional: You might want to clear the search input here too, but that requires lifting state up further or using Context/EventBus. 
-                                // For now, just resetting the list is good UX.
+                                // Reset filters but STAY in current mode
+                                setFilteredProducts(initialProducts.filter(p => (p.listing_type || 'rent') === mode));
+                                setNearbyLocationName(null);
                             }}
                             className="text-black font-bold border-b border-black pb-0.5 hover:opacity-70"
                         >

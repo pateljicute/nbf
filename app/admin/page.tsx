@@ -8,16 +8,14 @@ import { useLoader } from '@/context/loader-context';
 import Image from 'next/image';
 // ... imports
 // ... imports
-import { checkAdminStatus, updateProductStatusAction, approveProductAction, rejectProductAction, adminDeleteProductAction, updateUserRoleAction, toggleUserVerifiedAction, togglePropertyVerifiedAction, updateSiteSettingsAction } from '@/app/actions';
+import { checkAdminStatus, updateProductStatusAction, approveProductAction, rejectProductAction, adminDeleteProductAction, updateUserRoleAction, toggleUserVerifiedAction, togglePropertyVerifiedAction, updateSiteSettingsAction, updateInquiryStatusAction } from '@/app/actions';
 // ...
-
-
-
+import { toast } from 'sonner';
 import { Product } from '@/lib/types';
 import { QRPosterModal } from '@/components/unique/qr-poster-modal';
 import { UserPropertiesModal } from '@/components/admin/UserPropertiesModal';
 import UserInfoModal from '@/components/admin/UserInfoModal';
-import { getAdminProducts, getAdminStats, getAdminUsers, getSiteSettings, getUserPropertiesForAdmin, banUser, unbanUser, getInquiries, getUnreadInquiriesCount, getAdminLeads, getAllInquiries, getSupportRequests, getDashboardStats, getRecentActivity } from '@/lib/api';
+import { getAdminProducts, getAdminStats, getAdminUsers, getSiteSettings, getUserPropertiesForAdmin, banUser, unbanUser, getInquiries, getUnreadInquiriesCount, getAdminLeads, getAllInquiries, getSupportRequests, getDashboardStats, getRecentActivity, getPropertyReports } from '@/lib/api';
 import { getOptimizedImageUrl } from '@/lib/cloudinary-utils';
 import { SmartAdManager } from '@/components/admin/SmartAdManager';
 import { InquiryModal } from '@/components/admin/InquiryModal';
@@ -137,6 +135,11 @@ export default function AdminPage() {
     const [supportRequests, setSupportRequests] = useState<any[]>([]);
     const [selectedAppeal, setSelectedAppeal] = useState<any | null>(null);
 
+    // Property Reports State
+    const [propertyReports, setPropertyReports] = useState<any[]>([]);
+    const [selectedReport, setSelectedReport] = useState<any | null>(null);
+    const [reportStatusFilter, setReportStatusFilter] = useState('all');
+
     // Mobile Sidebar State
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -167,7 +170,7 @@ export default function AdminPage() {
     const [totalPages, setTotalPages] = useState(1);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
-    const [activeTab, setActiveTab] = useState<'overview' | 'properties' | 'users' | 'approvals' | 'settings' | 'ads' | 'inquiries' | 'leads' | 'appeals' | 'smart-qr' | 'reviews'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'properties' | 'users' | 'approvals' | 'settings' | 'ads' | 'inquiries' | 'leads' | 'appeals' | 'smart-qr' | 'reviews' | 'reports'>('overview');
 
     const ITEMS_PER_PAGE = 10;
 
@@ -252,6 +255,21 @@ export default function AdminPage() {
             hideLoader();
         }
     }, [showLoader, hideLoader]);
+
+    // Fetch Property Reports
+    const fetchPropertyReports = useCallback(async (page: number) => {
+        setLoading(true);
+        showLoader();
+        try {
+            const data = await getPropertyReports(page, ITEMS_PER_PAGE, reportStatusFilter);
+            setPropertyReports(data.reports || []);
+            setTotalPages(Math.ceil(data.total / ITEMS_PER_PAGE));
+            setCurrentPage(page);
+        } finally {
+            setLoading(false);
+            hideLoader();
+        }
+    }, [showLoader, hideLoader, reportStatusFilter]);
 
     // Fetch Leads
     const fetchLeads = useCallback(async () => {
@@ -434,14 +452,17 @@ export default function AdminPage() {
             if (activeTab === 'inquiries') fetchInquiries(newPage);
             if (activeTab === 'leads') fetchLeads();
             if (activeTab === 'appeals') fetchSupportRequests(newPage);
+            if (activeTab === 'reports') fetchPropertyReports(newPage);
         }
     };
 
-    const fetchApprovals = useCallback(async (page: number) => {
+    const [approvalListingType, setApprovalListingType] = useState('all');
+
+    const fetchApprovals = useCallback(async (page: number, listingType: string = approvalListingType) => {
         setLoading(true);
         showLoader();
         try {
-            const data = await getAdminProducts(page, ITEMS_PER_PAGE, searchQuery, 'pending');
+            const data = await getAdminProducts(page, ITEMS_PER_PAGE, searchQuery, 'pending', '', undefined, undefined, listingType);
             setProperties(data.products);
             setTotalPages(Math.ceil(data.total / ITEMS_PER_PAGE));
             setCurrentPage(page);
@@ -451,7 +472,7 @@ export default function AdminPage() {
             setLoading(false);
             hideLoader();
         }
-    }, [searchQuery, showLoader, hideLoader]);
+    }, [searchQuery, approvalListingType, showLoader, hideLoader]);
 
     const handleApprove = async (id: string) => {
         if (!user) return;
@@ -735,10 +756,12 @@ export default function AdminPage() {
         { id: 'users', label: 'Users', icon: Users, action: () => { setActiveTab('users'); fetchUsers(1); } },
         { id: 'approvals', label: 'Approvals', icon: CheckSquare, action: () => { setActiveTab('approvals'); fetchApprovals(1); } },
         { id: 'inquiries', label: 'Inquiries', icon: MessageSquare, action: () => { setActiveTab('inquiries'); fetchInquiries(1); }, badge: unreadInquiries },
+        { id: 'reports', label: '🚩 Property Reports', icon: AlertTriangle, action: () => { setActiveTab('reports'); fetchPropertyReports(1); } },
         { id: 'appeals', label: 'Appeals', icon: AlertTriangle, action: () => { setActiveTab('appeals'); fetchSupportRequests(1); } },
         { id: 'ads', label: 'Manage Ads', icon: Megaphone, action: () => { setActiveTab('ads'); } },
         { id: 'smart-qr', label: 'Smart QR', icon: QrCode, action: () => { setActiveTab('smart-qr'); } },
         { id: 'reviews', label: 'Reviews', icon: Star, action: () => { setActiveTab('reviews'); } },
+        { id: 'verified-owners', label: '✓ Verified Owners', icon: CheckCircle, action: () => { window.location.href = '/admin/verified-owners'; } },
         { id: 'settings', label: 'Settings', icon: Settings, action: () => { setActiveTab('settings'); fetchSettings(); } },
     ];
 
@@ -989,10 +1012,15 @@ export default function AdminPage() {
                                                                         ) : (<div className="h-10 w-10 rounded bg-neutral-200" />
                                                                         )}
                                                                     </div>
-                                                                    <div className="ml-4">
-                                                                        <div className="text-sm font-medium text-neutral-900 max-w-[200px] truncate">{property.title}</div>
-                                                                        <div className="text-xs text-neutral-500">{property.tags?.[0]}</div>
-                                                                    </div>
+                                                                        <div className="ml-4">
+                                                                            <div className="text-sm font-medium text-neutral-900 max-w-[200px] truncate">{property.title}</div>
+                                                                            <div className="flex gap-2 items-center mt-1">
+                                                                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${property.listing_type === 'sell' ? 'bg-[#e8202a] text-white' : 'bg-black text-white'}`}>
+                                                                                    {property.listing_type === 'sell' ? 'Buy' : 'Rent'}
+                                                                                </span>
+                                                                                <div className="text-xs text-neutral-500">{property.tags?.[0]}</div>
+                                                                            </div>
+                                                                        </div>
                                                                 </div>
                                                             </td>
                                                             <td className="px-6 py-4 whitespace-nowrap text-xs text-neutral-500">
@@ -1327,7 +1355,21 @@ export default function AdminPage() {
                             <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden">
                                 <div className="px-6 py-4 border-b border-neutral-200 flex justify-between items-center">
                                     <h2 className="text-lg font-semibold text-neutral-900">Pending Listings</h2>
-                                    <span className="text-sm text-neutral-500">Page {currentPage} of {totalPages}</span>
+                                    <div className="flex items-center gap-4">
+                                        <select
+                                            value={approvalListingType}
+                                            onChange={(e) => {
+                                                setApprovalListingType(e.target.value);
+                                                fetchApprovals(1, e.target.value);
+                                            }}
+                                            className="border border-neutral-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900 bg-white"
+                                        >
+                                            <option value="all">All Modes</option>
+                                            <option value="rent">Rent</option>
+                                            <option value="sell">Buy</option>
+                                        </select>
+                                        <span className="text-sm text-neutral-500">Page {currentPage} of {totalPages}</span>
+                                    </div>
                                 </div>
 
                                 {loading ? (
@@ -1371,7 +1413,12 @@ export default function AdminPage() {
                                                                         </div>
                                                                         <div className="ml-4">
                                                                             <div className="text-sm font-medium text-neutral-900 max-w-[200px] truncate">{property.title}</div>
-                                                                            <div className="text-xs text-neutral-500">{property.tags?.[0]}</div>
+                                                                            <div className="flex gap-2 items-center mt-1">
+                                                                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${property.listing_type === 'sell' ? 'bg-[#e8202a] text-white' : 'bg-black text-white'}`}>
+                                                                                    {property.listing_type === 'sell' ? 'Buy' : 'Rent'}
+                                                                                </span>
+                                                                                <div className="text-xs text-neutral-500">{property.tags?.[0]}</div>
+                                                                            </div>
                                                                         </div>
                                                                     </div>
                                                                 </td>
@@ -1614,6 +1661,167 @@ export default function AdminPage() {
                         </div>
                     )
                 }
+
+                {activeTab === 'reports' && (
+                    <div className="space-y-6">
+                        <div className="bg-white rounded-xl shadow-sm border border-neutral-200 overflow-hidden">
+                            {/* Header */}
+                            <div className="px-6 py-4 border-b border-neutral-200 flex flex-wrap gap-3 items-center justify-between bg-red-50/30">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-9 h-9 bg-red-100 rounded-xl flex items-center justify-center">
+                                        <AlertTriangle className="w-5 h-5 text-red-600" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-lg font-bold text-neutral-900">🚩 Property Reports</h2>
+                                        <p className="text-xs text-neutral-500">Reports filed by users against specific properties</p>
+                                    </div>
+                                </div>
+                                <div className="flex flex-col sm:flex-row items-center gap-4">
+                                    <div className="flex bg-neutral-100 p-1 rounded-lg">
+                                        <button
+                                            onClick={() => { setReportStatusFilter('pending'); setTimeout(() => fetchPropertyReports(1), 0); }}
+                                            className={`px-4 py-1.5 text-xs font-bold rounded-md transition-colors ${reportStatusFilter === 'pending' || reportStatusFilter === 'new' || reportStatusFilter === 'reviewed' ? 'bg-white text-black shadow-sm' : 'text-neutral-600 hover:text-black'}`}
+                                        >
+                                            Pending
+                                        </button>
+                                        <button
+                                            onClick={() => { setReportStatusFilter('resolved'); setTimeout(() => fetchPropertyReports(1), 0); }}
+                                            className={`px-4 py-1.5 text-xs font-bold rounded-md transition-colors ${reportStatusFilter === 'resolved' ? 'bg-white text-black shadow-sm' : 'text-neutral-600 hover:text-black'}`}
+                                        >
+                                            Resolved
+                                        </button>
+                                    </div>
+                                    <button onClick={() => fetchPropertyReports(1)} className="px-3 py-2 text-xs bg-neutral-100 rounded-lg hover:bg-neutral-200 transition-colors font-bold uppercase tracking-wider">
+                                        Refresh
+                                    </button>
+                                </div>
+                            </div>
+
+                            {loading ? (
+                                <div className="p-12 flex justify-center">
+                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+                                </div>
+                            ) : propertyReports.length === 0 ? (
+                                <div className="p-16 text-center">
+                                    <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                        <CheckCircle className="w-7 h-7 text-green-600" />
+                                    </div>
+                                    <p className="font-semibold text-neutral-700">No property reports found!</p>
+                                    <p className="text-sm text-neutral-400 mt-1">All clear — no properties have been flagged.</p>
+                                </div>
+                            ) : (
+                                <div className="divide-y divide-neutral-100">
+                                    {propertyReports.map((report: any) => {
+                                        const propTitle = report.subject?.split('Property: "')[1]?.replace(/".*/, '') || 'Unknown Property';
+                                        return (
+                                            <div key={report.id} className="p-5 hover:bg-neutral-50/80 transition-colors">
+                                                <div className="flex flex-col md:flex-row md:items-start gap-4">
+                                                    {/* Left: Report Details */}
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-2 mb-3 flex-wrap">
+                                                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold ${report.status === 'new' || !report.status ? 'bg-red-100 text-red-700' : report.status === 'reviewed' ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
+                                                                {(!report.status || report.status === 'new') ? '🔴 NEW' : report.status === 'reviewed' ? '🟡 REVIEWED' : '🟢 RESOLVED'}
+                                                            </span>
+                                                            <span className="text-xs text-neutral-400">
+                                                                {new Date(report.created_at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}
+                                                            </span>
+                                                        </div>
+
+                                                        {/* Property Box */}
+                                                        <div className="bg-red-50 border border-red-100 rounded-xl p-3.5 mb-3">
+                                                            <p className="text-[10px] font-bold text-red-400 uppercase tracking-wider mb-1">Reported Property</p>
+                                                            <p className="font-bold text-neutral-900 text-sm">{propTitle}</p>
+                                                            {report.property_id && (
+                                                                <div className="flex items-center gap-2 mt-2">
+                                                                    <span className="text-xs text-neutral-500 font-mono bg-white px-2 py-0.5 rounded border border-neutral-200">ID: {report.property_id}</span>
+                                                                    <a href={`/product/${report.property_id}`} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline font-medium flex items-center gap-1">
+                                                                        <Eye className="w-3 h-3" /> View Property →
+                                                                    </a>
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Reason */}
+                                                        <div className="mb-3">
+                                                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-lg text-xs font-bold">
+                                                                <AlertTriangle className="w-3.5 h-3.5" />
+                                                                {report.parsed_reason || 'Reason not specified'}
+                                                            </span>
+                                                        </div>
+
+                                                        {/* Full Message */}
+                                                        <div className="bg-neutral-50 rounded-lg p-3 border border-neutral-100">
+                                                            <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-1">Full Report</p>
+                                                            <p className="text-sm text-neutral-700 whitespace-pre-wrap leading-relaxed">{report.message}</p>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Right: Reporter + Actions */}
+                                                    <div className="md:w-52 shrink-0 flex flex-col gap-3">
+                                                        <div className="bg-white border border-neutral-200 rounded-xl p-3.5">
+                                                            <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-2">Reporter</p>
+                                                            <p className="font-bold text-sm text-neutral-900">{report.first_name || 'Anonymous'}</p>
+                                                            <p className="text-xs text-neutral-500 mt-1 font-mono">{report.phone_number || '—'}</p>
+                                                        </div>
+                                                        <div className="flex flex-col gap-2">
+                                                            {report.property_id && (
+                                                                <a href={`/product/${report.property_id}`} target="_blank" rel="noopener noreferrer"
+                                                                    className="w-full py-2 px-3 text-center text-xs font-bold bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-1.5">
+                                                                    <Eye className="w-3.5 h-3.5" /> View Property
+                                                                </a>
+                                                            )}
+                                                            <button
+                                                                onClick={async () => {
+                                                                    const next = (!report.status || report.status === 'new') ? 'reviewed' : 'new';
+                                                                    const res = await updateInquiryStatusAction(report.id, next);
+                                                                    if (res.success) {
+                                                                        fetchPropertyReports(currentPage);
+                                                                    } else {
+                                                                        toast.error("Failed to update status");
+                                                                    }
+                                                                }}
+                                                                className="w-full py-2 px-3 text-xs font-bold bg-amber-100 text-amber-800 rounded-lg hover:bg-amber-200 transition-colors"
+                                                            >
+                                                                {(!report.status || report.status === 'new') ? '✓ Mark Reviewed' : '↩ Mark as New'}
+                                                            </button>
+                                                            <button
+                                                                onClick={async () => {
+                                                                    if (!confirm('Mark this report as Resolved?')) return;
+                                                                    const res = await updateInquiryStatusAction(report.id, 'resolved');
+                                                                    if (res.success) {
+                                                                        fetchPropertyReports(currentPage);
+                                                                    } else {
+                                                                        toast.error("Failed to resolve");
+                                                                    }
+                                                                }}
+                                                                className="w-full py-2 px-3 text-xs font-bold bg-green-100 text-green-800 rounded-lg hover:bg-green-200 transition-colors"
+                                                            >
+                                                                ✓ Resolve
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+
+                            {/* Pagination */}
+                            {totalPages > 1 && (
+                                <div className="px-6 py-4 border-t border-neutral-200 flex items-center justify-between">
+                                    <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${currentPage === 1 ? 'text-neutral-400 bg-neutral-100 cursor-not-allowed' : 'text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50'}`}>
+                                        <ChevronLeft className="w-4 h-4 mr-2" /> Previous
+                                    </button>
+                                    <span className="text-sm text-neutral-700 font-medium">Page {currentPage} of {totalPages}</span>
+                                    <button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} className={`flex items-center px-4 py-2 text-sm font-medium rounded-md ${currentPage === totalPages ? 'text-neutral-400 bg-neutral-100 cursor-not-allowed' : 'text-neutral-700 bg-white border border-neutral-300 hover:bg-neutral-50'}`}>
+                                        Next <ChevronRight className="w-4 h-4 ml-2" />
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
 
                 {
                     activeTab === 'appeals' && (

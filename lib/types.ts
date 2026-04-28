@@ -79,6 +79,20 @@ export interface Product {
   totalFloors?: number;
   sharingType?: string;
   pincode?: string;
+  listing_type?: 'rent' | 'sell';
+  total_area?: string;
+  dimensions?: string;
+  facing?: string;
+  road_width?: string;
+  bhk?: string;
+  property_age?: string;
+  registry?: boolean;
+  diversion?: boolean;
+  mutation?: boolean;
+  negotiable?: boolean;
+  original_price?: string;
+  shutter_width?: string;
+  main_road_distance?: string;
 }
 
 export interface Collection {

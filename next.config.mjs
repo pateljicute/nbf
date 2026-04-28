@@ -1,3 +1,7 @@
+const isDev = process.env.NODE_ENV === 'development';
+const PROD_ORIGIN = 'https://www.nbfhomes.in';
+const CORS_ORIGIN = isDev ? '*' : PROD_ORIGIN;
+
 const nextConfig = {
   devIndicators: {
     buildActivity: false,
@@ -49,8 +53,8 @@ const nextConfig = {
           { key: 'X-XSS-Protection', value: '1; mode=block' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           { key: 'Permissions-Policy', value: 'camera=(self), microphone=(self), geolocation=(self)' },
-          // CORS Headers for nbfhomes.in
-          { key: 'Access-Control-Allow-Origin', value: 'https://www.nbfhomes.in' },
+          // CORS Headers — dynamic for dev/prod
+          { key: 'Access-Control-Allow-Origin', value: CORS_ORIGIN },
           { key: 'Access-Control-Allow-Methods', value: 'GET,DELETE,PATCH,POST,PUT' },
           { key: 'Access-Control-Allow-Headers', value: 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version' },
         ],
@@ -58,7 +62,7 @@ const nextConfig = {
       {
         source: '/api/:path*',
         headers: [
-          { key: 'Access-Control-Allow-Origin', value: 'https://www.nbfhomes.in' }, // Restricted to production domain
+          { key: 'Access-Control-Allow-Origin', value: CORS_ORIGIN }, // * in dev, production domain in prod
           { key: 'Access-Control-Allow-Methods', value: 'GET,POST,PUT,DELETE,OPTIONS' },
           { key: 'Access-Control-Allow-Headers', value: 'Content-Type, Authorization' },
         ]

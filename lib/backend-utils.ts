@@ -88,7 +88,21 @@ export const mapPropertyToProduct = (prop: any): Product => {
         builtUpArea: prop.built_up_area,
         furnishingStatus: prop.furnishing_status,
         floorNumber: prop.floor_number,
-        totalFloors: prop.total_floors
+        totalFloors: prop.total_floors,
+        listing_type: prop.listing_type || 'rent',
+        total_area: prop.total_area,
+        dimensions: prop.dimensions,
+        facing: prop.facing,
+        road_width: prop.road_width,
+        bhk: prop.bhk,
+        property_age: prop.property_age,
+        registry: prop.registry,
+        diversion: prop.diversion,
+        mutation: prop.mutation,
+        negotiable: prop.negotiable,
+        original_price: prop.original_price,
+        shutter_width: prop.shutter_width,
+        main_road_distance: prop.main_road_distance
     };
 };
 
